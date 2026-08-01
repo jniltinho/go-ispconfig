@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 
@@ -33,7 +34,17 @@ var migrateCmd = &cobra.Command{
 			fmt.Println("Existing ISPConfig schema detected and validated; no DDL executed, no seed data written.")
 			return nil
 		}
+		hostname, err := os.Hostname()
+		if err != nil || hostname == "" {
+			hostname = "server1"
+		}
+		password, err := database.Seed(db, hostname)
+		if err != nil {
+			return err
+		}
 		fmt.Println("Schema created from embedded ispconfig3.sql.")
+		fmt.Printf("Admin login: admin / %s\n", password)
+		fmt.Println("This password is shown only once; store it now or change it after first login.")
 		return nil
 	},
 }
