@@ -20,11 +20,11 @@ Rule: every finished task = validated (tests pass) + conventional commit. Cross-
 
 ## 3. Auth and permissions
 
-- [ ] 3.1 Password verify: bcrypt + legacy crypt `$6$`/`$1$` (crypt lib), rehash to bcrypt only when `auth.rehash_legacy` enabled (default off — rollback safety); tests with real ISPConfig3 hashes
-- [ ] 3.2 Sessions: sys_session-backed store, HTTP-only SameSite=Strict cookie + per-session CSRF token on mutating endpoints + bearer transport for non-browser clients
-- [ ] 3.3 riud permission GORM scope `WithPerm(user, flag)` + repository base; access levels admin/reseller/client with full reseller graph (sys_user.groups, default_group, parent_client_id); brute-force lockout (attempts_login)
-- [ ] 3.4 Permission test suite: cross-client isolation, reseller→client-group access, cross-reseller isolation, group access, admin bypass, 403 without flag
-- [ ] 3.5 Security policy flags from security_settings.ini in sys_config, enforced by API middleware (superadmin = sys_user id 1); tests
+- [x] 3.1 Password verify: bcrypt + legacy crypt `$6$`/`$1$` (crypt lib), rehash to bcrypt only when `auth.rehash_legacy` enabled (default off — rollback safety); tests with real ISPConfig3 hashes
+- [x] 3.2 Sessions: sys_session-backed store, HTTP-only SameSite=Strict cookie + per-session CSRF token on mutating endpoints + bearer transport for non-browser clients
+- [x] 3.3 riud permission GORM scope `WithPerm(user, flag)` + repository base; access levels admin/reseller/client with full reseller graph (sys_user.groups, default_group, parent_client_id); brute-force lockout (attempts_login)
+- [x] 3.4 Permission test suite: cross-client isolation, reseller→client-group access, cross-reseller isolation, group access, admin bypass, 403 without flag
+- [x] 3.5 Security policy flags from security_settings.ini in sys_config, enforced by API middleware (superadmin = sys_user id 1); tests
 
 ## 4. sys_datalog engine
 
