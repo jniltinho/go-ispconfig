@@ -4,7 +4,7 @@ Rule: every finished task = validated (tests pass) + conventional commit. Cross-
 
 ## 1. Repository and skeleton
 
-- [ ] 1.1 Create GitHub repo `go-ispconfig` with `gh`, init git, push initial layout (README.md stub, LICENSE, .gitignore excluding: `docs/prints/`, `base/`, `.vagrant/`, `*.box`, `testdata/`, `config.toml`, DB files, built binary — no Vagrant images, no testdata, no sensitive data in the repo)
+- [x] 1.1 Create GitHub repo `go-ispconfig` with `gh`, init git, push initial layout (README.md stub, LICENSE, .gitignore excluding: `docs/prints/`, `base/`, `.vagrant/`, `*.box`, `testdata/`, `config.toml`, DB files, built binary — no Vagrant images, no testdata, no sensitive data in the repo)
 - [x] 1.2 `go mod init go-ispconfig` (plain module name, binary named `go-ispconfig` — project convention, see go-cubemail); add Echo v5, GORM+mysql, Cobra, Viper, testify
 - [x] 1.3 Cobra skeleton: `cmd/{root,serve,daemon,migrate,init,version}.go`, ldflags version injection, `main.go` with `embed.FS` pass-through (go-cubemail pattern)
 - [x] 1.4 `internal/config`: Viper load (flag → ./config.toml → /etc/go-ispconfig/), env prefix `GOISP_`, `config.toml.example`; `init` command generates default config
@@ -12,11 +12,11 @@ Rule: every finished task = validated (tests pass) + conventional commit. Cross-
 
 ## 2. Database layer
 
-- [ ] 2.1 Embed `ispconfig3.sql` (copied from base/ispconfig3_install/install/sql/); `migrate` executes it on empty DB, detects existing ISPConfig schema via `server.dbversion` and skips DDL
-- [ ] 2.2 GORM models with explicit column tags: sys_user, sys_group, sys_datalog, sys_remoteaction, sys_config, sys_ini, sys_log, sys_session, server, server_ip, server_php, client, web_domain, web_folder, web_folder_user, dns_soa, dns_rr, dns_slave, dns_template
-- [ ] 2.3 Seed: admin user (generated password printed once), admin group, local server row, sys_config defaults — skipped when adopting existing DB
-- [ ] 2.4 Schema-identity test: migrate empty DB, diff `SHOW CREATE TABLE` against import of original ispconfig3.sql (docker MariaDB integration test)
-- [ ] 2.5 `getconf` port: parse `server.config` INI text into typed structs (web/dns sections), `sys_ini`/`sys_config` accessors + tests
+- [x] 2.1 Embed `ispconfig3.sql` (copied from base/ispconfig3_install/install/sql/); `migrate` executes it on empty DB, detects existing ISPConfig schema via `server.dbversion` and skips DDL
+- [x] 2.2 GORM models with explicit column tags: sys_user, sys_group, sys_datalog, sys_remoteaction, sys_config, sys_ini, sys_log, sys_session, server, server_ip, server_php, client, web_domain, web_folder, web_folder_user, dns_soa, dns_rr, dns_slave, dns_template
+- [x] 2.3 Seed: admin user (generated password printed once), admin group, local server row, sys_config defaults — skipped when adopting existing DB
+- [x] 2.4 Schema-identity test: migrate empty DB, diff `SHOW CREATE TABLE` against import of original ispconfig3.sql (docker MariaDB integration test)
+- [x] 2.5 `getconf` port: parse `server.config` INI text into typed structs (web/dns sections), `sys_ini`/`sys_config` accessors + tests
 
 ## 3. Auth and permissions
 
