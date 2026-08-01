@@ -28,13 +28,13 @@ Rule: every finished task = validated (tests pass) + conventional commit. Cross-
 
 ## 4. sys_datalog engine
 
-- [ ] 4.1 Datalog writer: transactional insert with JSON `{old,new}` diff (changed fields only on update), dbidx `<pk>:<value>`; wired into repository base
-- [ ] 4.2 Module/Plugin registries: typed interfaces, table-hook map, announced-events map (startup error on unannounced registration), event raise with decoded data
-- [ ] 4.3 Daemon: persistent process, ticker loop (configurable, default 10s), batch 1000, ordered processing, `server.updated` advance, skip-tick when busy, single-instance guard
-- [ ] 4.4 Services registry with delayed dedup restarts (reload→restart upgrade); systemd unit files for serve + daemon
-- [ ] 4.4b Remote action registry: RegisterAction/RaiseAction, sys_remoteaction polling after datalog, ok/warning/error state; non-JSON datalog row quarantine (skip + datalogError, per-row server.updated advance); multi-server startup guard (mirror_server_id/multiple active servers → refuse to start)
-- [ ] 4.5 Internal job scheduler: cron-spec jobs registered in code, last-run/status persistence, API endpoint listing jobs; datalog pruning job
-- [ ] 4.6 End-to-end engine test: write datalog → daemon cycle → hook fired → service action recorded
+- [x] 4.1 Datalog writer: transactional insert with JSON `{old,new}` diff (changed fields only on update), dbidx `<pk>:<value>`; wired into repository base
+- [x] 4.2 Module/Plugin registries: typed interfaces, table-hook map, announced-events map (startup error on unannounced registration), event raise with decoded data
+- [x] 4.3 Daemon: persistent process, ticker loop (configurable, default 10s), batch 1000, ordered processing, `server.updated` advance, skip-tick when busy, single-instance guard
+- [x] 4.4 Services registry with delayed dedup restarts (reload→restart upgrade); systemd unit files for serve + daemon
+- [x] 4.4b Remote action registry: RegisterAction/RaiseAction, sys_remoteaction polling after datalog, ok/warning/error state; non-JSON datalog row quarantine (skip + datalogError, per-row server.updated advance); multi-server startup guard (mirror_server_id/multiple active servers → refuse to start)
+- [x] 4.5 Internal job scheduler: cron-spec jobs registered in code, last-run/status persistence, API endpoint listing jobs; datalog pruning job
+- [x] 4.6 End-to-end engine test: write datalog → daemon cycle → hook fired → service action recorded
 
 ## 5. Master template engine
 
