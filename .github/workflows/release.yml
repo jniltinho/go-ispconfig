@@ -1,0 +1,49 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Install Frontend Dependencies
+        run: cd frontend && npm ci
+
+      - name: Install Go Dependencies
+        run: make deps
+
+      - name: Build Application
+        run: make all
+
+      - name: Package Binary
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          ARCHIVE_NAME="go-ispconfig_${VERSION}_linux_amd64.tar.gz"
+          cd bin && tar -czvf "../$ARCHIVE_NAME" go-ispconfig && cd ..
+          echo "ARCHIVE_NAME=$ARCHIVE_NAME" >> $GITHUB_ENV
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.ARCHIVE_NAME }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
