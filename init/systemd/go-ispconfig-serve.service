@@ -6,16 +6,24 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-# The panel never touches the OS (design D1): it only reads/writes the
-# database, so it runs fully unprivileged.
-DynamicUser=yes
+# The panel never touches the OS (design D1) beyond its own config
+# directory: it reads/writes the database and maintains the auto-generated
+# TLS certificate under /etc/go-ispconfig/ssl (design D13), so it runs as a
+# fixed unprivileged user (created by the installer) instead of
+# DynamicUser, which could not own files across restarts.
+User=go-ispconfig
+Group=go-ispconfig
 ExecStart=/usr/local/bin/go-ispconfig serve --config /etc/go-ispconfig/config.toml
 Restart=on-failure
 RestartSec=5
 
-# Hardening
+# Hardening. ProtectSystem=strict makes the filesystem read-only; the
+# config directory is re-exposed and only its ssl/ subdirectory is writable
+# (auto-generated panel certificate, design D13).
 NoNewPrivileges=yes
 ProtectSystem=strict
+ConfigurationDirectory=go-ispconfig
+ReadWritePaths=/etc/go-ispconfig/ssl
 ProtectHome=yes
 PrivateTmp=yes
 ProtectKernelTunables=yes
