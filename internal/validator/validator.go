@@ -49,7 +49,9 @@ type Rule struct {
 	// Regex is the pattern of a REGEX rule (Go syntax).
 	Regex string `json:"regex,omitempty"`
 	// AllowEmpty skips the check for empty values (tform allowempty 'y';
-	// honored by UNIQUE and ISIP).
+	// honored by UNIQUE, ISEMAIL, ISINT, ISPOSITIVE and ISIP). Without it,
+	// an empty value fails those checks — a numeric rule must never be
+	// silently satisfied by an absent value.
 	AllowEmpty bool `json:"allow_empty,omitempty"`
 	// ErrKey is the i18n message key reported on failure (tform errmsg).
 	ErrKey string `json:"errmsg"`
@@ -64,7 +66,7 @@ type Rule struct {
 // types fail closed with an error key so a typo in an entity definition
 // cannot silently skip validation.
 func (r Rule) Validate(vc *Context, value string) (key string, err error) {
-	ok := true
+	var ok bool
 	switch r.Type {
 	case "REGEX":
 		re, compErr := regexp.Compile(r.Regex)
@@ -86,15 +88,17 @@ func (r Rule) Validate(vc *Context, value string) (key string, err error) {
 		}
 		ok = isEmail(value)
 	case "ISINT":
-		if value != "" {
-			_, parseErr := strconv.ParseInt(value, 10, 64)
-			ok = parseErr == nil
+		if r.AllowEmpty && value == "" {
+			return "", nil
 		}
+		_, parseErr := strconv.ParseInt(value, 10, 64)
+		ok = parseErr == nil
 	case "ISPOSITIVE":
-		if value != "" {
-			n, parseErr := strconv.ParseInt(value, 10, 64)
-			ok = parseErr == nil && n >= 1
+		if r.AllowEmpty && value == "" {
+			return "", nil
 		}
+		n, parseErr := strconv.ParseInt(value, 10, 64)
+		ok = parseErr == nil && n >= 1
 	case "ISIPV4":
 		addr, parseErr := netip.ParseAddr(value)
 		ok = parseErr == nil && addr.Is4()

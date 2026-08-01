@@ -418,20 +418,32 @@ func (h *entityHandlers[T]) setField(ctx context.Context, rec *T, column string,
 }
 
 // fieldString reads a model field by DB column name as the string the
-// validators consume (tform validates string form values).
+// validators consume (tform validates string form values). A zero numeric
+// field serializes as "0", never "": server_id=0 must reach ISPOSITIVE as
+// "0" and fail, not vanish as an empty value.
 func (h *entityHandlers[T]) fieldString(ctx context.Context, rec *T, column string) string {
 	f := h.schema.LookUpField(column)
 	if f == nil {
 		return ""
 	}
 	v, zero := f.ValueOf(ctx, reflect.ValueOf(rec))
-	if zero || v == nil {
+	if v == nil {
 		return ""
 	}
 	if s, ok := v.(string); ok {
 		return s
 	}
-	return fmt.Sprintf("%v", v)
+	switch reflect.ValueOf(v).Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
+		reflect.Float32, reflect.Float64:
+		return fmt.Sprintf("%v", v)
+	default:
+		if zero {
+			return ""
+		}
+		return fmt.Sprintf("%v", v)
+	}
 }
 
 // toMap renders a record as its canonical JSON object keyed by DB column.

@@ -58,6 +58,14 @@ func TestEntityValidate(t *testing.T) {
 		require.NoError(t, h.validate(ctx, rec, nil))
 	})
 
+	t.Run("zero server_id fails ISPOSITIVE", func(t *testing.T) {
+		rec := &model.ServerIP{ServerID: 0, IPType: "IPv4", IPAddress: "10.0.0.1", VirtualhostPort: "80,443"}
+		err := h.validate(ctx, rec, nil)
+		var valErr *ValidationError
+		require.ErrorAs(t, err, &valErr, "zero numeric must serialize as \"0\" and fail, not as empty")
+		require.NotEmpty(t, valErr.Fields["server_id"])
+	})
+
 	t.Run("invalid ip and port collect field keys", func(t *testing.T) {
 		rec := &model.ServerIP{ServerID: 1, IPType: "IPv4", IPAddress: "999.1.1.1", VirtualhostPort: "80;x"}
 		err := h.validate(ctx, rec, nil)

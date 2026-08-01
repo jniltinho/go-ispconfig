@@ -51,19 +51,25 @@ func TestIsInt(t *testing.T) {
 	r := Rule{Type: "ISINT", ErrKey: "int_error"}
 	require.Empty(t, check(t, r, "42"))
 	require.Empty(t, check(t, r, "-7"))
-	require.Empty(t, check(t, r, ""), "empty passes ISINT (tform semantics)")
+	require.Equal(t, "int_error", check(t, r, ""), "empty must fail ISINT without AllowEmpty")
 	require.Equal(t, "int_error", check(t, r, "3.14"))
 	require.Equal(t, "int_error", check(t, r, "abc"))
+
+	allowEmpty := Rule{Type: "ISINT", AllowEmpty: true, ErrKey: "int_error"}
+	require.Empty(t, check(t, allowEmpty, ""))
 }
 
 func TestIsPositive(t *testing.T) {
 	r := Rule{Type: "ISPOSITIVE", ErrKey: "positive_error"}
 	require.Empty(t, check(t, r, "1"))
 	require.Empty(t, check(t, r, "9999"))
-	require.Empty(t, check(t, r, ""), "empty passes ISPOSITIVE (tform semantics)")
+	require.Equal(t, "positive_error", check(t, r, ""), "empty must fail ISPOSITIVE without AllowEmpty")
 	require.Equal(t, "positive_error", check(t, r, "0"))
 	require.Equal(t, "positive_error", check(t, r, "-3"))
 	require.Equal(t, "positive_error", check(t, r, "abc"))
+
+	allowEmpty := Rule{Type: "ISPOSITIVE", AllowEmpty: true, ErrKey: "positive_error"}
+	require.Empty(t, check(t, allowEmpty, ""))
 }
 
 func TestIsIPv4(t *testing.T) {
