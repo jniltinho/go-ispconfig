@@ -36,6 +36,14 @@ Rule: every finished task = validated (tests pass) + conventional commit. Cross-
 - [x] 4.5 Internal job scheduler: cron-spec jobs registered in code, last-run/status persistence, API endpoint listing jobs; datalog pruning job
 - [x] 4.6 End-to-end engine test: write datalog → daemon cycle → hook fired → service action recorded
 
+## 4b. Task queue (asynq — added by user requirement)
+
+- [ ] 4b.1 `internal/queue/`: asynq client/server wrappers — `[queue]` config (redis addr, db, password), per-server queue naming `server:<id>`, typed task registration helper with retry/backoff defaults, graceful shutdown wired into the daemon
+- [ ] 4b.2 Scheduler on asynq: register D1b cron jobs as asynq periodic tasks (daemon embeds the asynq worker), keep sys_config status mirroring; remove/adapt the in-process ticker execution path
+- [ ] 4b.3 Instant wake: datalog writer enqueues `datalog:ready` post-commit (enqueue failure = warning only, never fails the transaction); daemon triggers a processing cycle on receipt; tick polling stays as fallback
+- [ ] 4b.4 Integration test (docker redis + mariadb): job routed to correct per-server queue, retry on failure, periodic task fires once, datalog:ready wakes processing before tick, Redis-down degradation (write succeeds, poll picks up)
+- [ ] 4b.5 config.toml.example `[queue]` section + AGENTS.md dev env note (docker redis) + installer change note: add redis/valkey package step to add-installer-cli (Modified Capability)
+
 ## 5. Master template engine
 
 - [x] 5.1 Lexer/renderer for `<tmpl_var>`, `<tmpl_if op value>`, `<tmpl_else>`, `<tmpl_unless>`, `<tmpl_loop>` (subset used by nginx/bind templates)
