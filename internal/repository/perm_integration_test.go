@@ -9,9 +9,12 @@ package repository_test
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
+	"github.com/labstack/echo/v5"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 
@@ -139,6 +142,75 @@ func TestIntegration(t *testing.T) {
 	t.Run("Permissions", func(t *testing.T) { testPermissions(t, db) })
 	t.Run("LoginLockout", func(t *testing.T) { testLoginLockout(t, db) })
 	t.Run("SessionStore", func(t *testing.T) { testSessionStore(t, db) })
+	t.Run("SecurityPolicies", func(t *testing.T) { testSecurityPolicies(t, db) })
+}
+
+func testSecurityPolicies(t *testing.T, db *gorm.DB) {
+	t.Run("defaults apply without seeded rows", func(t *testing.T) {
+		v, err := auth.GetPolicy(db, "admin_allow_server_config")
+		require.NoError(t, err)
+		require.Equal(t, "superadmin", v)
+	})
+
+	t.Run("seed stores defaults but keeps operator overrides", func(t *testing.T) {
+		require.NoError(t, db.Exec(
+			"INSERT INTO sys_config (`group`, `name`, `value`) VALUES ('security', 'remote_api_allowed', 'no')").Error)
+		require.NoError(t, auth.SeedPolicyDefaults(db))
+		require.NoError(t, auth.SeedPolicyDefaults(db), "seeding must be idempotent")
+
+		v, err := auth.GetPolicy(db, "remote_api_allowed")
+		require.NoError(t, err)
+		require.Equal(t, "no", v, "operator override must survive seeding")
+
+		var n int64
+		require.NoError(t, db.Model(&model.SysConfig{}).Where("`group` = 'security'").Count(&n).Error)
+		require.EqualValues(t, 17, n)
+	})
+
+	t.Run("stored flag overrides the default", func(t *testing.T) {
+		require.NoError(t, db.Exec(
+			"UPDATE sys_config SET value = 'yes' WHERE `group` = 'security' AND name = 'admin_allow_langedit'").Error)
+		ok, err := auth.CheckPolicy(db, "admin_allow_langedit", 42)
+		require.NoError(t, err)
+		require.True(t, ok)
+	})
+
+	t.Run("superadmin flag blocks non-id-1 admin via middleware", func(t *testing.T) {
+		superadmin := &auth.SessionData{UserID: 1, Username: "admin", Typ: "admin"}
+		otherAdmin := &auth.SessionData{UserID: 2, Username: "admin2", Typ: "admin"}
+		store := fakeSessions{"sa": superadmin, "adm2": otherAdmin}
+
+		e := echo.New()
+		e.Use(auth.Middleware(store))
+		e.GET("/api/server-config", func(c *echo.Context) error { return c.NoContent(http.StatusOK) },
+			auth.RequireAuth(), auth.RequirePolicy(db, "admin_allow_server_config"))
+
+		get := func(sid string) int {
+			req := httptest.NewRequest(http.MethodGet, "/api/server-config", nil)
+			if sid != "" {
+				req.Header.Set("Authorization", "Bearer "+sid)
+			}
+			rec := httptest.NewRecorder()
+			e.ServeHTTP(rec, req)
+			return rec.Code
+		}
+
+		require.Equal(t, http.StatusUnauthorized, get(""))
+		require.Equal(t, http.StatusOK, get("sa"))
+		require.Equal(t, http.StatusForbidden, get("adm2"),
+			"spec scenario: superadmin flag returns 403 for a non-id-1 admin")
+	})
+}
+
+// fakeSessions avoids creating real DB sessions for the middleware check.
+type fakeSessions map[string]*auth.SessionData
+
+// Get implements auth.SessionGetter.
+func (f fakeSessions) Get(id string) (*auth.SessionData, error) {
+	if d, ok := f[id]; ok {
+		return d, nil
+	}
+	return nil, auth.ErrSessionNotFound
 }
 
 func testPermissions(t *testing.T, db *gorm.DB) {
