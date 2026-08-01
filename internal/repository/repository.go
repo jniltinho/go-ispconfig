@@ -45,9 +45,13 @@ var ErrPermissionDenied = errors.New("repository: permission denied")
 //	OR (sys_groupid IN (groups) AND sys_perm_group LIKE '%f%')
 //	OR sys_perm_other LIKE '%f%'
 //
-// Admins bypass the filter entirely (getAuthSQL returns '1').
+// Admins bypass the filter entirely (getAuthSQL returns '1'); a nil
+// identity matches nothing (deny by default).
 func WithPerm(id *Identity, perm byte) func(*gorm.DB) *gorm.DB {
 	return func(tx *gorm.DB) *gorm.DB {
+		if id == nil {
+			return tx.Where("1 = 0")
+		}
 		if id.IsAdmin() {
 			return tx
 		}
@@ -129,11 +133,24 @@ func (r *Repo[T]) CheckPerm(ctx context.Context, id *Identity, pk any, perm byte
 	return n > 0, err
 }
 
-// Insert creates a record after checking the i flag against the record's
-// own sys_ permission preset (port of tform::checkPerm for record_id 0).
-// When T is datalog.Tracked, a sys_datalog row is written in the same
-// transaction, so a rollback removes both the record and its journal entry.
+// Insert creates a record after stamping its ownership server-side and
+// checking the i flag against the entity's permission preset (port of
+// tform::checkPerm for record_id 0 with the form auth_preset). Non-admin
+// callers can never choose the sys_userid/sys_groupid/sys_perm_* values:
+// the owner is the caller, the group is the caller's default group (or a
+// requested group the caller belongs to) and the permissions come from the
+// preset — the record body is never trusted for them. When T is
+// datalog.Tracked, a sys_datalog row is written in the same transaction, so
+// a rollback removes both the record and its journal entry.
 func (r *Repo[T]) Insert(ctx context.Context, id *Identity, rec *T) error {
+	if id == nil {
+		return ErrPermissionDenied
+	}
+	if !id.IsAdmin() {
+		if err := r.stampOwnership(ctx, id, rec); err != nil {
+			return err
+		}
+	}
 	if !r.canInsert(id, rec) {
 		return ErrPermissionDenied
 	}
@@ -145,82 +162,164 @@ func (r *Repo[T]) Insert(ctx context.Context, id *Identity, rec *T) error {
 	})
 }
 
-// Update saves a record after verifying the identity holds the u flag on
-// the stored row (checkPerm-then-update, as tform's "Update denied"). When T
-// is datalog.Tracked, the changed-fields diff against the stored row is
+// Update saves a record. The stored row is loaded under the u-flag
+// permission scope (no row = denied), non-admin callers keep the stored
+// sys_ ownership/permission columns (mass-assignment protection), and the
+// UPDATE itself carries the permission scope in its WHERE clause with
+// RowsAffected 0 treated as denied — no check-then-write window. When T is
+// datalog.Tracked, the changed-fields diff against the stored row is
 // journaled to sys_datalog in the same transaction.
 func (r *Repo[T]) Update(ctx context.Context, id *Identity, rec *T) error {
-	pk, _ := r.fieldValue(ctx, rec, r.pk)
-	ok, err := r.CheckPerm(ctx, id, pk, PermUpdate)
-	if err != nil {
-		return err
-	}
-	if !ok {
+	if id == nil {
 		return ErrPermissionDenied
 	}
+	pk, _ := r.fieldValue(ctx, rec, r.pk)
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var old T
-		if err := tx.Where(r.pk+" = ?", pk).First(&old).Error; err != nil {
+		err := tx.Scopes(WithPerm(id, PermUpdate)).Where(r.pk+" = ?", pk).First(&old).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrPermissionDenied
+		}
+		if err != nil {
 			return err
 		}
-		if err := tx.Save(rec).Error; err != nil {
-			return err
+		if !id.IsAdmin() {
+			if err := r.copySysColumns(ctx, &old, rec); err != nil {
+				return err
+			}
+		}
+		if reflect.DeepEqual(&old, rec) {
+			return nil // nothing changed; no UPDATE, no datalog row
+		}
+		res := tx.Model(new(T)).Scopes(WithPerm(id, PermUpdate)).
+			Where(r.pk+" = ?", pk).Select("*").Updates(rec)
+		if res.Error != nil {
+			return res.Error
+		}
+		if res.RowsAffected == 0 {
+			return ErrPermissionDenied
 		}
 		return datalog.LogUpdate(tx, &old, rec, id.Username)
 	})
 }
 
-// Delete removes the record with the given primary key after verifying the
-// d flag. When T is datalog.Tracked, the full old record is journaled to
-// sys_datalog in the same transaction.
+// Delete removes the record with the given primary key. The DELETE carries
+// the d-flag permission scope in its WHERE clause and RowsAffected 0 is
+// treated as denied — no check-then-write window. When T is
+// datalog.Tracked, the full old record is journaled to sys_datalog in the
+// same transaction.
 func (r *Repo[T]) Delete(ctx context.Context, id *Identity, pk any) error {
-	ok, err := r.CheckPerm(ctx, id, pk, PermDelete)
-	if err != nil {
-		return err
-	}
-	if !ok {
+	if id == nil {
 		return ErrPermissionDenied
 	}
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var old T
-		if err := tx.Where(r.pk+" = ?", pk).First(&old).Error; err != nil {
+		err := tx.Scopes(WithPerm(id, PermDelete)).Where(r.pk+" = ?", pk).First(&old).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrPermissionDenied
+		}
+		if err != nil {
 			return err
 		}
-		if err := tx.Where(r.pk+" = ?", pk).Delete(new(T)).Error; err != nil {
-			return err
+		res := tx.Scopes(WithPerm(id, PermDelete)).Where(r.pk+" = ?", pk).Delete(new(T))
+		if res.Error != nil {
+			return res.Error
+		}
+		if res.RowsAffected == 0 {
+			return ErrPermissionDenied
 		}
 		return datalog.LogDelete(tx, &old, id.Username)
 	})
 }
 
-// canInsert ports the checkPerm(0, 'i') preset branch using the record's
-// own sys_ fields as the auth preset: owner match + i in sys_perm_user,
-// group membership + i in sys_perm_group, i in sys_perm_other, or the
-// "preset 0/0 means everyone may insert" rule.
+// PermPresetter is optionally implemented by models to override the default
+// insert permission preset (the tform auth_preset perm_user/perm_group/
+// perm_other values applied to new records).
+type PermPresetter interface {
+	// PermPreset returns the sys_perm_user, sys_perm_group and
+	// sys_perm_other values stamped onto inserted records.
+	PermPreset() (user, group, other string)
+}
+
+// permPreset returns the entity preset for rec, defaulting to the common
+// tform preset riud/riud/"".
+func permPreset[T any](rec *T) (user, group, other string) {
+	if p, ok := any(rec).(PermPresetter); ok {
+		return p.PermPreset()
+	}
+	return "riud", "riud", ""
+}
+
+// stampOwnership overwrites the sys_ columns of a record being inserted by
+// a non-admin: owner = caller, group = a requested group the caller belongs
+// to or the caller's default group, permissions = the entity preset. It
+// fails with ErrPermissionDenied when no group can be determined.
+func (r *Repo[T]) stampOwnership(ctx context.Context, id *Identity, rec *T) error {
+	group := toUint32(r.mustFieldValue(ctx, rec, "sys_groupid"))
+	if group == 0 || !id.InGroup(group) {
+		group = id.DefaultGroup
+	}
+	if group == 0 && len(id.Groups) > 0 {
+		group = id.Groups[0]
+	}
+	if group == 0 {
+		return ErrPermissionDenied
+	}
+	permUser, permGroup, permOther := permPreset(rec)
+	for col, val := range map[string]any{
+		"sys_userid":     id.UserID,
+		"sys_groupid":    group,
+		"sys_perm_user":  permUser,
+		"sys_perm_group": permGroup,
+		"sys_perm_other": permOther,
+	} {
+		if err := r.setFieldValue(ctx, rec, col, val); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// canInsert ports checkPerm(0, 'i') against the entity permission preset:
+// after stampOwnership the caller owns the new record, so insert is allowed
+// when the preset grants i to the owner or the group. The record body is
+// never consulted (Insert stamps it for non-admins before this check).
 func (r *Repo[T]) canInsert(id *Identity, rec *T) bool {
+	if id == nil {
+		return false
+	}
 	if id.IsAdmin() {
 		return true
 	}
-	ctx := context.Background()
-	sysUserID := toUint32(r.mustFieldValue(ctx, rec, "sys_userid"))
-	sysGroupID := toUint32(r.mustFieldValue(ctx, rec, "sys_groupid"))
-	permUser, _ := r.mustFieldValue(ctx, rec, "sys_perm_user").(string)
-	permGroup, _ := r.mustFieldValue(ctx, rec, "sys_perm_group").(string)
-	permOther, _ := r.mustFieldValue(ctx, rec, "sys_perm_other").(string)
-
+	permUser, permGroup, _ := permPreset(rec)
 	flag := string(PermInsert)
-	switch {
-	case sysUserID == id.UserID && sysUserID != 0 && strings.Contains(permUser, flag):
-		return true
-	case sysGroupID != 0 && id.InGroup(sysGroupID) && strings.Contains(permGroup, flag):
-		return true
-	case strings.Contains(permOther, flag):
-		return true
-	case sysUserID == 0 && sysGroupID == 0 &&
-		(strings.Contains(permUser, flag) || strings.Contains(permGroup, flag)):
-		return true
+	return strings.Contains(permUser, flag) || strings.Contains(permGroup, flag)
+}
+
+// copySysColumns overwrites the sys_ ownership/permission columns of rec
+// with the stored row's values, so a non-admin update can never move a
+// record to another owner/group or escalate its permission strings.
+func (r *Repo[T]) copySysColumns(ctx context.Context, from, to *T) error {
+	for _, col := range sysColumns {
+		v, _ := r.fieldValue(ctx, from, col)
+		if err := r.setFieldValue(ctx, to, col, v); err != nil {
+			return err
+		}
 	}
-	return false
+	return nil
+}
+
+// setFieldValue writes a model field by DB column name via the parsed
+// schema.
+func (r *Repo[T]) setFieldValue(ctx context.Context, rec *T, column string, value any) error {
+	f := r.schema.LookUpField(column)
+	if f == nil {
+		return fmt.Errorf("repository: %s has no %s column", r.schema.Table, column)
+	}
+	if err := f.Set(ctx, reflect.ValueOf(rec).Elem(), value); err != nil {
+		return fmt.Errorf("repository: setting %s.%s: %w", r.schema.Table, column, err)
+	}
+	return nil
 }
 
 // fieldValue reads a model field by DB column name via the parsed schema.

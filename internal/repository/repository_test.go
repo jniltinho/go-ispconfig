@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -64,6 +65,16 @@ func TestNewRejectsUnpermissionedTables(t *testing.T) {
 	require.NoError(t, err)
 }
 
+// lockedDomain overrides the insert permission preset with one that denies
+// inserting.
+type lockedDomain struct{ model.WebDomain }
+
+// PermPreset denies the i flag for everyone.
+func (lockedDomain) PermPreset() (string, string, string) { return "r", "r", "" }
+
+// TableName keeps the embedded table mapping.
+func (lockedDomain) TableName() string { return "web_domain" }
+
 func TestCanInsert(t *testing.T) {
 	repo, err := New[model.WebDomain](dryDB(t))
 	require.NoError(t, err)
@@ -71,20 +82,60 @@ func TestCanInsert(t *testing.T) {
 	user := &Identity{UserID: 3, Typ: "user", Groups: []uint32{4}}
 	admin := &Identity{UserID: 1, Typ: "admin"}
 
-	rec := func(uid, gid uint32, pu, pg, po string) *model.WebDomain {
-		return &model.WebDomain{SysUserID: uid, SysGroupID: gid,
-			SysPermUser: pu, SysPermGroup: pg, SysPermOther: po}
-	}
+	// canInsert consults the entity preset only, never the record body:
+	// Insert stamps ownership server-side before this check.
+	require.True(t, repo.canInsert(admin, &model.WebDomain{}), "admin bypass")
+	require.True(t, repo.canInsert(user, &model.WebDomain{}), "default preset riud/riud grants i")
+	require.False(t, repo.canInsert(nil, &model.WebDomain{}), "nil identity denied")
 
-	require.True(t, repo.canInsert(admin, rec(9, 9, "", "", "")), "admin bypass")
-	require.True(t, repo.canInsert(user, rec(3, 4, "riud", "riud", "")), "owner with i")
-	require.False(t, repo.canInsert(user, rec(3, 4, "rud", "rud", "")), "owner without i")
-	require.True(t, repo.canInsert(user, rec(9, 4, "", "riud", "")), "group member with i")
-	require.False(t, repo.canInsert(user, rec(9, 5, "", "riud", "")), "not in group")
-	require.False(t, repo.canInsert(user, rec(9, 9, "riud", "riud", "")), "foreign record")
-	require.True(t, repo.canInsert(user, rec(9, 9, "", "", "ri")), "perm_other grants i")
-	require.True(t, repo.canInsert(user, rec(0, 0, "riud", "riud", "")), "0/0 preset open insert")
-	require.False(t, repo.canInsert(user, rec(0, 0, "r", "r", "")), "0/0 preset without i")
+	locked, err := New[lockedDomain](dryDB(t))
+	require.NoError(t, err)
+	require.False(t, locked.canInsert(user, &lockedDomain{}), "preset without i denies non-admin")
+	require.True(t, locked.canInsert(admin, &lockedDomain{}), "admin bypasses preset")
+}
+
+func TestStampOwnership(t *testing.T) {
+	repo, err := New[model.WebDomain](dryDB(t))
+	require.NoError(t, err)
+	ctx := context.Background()
+	user := &Identity{UserID: 3, Typ: "user", Groups: []uint32{4, 9}, DefaultGroup: 4}
+
+	t.Run("payload ownership and perms are overwritten", func(t *testing.T) {
+		rec := &model.WebDomain{SysUserID: 99, SysGroupID: 77,
+			SysPermUser: "riud", SysPermGroup: "riud", SysPermOther: "riud"}
+		require.NoError(t, repo.stampOwnership(ctx, user, rec))
+		require.Equal(t, uint32(3), rec.SysUserID)
+		require.Equal(t, uint32(4), rec.SysGroupID, "foreign group replaced by default group")
+		require.Equal(t, "riud", rec.SysPermUser)
+		require.Equal(t, "riud", rec.SysPermGroup)
+		require.Equal(t, "", rec.SysPermOther, "perm_other comes from the preset, not the payload")
+	})
+
+	t.Run("requested group kept when the caller belongs to it", func(t *testing.T) {
+		rec := &model.WebDomain{SysGroupID: 9}
+		require.NoError(t, repo.stampOwnership(ctx, user, rec))
+		require.Equal(t, uint32(9), rec.SysGroupID)
+	})
+
+	t.Run("groupless identity is denied", func(t *testing.T) {
+		rec := &model.WebDomain{}
+		err := repo.stampOwnership(ctx, &Identity{UserID: 3, Typ: "user"}, rec)
+		require.ErrorIs(t, err, ErrPermissionDenied)
+	})
+}
+
+func TestWithPermNilIdentity(t *testing.T) {
+	db := dryDB(t)
+	stmt := db.Session(&gorm.Session{DryRun: true}).Model(&model.WebDomain{}).
+		Scopes(WithPerm(nil, PermRead)).Find(&[]model.WebDomain{}).Statement
+	require.Contains(t, stmt.SQL.String(), "1 = 0", "nil identity must match nothing")
+}
+
+func TestHashIPStripsPort(t *testing.T) {
+	require.Equal(t, HashIP("203.0.113.9"), HashIP("203.0.113.9:54321"),
+		"ephemeral ports must not split the lockout counter")
+	require.Equal(t, HashIP("2001:db8::1"), HashIP("[2001:db8::1]:443"))
+	require.NotEqual(t, HashIP("203.0.113.9"), HashIP("203.0.113.10"))
 }
 
 func TestIdentityInGroup(t *testing.T) {

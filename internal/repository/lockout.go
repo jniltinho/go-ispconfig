@@ -4,6 +4,7 @@ import (
 	"crypto/md5" //nolint:gosec // identifier only, not a security hash: PHP ISPConfig stores md5(ip) in attempts_login.ip
 	"encoding/hex"
 	"fmt"
+	"net"
 
 	"gorm.io/gorm"
 
@@ -14,9 +15,14 @@ import (
 // attempts (port of interface/web/login/index.php).
 const maxLoginAttempts = 5
 
-// HashIP returns the md5 hex of a remote address, the key format PHP
-// ISPConfig uses for the attempts_login.ip column.
+// HashIP returns the md5 hex of a remote address's host part, the key
+// format PHP ISPConfig uses for the attempts_login.ip column. An "ip:port"
+// RemoteAddr is reduced to the ip first so ephemeral ports of the same
+// client accumulate in one counter; a bare ip is hashed as-is.
 func HashIP(remoteAddr string) string {
+	if host, _, err := net.SplitHostPort(remoteAddr); err == nil {
+		remoteAddr = host
+	}
 	sum := md5.Sum([]byte(remoteAddr)) //nolint:gosec // see import comment
 	return hex.EncodeToString(sum[:])
 }

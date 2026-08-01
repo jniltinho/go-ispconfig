@@ -9,6 +9,7 @@ package repository_test
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -301,13 +302,44 @@ func testPermissions(t *testing.T, db *gorm.DB) {
 		require.NoError(t, repo.Update(ctx, reseller1, &again))
 	})
 
-	t.Run("insert honors the record preset", func(t *testing.T) {
+	t.Run("insert stamps ownership server-side", func(t *testing.T) {
 		ownRec := newDomain(usrClientA, grpClientA, "new-a.example")
 		require.NoError(t, repo.Insert(ctx, clientA, ownRec))
 
+		// A payload claiming a foreign owner, a foreign group and escalated
+		// permissions is stamped with the caller's identity and the entity
+		// preset — never trusted (mass-assignment protection).
 		foreign := newDomain(usrClientC, grpClientC, "evil.example")
-		require.ErrorIs(t, repo.Insert(ctx, clientA, foreign), repository.ErrPermissionDenied)
-		require.NoError(t, repo.Insert(ctx, clientC, foreign))
+		foreign.SysPermOther = "riud"
+		require.NoError(t, repo.Insert(ctx, clientA, foreign))
+		var stored model.WebDomain
+		require.NoError(t, db.Where("domain = ?", "evil.example").First(&stored).Error)
+		require.Equal(t, uint32(usrClientA), stored.SysUserID, "owner is the caller, not the payload")
+		require.Equal(t, uint32(grpClientA), stored.SysGroupID, "group is the caller's, not the payload")
+		require.Equal(t, "", stored.SysPermOther, "perm_other comes from the preset, not the payload")
+		require.ErrorIs(t, repo.Get(ctx, clientC, stored.DomainID, &stored),
+			repository.ErrPermissionDenied, "client C gained nothing from the forged payload")
+	})
+
+	t.Run("update cannot move ownership or escalate permissions", func(t *testing.T) {
+		var rec model.WebDomain
+		require.NoError(t, repo.Get(ctx, clientA, domA, &rec))
+		rec.SysUserID = usrClientC
+		rec.SysGroupID = grpClientC
+		rec.SysPermOther = "riud"
+		require.NoError(t, repo.Update(ctx, clientA, &rec))
+
+		var stored model.WebDomain
+		require.NoError(t, repo.Get(ctx, admin, domA, &stored))
+		require.Equal(t, uint32(usrClientA), stored.SysUserID, "sys_userid must not move")
+		require.Equal(t, uint32(grpClientA), stored.SysGroupID, "sys_groupid must not move")
+		require.Equal(t, "", stored.SysPermOther, "sys_perm_other must not escalate")
+	})
+
+	t.Run("delete of a foreign record affects zero rows", func(t *testing.T) {
+		require.ErrorIs(t, repo.Delete(ctx, clientA, domC), repository.ErrPermissionDenied)
+		var still model.WebDomain
+		require.NoError(t, repo.Get(ctx, clientC, domC, &still), "record untouched")
 	})
 }
 
@@ -334,6 +366,15 @@ func testLoginLockout(t *testing.T, db *gorm.DB) {
 	locked, err = repository.TooManyLoginAttempts(db, ip)
 	require.NoError(t, err)
 	require.False(t, locked)
+
+	// Ephemeral ports must accumulate in the same per-IP counter.
+	for i := 0; i < 6; i++ {
+		require.NoError(t, repository.RecordFailedLogin(db, fmt.Sprintf("203.0.113.8:%d", 40000+i)))
+	}
+	locked, err = repository.TooManyLoginAttempts(db, "203.0.113.8:50999")
+	require.NoError(t, err)
+	require.True(t, locked, "same IP with different ports must share one lockout counter")
+	require.NoError(t, repository.ClearLoginAttempts(db, "203.0.113.8"))
 }
 
 func testSessionStore(t *testing.T, db *gorm.DB) {

@@ -20,9 +20,12 @@ type Identity struct {
 	// Typ is sys_user.typ: "admin" bypasses record permissions.
 	Typ string
 	// Groups is the effective sys_group id list: the sys_user.groups CSV
-	// plus, for resellers, the groups of their clients (resolved through
-	// client.parent_client_id, design D4).
+	// plus sys_user.default_group plus, for resellers, the groups of their
+	// clients (resolved through client.parent_client_id, design D4).
 	Groups []uint32
+	// DefaultGroup is sys_user.default_group, the group stamped onto
+	// records the user inserts.
+	DefaultGroup uint32
 }
 
 // IsAdmin reports whether the identity bypasses record permissions.
@@ -44,10 +47,14 @@ func (id *Identity) InGroup(groupID uint32) bool {
 // user's client — the full ISPConfig reseller graph (design D4).
 func ResolveIdentity(db *gorm.DB, u *model.SysUser) (*Identity, error) {
 	id := &Identity{
-		UserID:   u.UserID,
-		Username: u.Username,
-		Typ:      u.Typ,
-		Groups:   parseGroupCSV(u.Groups),
+		UserID:       u.UserID,
+		Username:     u.Username,
+		Typ:          u.Typ,
+		Groups:       parseGroupCSV(u.Groups),
+		DefaultGroup: u.DefaultGroup,
+	}
+	if u.DefaultGroup > 0 && !id.InGroup(u.DefaultGroup) {
+		id.Groups = append(id.Groups, u.DefaultGroup)
 	}
 	if !id.IsAdmin() && u.ClientID > 0 {
 		var childGroups []uint32
