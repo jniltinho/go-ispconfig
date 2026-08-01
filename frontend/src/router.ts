@@ -4,7 +4,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from './stores/auth'
 import AppShell from './components/AppShell.vue'
 import LoginView from './views/LoginView.vue'
-
+import DashboardView from './views/DashboardView.vue'
 import ModulePlaceholder from './views/ModulePlaceholder.vue'
 
 export const router = createRouter({
@@ -16,7 +16,7 @@ export const router = createRouter({
       path: '/',
       component: AppShell,
       children: [
-        { path: 'dashboard', name: 'dashboard', component: ModulePlaceholder },
+        { path: 'dashboard', name: 'dashboard', component: DashboardView },
         { path: 'sites', name: 'sites', component: ModulePlaceholder },
         { path: 'dns', name: 'dns', component: ModulePlaceholder },
         { path: 'system', name: 'system', component: ModulePlaceholder },
