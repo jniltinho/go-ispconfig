@@ -44,6 +44,9 @@ type SessionData struct {
 	// Groups is the effective sys_group id list of the user, including a
 	// reseller's client groups (resolved at login, design D4).
 	Groups []uint32 `json:"groups"`
+	// DefaultGroup is sys_user.default_group, stamped onto records the
+	// user inserts.
+	DefaultGroup uint32 `json:"default_group"`
 	// Language is the panel language of the user.
 	Language string `json:"language"`
 	// CSRFToken is the per-session token required on mutating cookie

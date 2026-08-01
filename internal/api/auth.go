@@ -110,11 +110,12 @@ func loginHandler(d *Deps) echo.HandlerFunc {
 			return err
 		}
 		data := &auth.SessionData{
-			UserID:   ident.UserID,
-			Username: ident.Username,
-			Typ:      ident.Typ,
-			Groups:   ident.Groups,
-			Language: user.Language,
+			UserID:       ident.UserID,
+			Username:     ident.Username,
+			Typ:          ident.Typ,
+			Groups:       ident.Groups,
+			DefaultGroup: ident.DefaultGroup,
+			Language:     user.Language,
 		}
 
 		// Anti-fixation: any session id presented by the client — valid or

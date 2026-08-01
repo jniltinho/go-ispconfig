@@ -48,5 +48,7 @@ func Register(e *echo.Echo, d *Deps) error {
 
 	g := e.Group("/api", requestLogger(), auth.Middleware(d.Sessions))
 	registerAuthRoutes(g, d)
-	return nil
+
+	protected := g.Group("", auth.RequireAuth())
+	return registerEntities(protected, d)
 }

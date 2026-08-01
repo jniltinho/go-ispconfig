@@ -33,18 +33,18 @@ func (Server) TableName() string { return "server" }
 // ServerIP is an IP address assigned to a server for vhost binding
 // (table server_ip).
 type ServerIP struct {
-	ServerIPID      uint32 `gorm:"column:server_ip_id;primaryKey;autoIncrement"`
-	SysUserID       uint32 `gorm:"column:sys_userid"`
-	SysGroupID      uint32 `gorm:"column:sys_groupid"`
-	SysPermUser     string `gorm:"column:sys_perm_user"`
-	SysPermGroup    string `gorm:"column:sys_perm_group"`
-	SysPermOther    string `gorm:"column:sys_perm_other"`
-	ServerID        uint32 `gorm:"column:server_id"`
-	ClientID        uint32 `gorm:"column:client_id"`
-	IPType          string `gorm:"column:ip_type"`
-	IPAddress       string `gorm:"column:ip_address"`
-	Virtualhost     string `gorm:"column:virtualhost"`
-	VirtualhostPort string `gorm:"column:virtualhost_port"`
+	ServerIPID      uint32 `gorm:"column:server_ip_id;primaryKey;autoIncrement" json:"server_ip_id"`
+	SysUserID       uint32 `gorm:"column:sys_userid" json:"sys_userid"`
+	SysGroupID      uint32 `gorm:"column:sys_groupid" json:"sys_groupid"`
+	SysPermUser     string `gorm:"column:sys_perm_user" json:"sys_perm_user"`
+	SysPermGroup    string `gorm:"column:sys_perm_group" json:"sys_perm_group"`
+	SysPermOther    string `gorm:"column:sys_perm_other" json:"sys_perm_other"`
+	ServerID        uint32 `gorm:"column:server_id" json:"server_id"`
+	ClientID        uint32 `gorm:"column:client_id" json:"client_id"`
+	IPType          string `gorm:"column:ip_type" json:"ip_type" example:"IPv4"`
+	IPAddress       string `gorm:"column:ip_address" json:"ip_address" example:"10.0.0.1"`
+	Virtualhost     string `gorm:"column:virtualhost" json:"virtualhost" example:"y"`
+	VirtualhostPort string `gorm:"column:virtualhost_port" json:"virtualhost_port" example:"80,443"`
 }
 
 // TableName maps ServerIP to the ISPConfig table server_ip.
