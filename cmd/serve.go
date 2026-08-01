@@ -1,8 +1,7 @@
 package cmd
 
-// serveCmd starts the panel HTTP server: /api endpoints plus the embedded SPA.
-// This is a functional stub — the full Echo bootstrap (middleware stack, auth,
-// handlers) arrives with the REST API core tasks.
+// serveCmd starts the panel HTTP server: the /api REST endpoints (session
+// auth, CRUD entities, swagger) plus the embedded SPA.
 
 import (
 	"context"
@@ -22,7 +21,10 @@ import (
 	echoMiddleware "github.com/labstack/echo/v5/middleware"
 	"github.com/spf13/cobra"
 
+	"go-ispconfig/internal/api"
+	"go-ispconfig/internal/auth"
 	"go-ispconfig/internal/config"
+	"go-ispconfig/internal/database"
 )
 
 var serveCmd = &cobra.Command{
@@ -46,8 +48,21 @@ var serveCmd = &cobra.Command{
 				cfg.Server.TLSCert, cfg.Server.TLSKey)
 		}
 
+		db, err := database.Open(cfg.Database.DSN)
+		if err != nil {
+			return fmt.Errorf("opening database: %w", err)
+		}
+
 		e := echo.New()
 		e.Use(echoMiddleware.Recover())
+
+		if err := api.Register(e, &api.Deps{
+			DB:       db,
+			Sessions: auth.NewStore(db, 0),
+			Config:   cfg,
+		}); err != nil {
+			return fmt.Errorf("registering API: %w", err)
+		}
 
 		e.GET("/api/health", func(c *echo.Context) error {
 			return c.JSON(http.StatusOK, map[string]string{
