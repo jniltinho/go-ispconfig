@@ -7,6 +7,8 @@ import (
 
 	"github.com/labstack/echo/v5"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
+	"gorm.io/gorm/utils/tests"
 )
 
 // fakeStore is an in-memory SessionGetter for middleware tests; the real
@@ -57,6 +59,25 @@ func TestSessionMiddleware(t *testing.T) {
 		require.Equal(t, http.StatusUnauthorized, do(e, req).Code)
 	})
 
+	t.Run("stale session cookie is cleared", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/api/me", nil)
+		req.AddCookie(Cookie("nope", false))
+		rec := do(e, req)
+		require.Equal(t, http.StatusUnauthorized, rec.Code)
+		cookies := rec.Result().Cookies()
+		require.Len(t, cookies, 1)
+		require.Equal(t, SessionCookieName, cookies[0].Name)
+		require.Negative(t, cookies[0].MaxAge)
+	})
+
+	t.Run("invalid bearer token sets no cookie", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/api/me", nil)
+		req.Header.Set("Authorization", "Bearer nope")
+		rec := do(e, req)
+		require.Equal(t, http.StatusUnauthorized, rec.Code)
+		require.Empty(t, rec.Result().Cookies())
+	})
+
 	t.Run("cookie GET ok without CSRF token", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/api/me", nil)
 		req.AddCookie(Cookie("sid-1", false))
@@ -105,6 +126,37 @@ func TestCookieAttributes(t *testing.T) {
 	cleared := ClearCookie(false)
 	require.Equal(t, -1, cleared.MaxAge)
 	require.Empty(t, cleared.Value)
+}
+
+// dryStore returns a Store on a connection-less GORM handle (DryRun);
+// real MySQL behavior is covered by the repository integration suite.
+func dryStore(t *testing.T) *Store {
+	t.Helper()
+	db, err := gorm.Open(tests.DummyDialector{}, &gorm.Config{DryRun: true})
+	require.NoError(t, err)
+	return NewStore(db, 0)
+}
+
+func TestCreateRejectsAnonymous(t *testing.T) {
+	s := dryStore(t)
+	_, err := s.Create(&SessionData{Username: "x", Typ: "user"}) // UserID 0
+	require.Error(t, err)
+	_, err = s.Create(&SessionData{UserID: 2, Username: "x"}) // empty Typ
+	require.Error(t, err)
+}
+
+func TestRegenerate(t *testing.T) {
+	s := dryStore(t)
+	data := &SessionData{UserID: 2, Username: "client1", Typ: "user"}
+	oldID, err := s.Create(data)
+	require.NoError(t, err)
+	oldCSRF := data.CSRFToken
+
+	newID, err := s.Regenerate(oldID, data)
+	require.NoError(t, err)
+	require.Len(t, newID, 64)
+	require.NotEqual(t, oldID, newID)
+	require.NotEqual(t, oldCSRF, data.CSRFToken) // CSRF token rotates too
 }
 
 func TestRandomToken(t *testing.T) {

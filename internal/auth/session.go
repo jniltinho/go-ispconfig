@@ -68,8 +68,12 @@ func NewStore(db *gorm.DB, ttl time.Duration) *Store {
 
 // Create generates a session id and CSRF token, stores data in sys_session
 // and returns the session id. The same id serves as bearer token for
-// non-browser API clients.
+// non-browser API clients. Sessions represent authenticated users only:
+// data must carry a non-zero UserID and a non-empty Typ.
 func (s *Store) Create(data *SessionData) (string, error) {
+	if data.UserID == 0 || data.Typ == "" {
+		return "", errors.New("auth: session requires a user id and typ")
+	}
 	id, err := randomToken()
 	if err != nil {
 		return "", err
@@ -119,8 +123,25 @@ func (s *Store) Get(id string) (*SessionData, error) {
 		return nil, ErrSessionNotFound
 	}
 	now := time.Now()
-	s.db.Model(&model.SysSession{}).Where("session_id = ?", id).Update("last_updated", &now)
+	if err := s.db.Model(&model.SysSession{}).Where("session_id = ?", id).
+		Update("last_updated", &now).Error; err != nil {
+		return nil, fmt.Errorf("touching session: %w", err)
+	}
 	return data, nil
+}
+
+// Regenerate stores data under a fresh session id (and fresh CSRF token)
+// and deletes the old session. Call it on privilege changes such as login
+// to prevent session fixation.
+func (s *Store) Regenerate(oldID string, data *SessionData) (string, error) {
+	newID, err := s.Create(data)
+	if err != nil {
+		return "", err
+	}
+	if err := s.Delete(oldID); err != nil {
+		return "", fmt.Errorf("deleting old session: %w", err)
+	}
+	return newID, nil
 }
 
 // Delete removes a session (logout).
@@ -167,7 +188,8 @@ const (
 // (POST/PUT/PATCH/DELETE) must present the session CSRF token in the
 // X-CSRF-Token header or the request is rejected with 403 before reaching
 // any handler. Requests without a valid session pass through
-// unauthenticated; combine with RequireAuth on protected routes.
+// unauthenticated (a stale session cookie is cleared on the response);
+// combine with RequireAuth on protected routes.
 func Middleware(store SessionGetter) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {
@@ -178,6 +200,11 @@ func Middleware(store SessionGetter) echo.MiddlewareFunc {
 			data, err := store.Get(id)
 			if err != nil {
 				if errors.Is(err, ErrSessionNotFound) {
+					if fromCookie {
+						// Stale cookie: clear it so browsers stop
+						// resending a dead session id.
+						c.SetCookie(ClearCookie(c.Request().TLS != nil))
+					}
 					return next(c)
 				}
 				return err

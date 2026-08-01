@@ -73,6 +73,15 @@ func TestIfTruthy(t *testing.T) {
 	})
 }
 
+func TestSetLoopEmptyResetsTruthyVar(t *testing.T) {
+	tpl := New(`<tmpl_if name='v'>T<tmpl_else>F</tmpl_if>`)
+	tpl.SetLoop("v", []map[string]any{{"x": 1}})
+	tpl.SetLoop("v", nil) // re-set to empty must flip the if back to false
+	out, err := tpl.Render()
+	require.NoError(t, err)
+	require.Equal(t, "F", out)
+}
+
 func TestIfOpValue(t *testing.T) {
 	tests := []struct {
 		name string

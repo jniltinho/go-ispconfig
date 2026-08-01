@@ -82,12 +82,15 @@ func (t *Template) SetVar(name string, value any) {
 }
 
 // SetLoop sets the dataset for a top-level <tmpl_loop>. Like the PHP
-// engine with SET_LOOP_VAR=1, a non-empty dataset also sets a truthy
-// global variable under the loop name.
+// engine with SET_LOOP_VAR=1, it also sets a global variable under the
+// loop name: truthy for a non-empty dataset, falsy for an empty one (so
+// re-setting a loop to empty flips its <tmpl_if> back to false).
 func (t *Template) SetLoop(name string, rows []map[string]any) {
 	t.loops[name] = rows
 	if len(rows) > 0 {
 		t.vars[name] = 1
+	} else {
+		t.vars[name] = 0
 	}
 }
 
@@ -203,6 +206,12 @@ func applyOp(c int, op string) bool {
 // versionCompare compares dot-separated numeric versions ("1.25.0")
 // like PHP version_compare does for them: part by part numerically,
 // with a shorter version comparing lower when the shared parts match.
+//
+// Limitation: only purely numeric parts are handled. PHP
+// version_compare's special suffix ordering (dev < alpha < beta < RC <
+// plain < pl, e.g. "1.0-dev" < "1.0") is not implemented; non-numeric
+// parts compare as 0. The bundled templates only compare numeric
+// versions like nginx's.
 func versionCompare(a, b string) int {
 	pa, pb := strings.Split(a, "."), strings.Split(b, ".")
 	for i := 0; i < len(pa) && i < len(pb); i++ {
