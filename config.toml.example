@@ -1,0 +1,36 @@
+# go-ispconfig — Configuration Example
+#
+# Copy this file to config.toml and customize the values for your environment,
+# or generate it with:
+#
+#     go-ispconfig init
+#
+# Search order: --config flag → ./config.toml → /etc/go-ispconfig/config.toml
+#
+# All settings can also be overridden using environment variables with the
+# GOISP_ prefix. Example: GOISP_SERVER_PORT=9000 go-ispconfig serve
+#
+# Only static process configuration lives here. Runtime server behavior
+# (web/dns settings per server) stays in the database, editable from the panel.
+
+[server]
+host = "0.0.0.0"
+port = 8080
+# To use HTTPS, fill in the certificate and key file paths
+tls_cert = ""
+tls_key  = ""
+
+[database]
+# MariaDB/MySQL DSN. The database must be the ISPConfig3 schema (dbispconfig);
+# `go-ispconfig migrate` creates it on an empty database.
+dsn = "root:@tcp(127.0.0.1:3306)/dbispconfig?charset=utf8mb4&parseTime=True&loc=Local"
+
+[daemon]
+# Interval between sys_datalog processing cycles.
+tick_seconds = 10
+
+[auth]
+# Re-hash legacy ISPConfig crypt password hashes ($6$/$1$) to bcrypt on login.
+# Keep false until a migration cutover from PHP ISPConfig is final: PHP cannot
+# verify bcrypt, so enabling this breaks the documented rollback path.
+rehash_legacy = false

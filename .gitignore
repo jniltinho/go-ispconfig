@@ -18,9 +18,11 @@ config.local.toml
 *.key
 credentials*
 
-# Build artifacts
+# Build artifacts (web/dist/index.html placeholder stays tracked so the
+# go:embed of web/dist always compiles from a fresh clone)
 bin/
-web/dist/
+web/dist/*
+!web/dist/index.html
 go-ispconfig
 *.exe
 *.test
