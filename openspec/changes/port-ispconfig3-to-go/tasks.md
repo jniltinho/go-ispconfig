@@ -52,11 +52,11 @@ Rule: every finished task = validated (tests pass) + conventional commit. Cross-
 
 ## 7. Panel skeleton (frontend)
 
-- [ ] 7.1 Vite + Vue 3 + TS + Tailwind v4 + Pinia scaffold in `frontend/`, outDir `../web/dist`, dev proxy `/api`; vendored fonts in `web/static/fonts`
-- [ ] 7.2 Minimal theme tokens only (brand #C70F19, bg #F2F5F7, text #3C444B, radius 0) + Lucide icon map — full visual polish (dark mode, shadows, dashlets) belongs to add-panel-ui-theme, don't duplicate
-- [ ] 7.3 i18n composable + `en.json`; missing-key fallback with dev warning
-- [ ] 7.4 Layout: login page, topbar (logo, module tabs, logout, global search), sidebar, content router
-- [ ] 7.5 Primitives: DataTable (server pagination, inline thead filters, row actions, zebra) and TabbedForm (rendered from form metadata, Save/Cancel)
+- [x] 7.1 Vite + Vue 3 + TS + Tailwind v4 + Pinia scaffold in `frontend/`, outDir `../web/dist`, dev proxy `/api`; vendored fonts in `web/static/fonts`
+- [x] 7.2 Minimal theme tokens only (brand #C70F19, bg #F2F5F7, text #3C444B, radius 0) + Lucide icon map — full visual polish (dark mode, shadows, dashlets) belongs to add-panel-ui-theme, don't duplicate
+- [x] 7.3 i18n composable + `en.json`; missing-key fallback with dev warning
+- [x] 7.4 Layout: login page, topbar (logo, module tabs, logout, global search), sidebar, content router
+- [x] 7.5 Primitives: DataTable (server pagination, inline thead filters, row actions, zebra) and TabbedForm (rendered from form metadata, Save/Cancel)
 - [ ] 7.6 agent-browser E2E: login flow + navigation smoke test against built binary; screenshots to docs/prints/ (local) and curated ones to docs/screenshots/
 
 ## 8. Docs and release
