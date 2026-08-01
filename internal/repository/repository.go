@@ -103,8 +103,13 @@ func New[T any](db *gorm.DB) (*Repo[T], error) {
 }
 
 // List loads every record the identity may read, with optional extra
-// conditions (cond/args as in gorm Where).
+// conditions (cond/args as in gorm Where). A nil identity returns
+// ErrPermissionDenied, matching Insert/Update/Delete — an unauthenticated
+// caller is a bug in the caller, not an empty result set.
 func (r *Repo[T]) List(ctx context.Context, id *Identity, dest *[]T, conds ...any) error {
+	if id == nil {
+		return ErrPermissionDenied
+	}
 	tx := r.db.WithContext(ctx).Scopes(WithPerm(id, PermRead))
 	if len(conds) > 0 {
 		tx = tx.Where(conds[0], conds[1:]...)
@@ -126,7 +131,14 @@ func (r *Repo[T]) Get(ctx context.Context, id *Identity, pk any, dest *T) error 
 // CheckPerm reports whether the identity holds the permission flag on the
 // record with the given primary key (port of tform::checkPerm for existing
 // records: SELECT under the auth WHERE clause, empty result = denied).
+// Unlike List/Insert/Update/Delete, a nil identity is not an error here:
+// this function's contract is to answer the permission question, and for a
+// nil identity the answer is simply false (deny by default) — the error
+// return is reserved for query failures.
 func (r *Repo[T]) CheckPerm(ctx context.Context, id *Identity, pk any, perm byte) (bool, error) {
+	if id == nil {
+		return false, nil
+	}
 	var n int64
 	err := r.db.WithContext(ctx).Model(new(T)).Scopes(WithPerm(id, perm)).
 		Where(r.pk+" = ?", pk).Count(&n).Error
@@ -282,8 +294,9 @@ func (r *Repo[T]) stampOwnership(ctx context.Context, id *Identity, rec *T) erro
 
 // canInsert ports checkPerm(0, 'i') against the entity permission preset:
 // after stampOwnership the caller owns the new record, so insert is allowed
-// when the preset grants i to the owner or the group. The record body is
-// never consulted (Insert stamps it for non-admins before this check).
+// when the preset grants i to the owner, the group or everyone (perm_other),
+// matching the three branches of the PHP auth SQL. The record body is never
+// consulted (Insert stamps it for non-admins before this check).
 func (r *Repo[T]) canInsert(id *Identity, rec *T) bool {
 	if id == nil {
 		return false
@@ -291,9 +304,10 @@ func (r *Repo[T]) canInsert(id *Identity, rec *T) bool {
 	if id.IsAdmin() {
 		return true
 	}
-	permUser, permGroup, _ := permPreset(rec)
+	permUser, permGroup, permOther := permPreset(rec)
 	flag := string(PermInsert)
-	return strings.Contains(permUser, flag) || strings.Contains(permGroup, flag)
+	return strings.Contains(permUser, flag) || strings.Contains(permGroup, flag) ||
+		strings.Contains(permOther, flag)
 }
 
 // copySysColumns overwrites the sys_ ownership/permission columns of rec

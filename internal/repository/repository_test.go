@@ -75,6 +75,16 @@ func (lockedDomain) PermPreset() (string, string, string) { return "r", "r", "" 
 // TableName keeps the embedded table mapping.
 func (lockedDomain) TableName() string { return "web_domain" }
 
+// otherInsertDomain grants insert only via perm_other (the third branch of
+// the PHP auth SQL).
+type otherInsertDomain struct{ model.WebDomain }
+
+// PermPreset grants the i flag through perm_other only.
+func (otherInsertDomain) PermPreset() (string, string, string) { return "r", "r", "riud" }
+
+// TableName keeps the embedded table mapping.
+func (otherInsertDomain) TableName() string { return "web_domain" }
+
 func TestCanInsert(t *testing.T) {
 	repo, err := New[model.WebDomain](dryDB(t))
 	require.NoError(t, err)
@@ -92,6 +102,25 @@ func TestCanInsert(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, locked.canInsert(user, &lockedDomain{}), "preset without i denies non-admin")
 	require.True(t, locked.canInsert(admin, &lockedDomain{}), "admin bypasses preset")
+
+	other, err := New[otherInsertDomain](dryDB(t))
+	require.NoError(t, err)
+	require.True(t, other.canInsert(user, &otherInsertDomain{}),
+		"i in perm_other alone must grant insert (checkPerm parity)")
+}
+
+func TestNilIdentityDenied(t *testing.T) {
+	repo, err := New[model.WebDomain](dryDB(t))
+	require.NoError(t, err)
+	ctx := context.Background()
+
+	var out []model.WebDomain
+	require.ErrorIs(t, repo.List(ctx, nil, &out), ErrPermissionDenied,
+		"List with nil identity must error like Insert/Update/Delete")
+
+	ok, err := repo.CheckPerm(ctx, nil, 1, PermRead)
+	require.NoError(t, err, "CheckPerm answers the question instead of erroring")
+	require.False(t, ok, "nil identity holds no permission")
 }
 
 func TestStampOwnership(t *testing.T) {
