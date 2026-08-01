@@ -1,0 +1,6 @@
+zone "customer.net" {
+        type slave;
+        masters {192.168.10.20;};
+        allow-transfer {none;};
+        file "/etc/bind/slave/sec.customer.net";
+};

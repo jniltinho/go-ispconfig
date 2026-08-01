@@ -1,0 +1,10 @@
+zone "example.com" {
+        type master;
+        allow-transfer {192.168.10.6;};
+        also-notify {192.168.10.6;};
+        file "/etc/bind/pri.example.com";
+};
+zone "example.org" {
+        type master;
+        file "/etc/bind/pri.example.org.signed";
+};

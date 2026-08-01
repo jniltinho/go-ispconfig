@@ -1,0 +1,19 @@
+$TTL        3600
+@       IN      SOA     ns1.example.com. admin.example.com. (
+                        2026080101       ; serial, todays date + todays serial #
+                        7200              ; refresh, seconds
+                        540              ; retry, seconds
+                        604800              ; expire, seconds
+                        3600 )            ; minimum, seconds
+;
+
+example.com. 3600      NS         ns1.example.com.
+example.com. 3600      NS         ns2.example.com.
+example.com. 3600      A          192.168.10.5
+www       A          192.168.10.5
+example.com. 3600      AAAA       2001:db8::5
+example.com. 3600      MX     10  mail.example.com.
+mail 3600      CNAME      example.com.
+example.com. 3600      TXT        "v=spf1 mx a -all"
+_sip._tcp 3600      SRV    10 0 5060 sip.example.com.
+example.com. 3600      CAA        0 issue "letsencrypt.org"
