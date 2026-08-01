@@ -35,12 +35,6 @@ const (
 	grpClientB   = 13
 	grpClientC   = 14
 
-	cltReseller1 = 100
-	cltClientA   = 101
-	cltReseller2 = 102
-	cltClientB   = 103
-	cltClientC   = 104
-
 	usrReseller1 = 20
 	usrClientA   = 21
 	usrReseller2 = 22
