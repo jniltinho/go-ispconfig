@@ -53,8 +53,8 @@ func (webModule) Name() string { return "web_module" }
 
 func (webModule) OnLoad(r *engine.Registry) error {
 	r.AnnounceEvents("web_module", "web_domain_insert", "web_domain_update", "web_domain_delete")
-	r.RegisterTableHook("web_domain", func(table, action string, data engine.Data) error {
-		return r.RaiseEvent(engine.EventName(table, action), data)
+	r.RegisterTableHook("web_domain", func(ctx context.Context, table, action string, data engine.Data) error {
+		return r.RaiseEvent(ctx, engine.EventName(table, action), data)
 	})
 	return nil
 }
@@ -79,7 +79,7 @@ func (p *webPlugin) OnLoad(r *engine.Registry) error {
 	return nil
 }
 
-func (p *webPlugin) record(event string, data engine.Data) error {
+func (p *webPlugin) record(_ context.Context, event string, data engine.Data) error {
 	p.mu.Lock()
 	p.events = append(p.events, event)
 	p.last = data
@@ -152,7 +152,7 @@ func TestEngineE2E(t *testing.T) {
 	// the daemon must advance it only after the hook (per-row semantics).
 	var observed []uint64
 	reg := engine.NewRegistry(nil)
-	reg.RegisterTableHook("web_domain", func(string, string, engine.Data) error {
+	reg.RegisterTableHook("web_domain", func(context.Context, string, string, engine.Data) error {
 		observed = append(observed, serverUpdated(t, db))
 		return nil
 	})
@@ -270,6 +270,24 @@ func TestEngineE2E(t *testing.T) {
 		exec.Reset()
 	})
 
+	t.Run("oversized payload is quarantined via SQL filter", func(t *testing.T) {
+		require.NoError(t, db.Exec(
+			"INSERT INTO sys_datalog (server_id, dbtable, dbidx, action, tstamp, user, data, status) VALUES (1, 'web_domain', 'domain_id:997', 'u', ?, 'admin', REPEAT('a', 4194305), 'ok')",
+			time.Now().Unix()).Error)
+		bigID := lastDatalogID(t, db)
+
+		require.NoError(t, daemon.RunCycle(ctx))
+		require.Equal(t, bigID, serverUpdated(t, db), "updated advances past the oversized row")
+
+		var row model.SysDatalog
+		require.NoError(t, db.Select("datalog_id, status, error").
+			Where("datalog_id = ?", bigID).First(&row).Error)
+		require.Equal(t, "error", row.Status)
+		require.Contains(t, row.Error, "exceeds")
+		require.Empty(t, plugin.Reset(), "no event for an oversized row")
+		exec.Reset()
+	})
+
 	t.Run("empty diff row is logged and skipped", func(t *testing.T) {
 		require.NoError(t, db.Exec(
 			"INSERT INTO sys_datalog (server_id, dbtable, dbidx, action, tstamp, user, data, status) VALUES (1, 'web_domain', 'domain_id:998', 'u', ?, 'admin', '{\"old\":{},\"new\":{}}', 'ok')",
@@ -286,7 +304,7 @@ func TestEngineE2E(t *testing.T) {
 
 	t.Run("pending remote action is dispatched and state stored", func(t *testing.T) {
 		got := ""
-		reg.RegisterAction("os_update", func(action, param string) (string, error) {
+		reg.RegisterAction("os_update", func(_ context.Context, action, param string) (string, error) {
 			got = param
 			return engine.StateOK, nil
 		})
@@ -299,6 +317,17 @@ func TestEngineE2E(t *testing.T) {
 		var a model.SysRemoteAction
 		require.NoError(t, db.Where("action_type = 'os_update'").First(&a).Error)
 		require.Equal(t, "ok", a.ActionState)
+		exec.Reset()
+	})
+
+	t.Run("remote action without handler is stored as warning", func(t *testing.T) {
+		require.NoError(t, db.Exec(
+			"INSERT INTO sys_remoteaction (server_id, tstamp, action_type, action_param, action_state) VALUES (1, ?, 'no_such_action', '', 'pending')",
+			time.Now().Unix()).Error)
+		require.NoError(t, daemon.RunCycle(ctx))
+		var a model.SysRemoteAction
+		require.NoError(t, db.Where("action_type = 'no_such_action'").First(&a).Error)
+		require.Equal(t, "warning", a.ActionState, "missing handler must never be a silent ok")
 		exec.Reset()
 	})
 

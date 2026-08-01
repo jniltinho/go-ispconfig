@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os/exec"
 	"sync"
+	"time"
 )
 
 // Service actions accepted by the services registry.
@@ -23,11 +24,18 @@ type Executor interface {
 	Run(ctx context.Context, service, action string) error
 }
 
+// systemctlTimeout caps one systemctl invocation so a hanging unit can never
+// stall the daemon cycle (or the SIGTERM drain) indefinitely.
+const systemctlTimeout = 90 * time.Second
+
 // SystemctlExecutor is the production Executor: systemctl <action> <unit>.
 type SystemctlExecutor struct{}
 
-// Run executes systemctl with the requested action and unit name.
+// Run executes systemctl with the requested action and unit name, capped at
+// systemctlTimeout per invocation.
 func (SystemctlExecutor) Run(ctx context.Context, service, action string) error {
+	ctx, cancel := context.WithTimeout(ctx, systemctlTimeout)
+	defer cancel()
 	out, err := exec.CommandContext(ctx, "systemctl", action, service).CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("systemctl %s %s: %w: %s", action, service, err, out)
@@ -92,16 +100,27 @@ func (s *Services) RestartServiceDelayed(service, action string) {
 	s.delayed[service] = action
 }
 
+// flushTimeout bounds one ProcessDelayedActions flush as a whole.
+const flushTimeout = 5 * time.Minute
+
 // ProcessDelayedActions executes every queued action exactly once and clears
 // the queue (port of processDelayedActions, called at the end of a daemon
 // cycle). Execution failures are logged, not returned: one broken service
-// must not block the others.
+// must not block the others. The flush runs on a context decoupled from ctx
+// cancellation (with its own timeout): the queue is emptied before
+// executing, so a SIGTERM-canceled cycle context must never abort the
+// already-dequeued nginx/bind reloads.
 func (s *Services) ProcessDelayedActions(ctx context.Context) {
 	s.mu.Lock()
 	pending := s.delayed
 	s.delayed = map[string]string{}
 	s.mu.Unlock()
+	if len(pending) == 0 {
+		return
+	}
 
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), flushTimeout)
+	defer cancel()
 	for service, action := range pending {
 		s.log.Info("engine: executing delayed service action", "service", service, "action", action)
 		if err := s.exec.Run(ctx, service, action); err != nil {

@@ -7,6 +7,7 @@
 package engine
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -20,17 +21,19 @@ type Data struct {
 }
 
 // TableHookFunc is a module callback for a table change (port of the
-// modules.inc.php notification hook signature).
-type TableHookFunc func(table, action string, data Data) error
+// modules.inc.php notification hook signature). ctx is the daemon cycle
+// context; handlers must honor its cancellation.
+type TableHookFunc func(ctx context.Context, table, action string, data Data) error
 
 // EventFunc is a plugin callback for a named event (port of the
-// plugins.inc.php event subscription signature).
-type EventFunc func(event string, data Data) error
+// plugins.inc.php event subscription signature). ctx is the daemon cycle
+// context; handlers must honor its cancellation.
+type EventFunc func(ctx context.Context, event string, data Data) error
 
 // ActionFunc handles one sys_remoteaction dispatch. It returns the resulting
 // state, one of StateOK, StateWarning or StateError; a non-nil error is
-// treated as StateError.
-type ActionFunc func(action, param string) (string, error)
+// treated as StateError. ctx is the daemon cycle context.
+type ActionFunc func(ctx context.Context, action, param string) (string, error)
 
 // Remote action result states (sys_remoteaction.action_state values).
 const (
@@ -151,14 +154,14 @@ func (r *Registry) RegisterAction(action string, fn ActionFunc) {
 // (server.updated advances), so a typoed dbtable must at least be visible.
 // Hooks run at-least-once (see Daemon idempotency contract) and MUST be
 // idempotent.
-func (r *Registry) RaiseTableHook(table, action string, data Data) error {
+func (r *Registry) RaiseTableHook(ctx context.Context, table, action string, data Data) error {
 	if len(r.hooks[table]) == 0 {
 		r.log.Warn("engine: no table hook registered, change ignored", "table", table, "action", action)
 		return nil
 	}
 	var errs []error
 	for _, fn := range r.hooks[table] {
-		if err := fn(table, action, data); err != nil {
+		if err := fn(ctx, table, action, data); err != nil {
 			errs = append(errs, fmt.Errorf("table hook %s/%s: %w", table, action, err))
 		}
 	}
@@ -168,11 +171,11 @@ func (r *Registry) RaiseTableHook(table, action string, data Data) error {
 // RaiseEvent dispatches a named event to every subscribed plugin (port of
 // plugins.inc.php raiseEvent). Subscriber errors are joined and returned;
 // remaining subscribers still run.
-func (r *Registry) RaiseEvent(event string, data Data) error {
+func (r *Registry) RaiseEvent(ctx context.Context, event string, data Data) error {
 	r.log.Debug("engine: raised event", "event", event)
 	var errs []error
 	for _, fn := range r.events[event] {
-		if err := fn(event, data); err != nil {
+		if err := fn(ctx, event, data); err != nil {
 			errs = append(errs, fmt.Errorf("event %s: %w", event, err))
 		}
 	}
@@ -181,11 +184,17 @@ func (r *Registry) RaiseEvent(event string, data Data) error {
 
 // RaiseAction dispatches a remote action to every subscribed handler and
 // returns the most severe resulting state (ok < warning < error), the port
-// of plugins.inc.php raiseAction state aggregation.
-func (r *Registry) RaiseAction(action, param string) string {
+// of plugins.inc.php raiseAction state aggregation. An action type without
+// any registered handler yields StateWarning (never a silent StateOK): the
+// row is consumed, but the operator can see nothing ran.
+func (r *Registry) RaiseAction(ctx context.Context, action, param string) string {
+	if len(r.actions[action]) == 0 {
+		r.log.Warn("engine: no handler registered for remote action", "action", action)
+		return StateWarning
+	}
 	state := StateOK
 	for _, fn := range r.actions[action] {
-		s, err := fn(action, param)
+		s, err := fn(ctx, action, param)
 		if err != nil {
 			r.log.Error("engine: action handler failed", "action", action, "error", err)
 			s = StateError

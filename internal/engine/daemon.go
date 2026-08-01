@@ -154,14 +154,12 @@ func (d *Daemon) Run(ctx context.Context, tick time.Duration) error {
 
 // drain waits for an in-flight cycle (e.g. a concurrent Wake) to finish and
 // flushes any delayed service actions it left queued, so SIGTERM never drops
-// a pending nginx/bind reload.
+// a pending nginx/bind reload. ProcessDelayedActions bounds itself.
 func (d *Daemon) drain() {
 	d.busy.Lock()
 	defer d.busy.Unlock()
 	if d.services != nil {
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
-		d.services.ProcessDelayedActions(ctx)
+		d.services.ProcessDelayedActions(context.Background())
 	}
 }
 
@@ -212,8 +210,18 @@ func (d *Daemon) processDatalog(ctx context.Context) error {
 		return fmt.Errorf("engine: loading server row %d: %w", d.serverID, err)
 	}
 
-	var rows []model.SysDatalog
-	err := d.db.WithContext(ctx).
+	// The 4 MiB payload cap is enforced in SQL: an oversized row is fetched
+	// without its data column (empty data, oversized flag set) so a giant
+	// payload never crosses the wire, and quarantined below.
+	type datalogRow struct {
+		model.SysDatalog
+		Oversized bool `gorm:"column:oversized"`
+	}
+	var rows []datalogRow
+	err := d.db.WithContext(ctx).Model(&model.SysDatalog{}).
+		Select("`datalog_id`, `server_id`, `dbtable`, `dbidx`, `action`, `tstamp`, `user`, `status`, `error`, `session_id`, "+
+			"CASE WHEN CHAR_LENGTH(`data`) <= ? THEN `data` ELSE '' END AS `data`, "+
+			"CHAR_LENGTH(`data`) > ? AS `oversized`", maxDatalogPayload, maxDatalogPayload).
 		Where("datalog_id > ? AND (server_id = ? OR server_id = 0)", srv.Updated, d.serverID).
 		Order("datalog_id").Limit(datalogBatchSize).Find(&rows).Error
 	if err != nil {
@@ -225,13 +233,13 @@ func (d *Daemon) processDatalog(ctx context.Context) error {
 	d.log.Info("processing datalog changes", "count", len(rows))
 
 	for i := range rows {
-		row := &rows[i]
+		row := &rows[i].SysDatalog
 		if err := ctx.Err(); err != nil {
 			return err
 		}
 
 		var data Data
-		if len(row.Data) > maxDatalogPayload {
+		if rows[i].Oversized {
 			if err := d.quarantineRow(ctx, row, fmt.Sprintf("datalogError: payload for datalog_id %d (table %s) exceeds %d bytes, refusing to parse", row.DatalogID, row.DBTable, maxDatalogPayload)); err != nil {
 				return err
 			}
@@ -245,7 +253,7 @@ func (d *Daemon) processDatalog(ctx context.Context) error {
 			if err := d.sysLog(ctx, row.DatalogID, logLevelWarn, fmt.Sprintf("Data array was empty for datalog_id %d", row.DatalogID)); err != nil {
 				d.log.Error("failed to write sys_log entry", "error", err)
 			}
-		} else if err := d.reg.RaiseTableHook(row.DBTable, row.Action, data); err != nil {
+		} else if err := d.reg.RaiseTableHook(ctx, row.DBTable, row.Action, data); err != nil {
 			if err := d.quarantineRow(ctx, row, fmt.Sprintf("datalogError: processing datalog_id %d (table %s) failed: %v", row.DatalogID, row.DBTable, err)); err != nil {
 				return err
 			}
@@ -317,7 +325,7 @@ func (d *Daemon) processActions(ctx context.Context) error {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		state := d.reg.RaiseAction(a.ActionType, a.ActionParam)
+		state := d.reg.RaiseAction(ctx, a.ActionType, a.ActionParam)
 		err := d.db.WithContext(ctx).Model(&model.SysRemoteAction{}).
 			Where("action_id = ?", a.ActionID).Update("action_state", state).Error
 		if err != nil {

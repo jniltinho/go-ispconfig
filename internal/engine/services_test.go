@@ -27,6 +27,32 @@ func (m *mockExecutor) Calls() []string {
 	return append([]string(nil), m.calls...)
 }
 
+// funcExecutor adapts a function to Executor for one-off tests.
+type funcExecutor func(ctx context.Context, service, action string) error
+
+func (f funcExecutor) Run(ctx context.Context, service, action string) error {
+	return f(ctx, service, action)
+}
+
+// TestProcessDelayedActionsSurvivesCanceledContext covers the SIGTERM drain:
+// the queue is emptied before executing, so the flush must run on a context
+// decoupled from the (canceled) cycle context or the reloads are lost.
+func TestProcessDelayedActionsSurvivesCanceledContext(t *testing.T) {
+	called := false
+	s := NewServices(funcExecutor(func(ctx context.Context, _, _ string) error {
+		called = true
+		require.NoError(t, ctx.Err(), "flush context must not inherit cancellation")
+		return nil
+	}), nil)
+	s.Register("nginx")
+	s.RestartServiceDelayed("nginx", ActionReload)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	s.ProcessDelayedActions(ctx)
+	require.True(t, called, "queued action must execute despite canceled context")
+}
+
 func TestServicesDedupAndUpgrade(t *testing.T) {
 	exec := &mockExecutor{}
 	s := NewServices(exec, nil)
