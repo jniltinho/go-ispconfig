@@ -52,7 +52,7 @@ Rule: every finished task = validated (tests pass) + conventional commit. Cross-
 
 ## 1b. Standalone HTTPS (added by user requirement)
 
-- [ ] 1b.1 `serve` HTTPS por default: auto-gera cert self-signed de 10 anos (crypto/x509, CN/SAN=hostname+IPs, ssl/ junto ao config, 0600) quando não houver cert válido; regenera se expirado/ilegível (nunca sobrescreve cert explicitamente configurado — erro claro); `server.https = false` para HTTP explícito; testes (D13)
+- [x] 1b.1 `serve` HTTPS por default: auto-gera cert self-signed de 10 anos (crypto/x509, CN/SAN=hostname+IPs, ssl/ junto ao config, 0600) quando não houver cert válido; regenera se expirado/ilegível (nunca sobrescreve cert explicitamente configurado — erro claro); `server.https = false` para HTTP explícito; testes (D13)
 
 ## 6. REST API core
 

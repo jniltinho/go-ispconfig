@@ -43,9 +43,9 @@ var serveCmd = &cobra.Command{
 		if port, _ := cmd.Flags().GetInt("port"); port != 0 {
 			cfg.Server.Port = port
 		}
-		if (cfg.Server.TLSCert == "") != (cfg.Server.TLSKey == "") {
-			return fmt.Errorf("config: server.tls_cert and server.tls_key must both be set to enable TLS (got cert=%q key=%q)",
-				cfg.Server.TLSCert, cfg.Server.TLSKey)
+		certFile, keyFile, err := resolveTLS(cfg.Server, configDir())
+		if err != nil {
+			return err
 		}
 
 		db, err := database.Open(cfg.Database.DSN)
@@ -98,10 +98,10 @@ var serveCmd = &cobra.Command{
 			_ = srv.Shutdown(shutCtx)
 		}()
 
-		slog.Info("starting server", "addr", srv.Addr, "version", Version)
+		slog.Info("starting server", "addr", srv.Addr, "https", certFile != "", "version", Version)
 		var listenErr error
-		if cfg.Server.TLSCert != "" && cfg.Server.TLSKey != "" {
-			listenErr = srv.ListenAndServeTLS(cfg.Server.TLSCert, cfg.Server.TLSKey)
+		if certFile != "" {
+			listenErr = srv.ListenAndServeTLS(certFile, keyFile)
 		} else {
 			listenErr = srv.ListenAndServe()
 		}

@@ -38,8 +38,13 @@ type QueueConfig struct {
 
 // ServerConfig holds HTTP server settings for the panel (serve command).
 type ServerConfig struct {
-	Host    string `toml:"host" mapstructure:"host"`
-	Port    int    `toml:"port" mapstructure:"port"`
+	Host string `toml:"host" mapstructure:"host"`
+	Port int    `toml:"port" mapstructure:"port"`
+	// HTTPS enables TLS termination (design D13, default true). When no
+	// tls_cert/tls_key pair is configured, serve auto-generates a 10-year
+	// self-signed certificate next to the config file. Set to false for
+	// plain HTTP (explicit opt-in, no certificate is generated).
+	HTTPS   bool   `toml:"https" mapstructure:"https"`
 	TLSCert string `toml:"tls_cert" mapstructure:"tls_cert"`
 	TLSKey  string `toml:"tls_key" mapstructure:"tls_key"`
 }
@@ -71,6 +76,7 @@ type AuthConfig struct {
 func setDefaults() {
 	viper.SetDefault("server.host", "0.0.0.0")
 	viper.SetDefault("server.port", 8080)
+	viper.SetDefault("server.https", true)
 	viper.SetDefault("server.tls_cert", "")
 	viper.SetDefault("server.tls_key", "")
 	viper.SetDefault("database.dsn", "root:@tcp(127.0.0.1:3306)/dbispconfig?charset=utf8mb4&parseTime=True&loc=Local")
