@@ -2,7 +2,10 @@ package api
 
 import (
 	"errors"
+	"net"
 	"net/http"
+	"net/netip"
+	"strings"
 
 	"github.com/labstack/echo/v5"
 	"gorm.io/gorm"
@@ -18,8 +21,8 @@ type LoginRequest struct {
 	Username string `json:"username" example:"admin"`
 	// Password is the cleartext password.
 	Password string `json:"password" example:"secret"`
-	// StayLoggedIn is accepted for SPA compatibility; sessions currently
-	// always use the server-side idle TTL.
+	// StayLoggedIn requests a long-lived session (30 days sliding
+	// expiration, sys_session.permanent) instead of the 1-hour idle TTL.
 	StayLoggedIn bool `json:"stay_logged_in"`
 }
 
@@ -32,6 +35,9 @@ type LoginResponse struct {
 	// CSRFToken must be sent as X-CSRF-Token on every mutating
 	// cookie-authenticated request.
 	CSRFToken string `json:"csrf_token"`
+	// SessionID is the session id, also set as the HTTP-only cookie.
+	// Non-browser clients present it as "Authorization: Bearer <id>".
+	SessionID string `json:"session_id"`
 }
 
 // SessionInfo is the GET /api/session body describing the logged-in user.
@@ -44,6 +50,9 @@ type SessionInfo struct {
 	Groups []uint32 `json:"groups"`
 	// Language is the panel language of the user.
 	Language string `json:"language" example:"en"`
+	// CSRFToken is the per-session token for the X-CSRF-Token header, so a
+	// reloaded SPA can recover it without logging in again.
+	CSRFToken string `json:"csrf_token"`
 }
 
 // registerAuthRoutes mounts login/logout/session on the /api group.
@@ -56,7 +65,7 @@ func registerAuthRoutes(g *echo.Group, d *Deps) {
 // loginHandler implements POST /api/login.
 //
 //	@Summary		Log in
-//	@Description	Verifies sys_user credentials (bcrypt or legacy ISPConfig3 crypt hashes) with brute-force lockout, creates a sys_session and returns the CSRF token. The session id is set as an HTTP-only cookie; non-browser clients may present it as a bearer token instead.
+//	@Description	Verifies sys_user credentials (bcrypt or legacy ISPConfig3 crypt hashes) with brute-force lockout, creates a sys_session and returns the CSRF token and session id. The session id is also set as an HTTP-only cookie; non-browser clients may present it as a bearer token instead. With stay_logged_in the session lives 30 days (sliding) instead of the 1-hour idle TTL.
 //	@Tags			auth
 //	@Accept			json
 //	@Produce		json
@@ -71,7 +80,7 @@ func loginHandler(d *Deps) echo.HandlerFunc {
 		if err := c.Bind(&req); err != nil {
 			return err
 		}
-		remote := c.Request().RemoteAddr
+		remote := clientIP(c, d)
 
 		blocked, err := repository.TooManyLoginAttempts(d.DB, remote)
 		if err != nil {
@@ -116,6 +125,7 @@ func loginHandler(d *Deps) echo.HandlerFunc {
 			Groups:       ident.Groups,
 			DefaultGroup: ident.DefaultGroup,
 			Language:     user.Language,
+			Permanent:    req.StayLoggedIn,
 		}
 
 		// Anti-fixation: any session id presented by the client — valid or
@@ -134,6 +144,7 @@ func loginHandler(d *Deps) echo.HandlerFunc {
 			Username:  data.Username,
 			Typ:       data.Typ,
 			CSRFToken: data.CSRFToken,
+			SessionID: sessionID,
 		})
 	}
 }
@@ -162,7 +173,7 @@ func logoutHandler(d *Deps) echo.HandlerFunc {
 // sessionHandler implements GET /api/session.
 //
 //	@Summary		Current session
-//	@Description	Returns the logged-in user: username, access level, effective groups and language.
+//	@Description	Returns the logged-in user: username, access level, effective groups, language and the session CSRF token (so a reloaded SPA can resume without logging in again).
 //	@Tags			auth
 //	@Produce		json
 //	@Success		200	{object}	SessionInfo
@@ -174,10 +185,11 @@ func sessionHandler() echo.HandlerFunc {
 	return func(c *echo.Context) error {
 		sess := auth.FromContext(c)
 		return c.JSON(http.StatusOK, SessionInfo{
-			Username: sess.Username,
-			Typ:      sess.Typ,
-			Groups:   sess.Groups,
-			Language: sess.Language,
+			Username:  sess.Username,
+			Typ:       sess.Typ,
+			Groups:    sess.Groups,
+			Language:  sess.Language,
+			CSRFToken: sess.CSRFToken,
 		})
 	}
 }
@@ -196,8 +208,65 @@ func requestSessionID(c *echo.Context) string {
 	return ""
 }
 
-// isSecure reports whether the session cookie must carry the Secure flag
-// (TLS termination by this process or configured certificates).
+// isSecure reports whether the session cookie must carry the Secure flag:
+// TLS terminated by this process, configured certificates, or an
+// https-forwarding trusted reverse proxy.
 func isSecure(c *echo.Context, d *Deps) bool {
-	return c.Request().TLS != nil || d.Config.Server.TLSCert != ""
+	if c.Request().TLS != nil || d.Config.Server.TLSCert != "" {
+		return true
+	}
+	return d.fromTrustedProxy(c) &&
+		strings.EqualFold(c.Request().Header.Get("X-Forwarded-Proto"), "https")
+}
+
+// clientIP resolves the client address used for login lockout. Requests
+// arriving from a configured trusted proxy (server.trusted_proxies) use the
+// rightmost non-proxy entry of X-Forwarded-For; everything else — including
+// any forwarded header sent by an untrusted peer — uses the TCP peer.
+func clientIP(c *echo.Context, d *Deps) string {
+	peer := peerHost(c.Request().RemoteAddr)
+	if !d.isTrustedProxy(peer) {
+		return peer
+	}
+	fwd := strings.Split(c.Request().Header.Get("X-Forwarded-For"), ",")
+	for i := len(fwd) - 1; i >= 0; i-- {
+		hop := strings.TrimSpace(fwd[i])
+		if hop != "" && !d.isTrustedProxy(hop) {
+			return hop
+		}
+	}
+	return peer
+}
+
+// fromTrustedProxy reports whether the TCP peer is a configured proxy.
+func (d *Deps) fromTrustedProxy(c *echo.Context) bool {
+	return d.isTrustedProxy(peerHost(c.Request().RemoteAddr))
+}
+
+// isTrustedProxy reports whether host falls inside one of the configured
+// server.trusted_proxies CIDRs (parsed once in Register).
+func (d *Deps) isTrustedProxy(host string) bool {
+	if len(d.trustedProxies) == 0 {
+		return false
+	}
+	addr, err := netip.ParseAddr(host)
+	if err != nil {
+		return false
+	}
+	addr = addr.Unmap()
+	for _, p := range d.trustedProxies {
+		if p.Contains(addr) {
+			return true
+		}
+	}
+	return false
+}
+
+// peerHost strips the port from an "ip:port" RemoteAddr; a bare host is
+// returned as-is.
+func peerHost(remoteAddr string) string {
+	if host, _, err := net.SplitHostPort(remoteAddr); err == nil {
+		return host
+	}
+	return remoteAddr
 }

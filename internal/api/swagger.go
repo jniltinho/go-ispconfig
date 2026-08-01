@@ -11,6 +11,8 @@ import (
 	swaggerFiles "github.com/swaggo/files/v2"
 	"github.com/swaggo/swag"
 
+	"go-ispconfig/internal/auth"
+
 	// Register the generated OpenAPI spec (make swagger) with the swag
 	// runtime so ReadDoc can serve it.
 	_ "go-ispconfig/internal/api/docs"
@@ -32,11 +34,17 @@ const swaggerInitializer = `window.onload = function() {
 // RegisterSwagger serves the embedded Swagger UI at /swagger/ (design D11):
 // static assets from the swaggo/files embed, the generated spec at
 // /swagger/doc.json. echo-swagger targets Echo v4, so the UI is wired
-// directly on v5 here.
-func RegisterSwagger(e *echo.Echo) {
+// directly on v5 here. Unless public (config server.swagger_public, meant
+// for development), the UI and spec require an admin session — the spec
+// enumerates the whole attack surface and stays off the anonymous internet.
+func RegisterSwagger(e *echo.Echo, sessions auth.SessionGetter, public bool) {
+	var mw []echo.MiddlewareFunc
+	if !public {
+		mw = []echo.MiddlewareFunc{auth.Middleware(sessions), auth.RequireAuth(), requireAdmin}
+	}
 	e.GET("/swagger", func(c *echo.Context) error {
 		return c.Redirect(http.StatusMovedPermanently, "/swagger/")
-	})
+	}, mw...)
 	e.GET("/swagger/*", func(c *echo.Context) error {
 		name := strings.TrimPrefix(c.Request().URL.Path, "/swagger/")
 		switch name {
@@ -60,5 +68,5 @@ func RegisterSwagger(e *echo.Echo) {
 			ct = "application/octet-stream"
 		}
 		return c.Blob(http.StatusOK, ct, data)
-	})
+	}, mw...)
 }

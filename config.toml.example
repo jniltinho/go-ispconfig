@@ -26,6 +26,14 @@ https = true
 # a startup error.
 tls_cert = ""
 tls_key  = ""
+# Serve the Swagger UI (/swagger) without authentication. Default false:
+# the UI and the OpenAPI spec require an admin session.
+swagger_public = false
+# CIDRs of reverse proxies allowed to set X-Forwarded-For/X-Forwarded-Proto.
+# Requests from these addresses use the forwarded client IP for login lockout
+# and the forwarded proto for the Secure cookie flag. Empty = headers ignored.
+# Example: trusted_proxies = ["127.0.0.1/32", "10.0.0.0/8"]
+trusted_proxies = []
 
 [database]
 # MariaDB/MySQL DSN. The database must be the ISPConfig3 schema (dbispconfig);

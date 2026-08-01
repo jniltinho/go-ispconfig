@@ -56,6 +56,16 @@ type ServerConfig struct {
 	HTTPS   bool   `toml:"https" mapstructure:"https"`
 	TLSCert string `toml:"tls_cert" mapstructure:"tls_cert"`
 	TLSKey  string `toml:"tls_key" mapstructure:"tls_key"`
+	// SwaggerPublic serves /swagger without authentication (dev
+	// convenience). Default false: the Swagger UI and spec require an
+	// admin session.
+	SwaggerPublic bool `toml:"swagger_public" mapstructure:"swagger_public"`
+	// TrustedProxies lists CIDRs of reverse proxies allowed to set
+	// X-Forwarded-For/X-Forwarded-Proto. Requests arriving from these
+	// addresses use the forwarded client IP for login lockout and the
+	// forwarded proto for the Secure cookie flag. Empty (default) means
+	// headers are ignored and the TCP peer address is used.
+	TrustedProxies []string `toml:"trusted_proxies" mapstructure:"trusted_proxies"`
 }
 
 // DatabaseConfig holds the MariaDB/MySQL connection string.
@@ -88,6 +98,8 @@ func setDefaults() {
 	viper.SetDefault("server.https", true)
 	viper.SetDefault("server.tls_cert", "")
 	viper.SetDefault("server.tls_key", "")
+	viper.SetDefault("server.swagger_public", false)
+	viper.SetDefault("server.trusted_proxies", []string{})
 	viper.SetDefault("database.dsn", "root:@tcp(127.0.0.1:3306)/dbispconfig?charset=utf8mb4&parseTime=True&loc=Local")
 	viper.SetDefault("daemon.tick_seconds", 10)
 	viper.SetDefault("daemon.datalog_retention_days", 30)

@@ -106,6 +106,16 @@ func TestSessionMiddleware(t *testing.T) {
 		require.Equal(t, http.StatusOK, do(e, req).Code)
 	})
 
+	t.Run("empty CSRF token never matches an empty stored token", func(t *testing.T) {
+		// ConstantTimeCompare("", "") == 1: a malformed session with no
+		// stored token must still reject a tokenless mutating request.
+		e := newTestApp(fakeStore{"sid-2": {UserID: 3, Username: "broken", Typ: "user"}})
+		req := httptest.NewRequest(http.MethodPost, "/api/things", nil)
+		req.AddCookie(Cookie("sid-2", false))
+		req.Header.Set(CSRFHeaderName, "")
+		require.Equal(t, http.StatusForbidden, do(e, req).Code)
+	})
+
 	t.Run("bearer transport skips CSRF", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodPost, "/api/things", nil)
 		req.Header.Set("Authorization", "Bearer sid-1")

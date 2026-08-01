@@ -38,22 +38,23 @@ func TooManyLoginAttempts(db *gorm.DB, remoteAddr string) (bool, error) {
 	return row.Times > maxLoginAttempts, nil
 }
 
-// RecordFailedLogin counts a failed login for the remote address: first
-// failure inserts a row, later ones increment the newest row and refresh
-// its timestamp (exact port of the PHP insert/update pair).
+// RecordFailedLogin counts a failed login for the remote address. The
+// increment is one atomic UPDATE of the newest counter row in the window;
+// only when no row matched is a fresh row inserted. attempts_login carries
+// no unique key (PHP-verbatim schema, design D9), so INSERT ... ON
+// DUPLICATE KEY UPDATE is not available — the UPDATE-first form removes the
+// read-then-write race of the old SELECT+UPDATE pair; two concurrent first
+// failures may still insert two rows, which only ever undercounts.
 func RecordFailedLogin(db *gorm.DB, remoteAddr string) error {
 	ip := HashIP(remoteAddr)
-	row, err := recentAttempts(db, remoteAddr)
-	if err != nil {
-		return err
+	res := db.Exec("UPDATE `attempts_login` SET `times` = `times` + 1, `login_time` = NOW() WHERE `ip` = ? AND `login_time` > (NOW() - INTERVAL 1 MINUTE) ORDER BY `login_time` DESC LIMIT 1", ip)
+	if res.Error != nil {
+		return fmt.Errorf("recording failed login: %w", res.Error)
 	}
-	if row.Times == 0 {
-		err = db.Exec("INSERT INTO `attempts_login` (`ip`, `times`, `login_time`) VALUES (?, 1, NOW())", ip).Error
-	} else {
-		err = db.Exec("UPDATE `attempts_login` SET `times` = `times` + 1, `login_time` = NOW() WHERE `ip` = ? ORDER BY `login_time` DESC LIMIT 1", ip).Error
-	}
-	if err != nil {
-		return fmt.Errorf("recording failed login: %w", err)
+	if res.RowsAffected == 0 {
+		if err := db.Exec("INSERT INTO `attempts_login` (`ip`, `times`, `login_time`) VALUES (?, 1, NOW())", ip).Error; err != nil {
+			return fmt.Errorf("recording failed login: %w", err)
+		}
 	}
 	return nil
 }

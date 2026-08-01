@@ -18,6 +18,12 @@ import (
 // sys_user.passwort: SHA-512 crypt and the older MD5-crypt.
 var legacyPrefixes = []string{"$6$", "$1$"}
 
+// dummyHash is a valid bcrypt hash of a throwaway value. When the stored
+// hash is empty (unknown username), a comparison is burned against it so a
+// login attempt costs the same whether or not the user exists — otherwise
+// response timing would reveal valid usernames.
+var dummyHash = []byte("$2a$10$a4yt9izRIwPQ6OFD7gKkCuk2/EXn9oCKRQzfKNejH4d20.3EXNSaG")
+
 // IsLegacyHash reports whether hash uses an ISPConfig3 crypt scheme
 // ($6$ SHA-512 crypt or $1$ MD5-crypt) rather than bcrypt.
 func IsLegacyHash(hash string) bool {
@@ -36,7 +42,12 @@ func IsLegacyHash(hash string) bool {
 // part of the verification failed.
 func VerifyPassword(password, hash string) bool {
 	switch {
-	case hash == "" || password == "":
+	case password == "":
+		return false
+	case hash == "":
+		// Timing oracle defense: burn a bcrypt comparison so a
+		// nonexistent user costs the same as a wrong password.
+		_ = bcrypt.CompareHashAndPassword(dummyHash, []byte(password))
 		return false
 	case IsLegacyHash(hash):
 		c := crypt.NewFromHash(hash)

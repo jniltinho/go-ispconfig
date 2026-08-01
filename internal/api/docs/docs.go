@@ -17,7 +17,7 @@ const docTemplate = `{
     "paths": {
         "/login": {
             "post": {
-                "description": "Verifies sys_user credentials (bcrypt or legacy ISPConfig3 crypt hashes) with brute-force lockout, creates a sys_session and returns the CSRF token. The session id is set as an HTTP-only cookie; non-browser clients may present it as a bearer token instead.",
+                "description": "Verifies sys_user credentials (bcrypt or legacy ISPConfig3 crypt hashes) with brute-force lockout, creates a sys_session and returns the CSRF token and session id. The session id is also set as an HTTP-only cookie; non-browser clients may present it as a bearer token instead. With stay_logged_in the session lives 30 days (sliding) instead of the 1-hour idle TTL.",
                 "consumes": [
                     "application/json"
                 ],
@@ -416,7 +416,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Returns the logged-in user: username, access level, effective groups and language.",
+                "description": "Returns the logged-in user: username, access level, effective groups, language and the session CSRF token (so a reloaded SPA can resume without logging in again).",
                 "produces": [
                     "application/json"
                 ],
@@ -433,6 +433,49 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/system/scheduler": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Lists the daemon scheduler jobs with their last-run time and status, read from the sys_config \"scheduler\" mirror the daemon persists after every job execution. Admin only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "Scheduler job status",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/api.SchedulerJob"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Not an admin",
                         "schema": {
                             "$ref": "#/definitions/api.ErrorResponse"
                         }
@@ -591,7 +634,7 @@ const docTemplate = `{
                     "example": "secret"
                 },
                 "stay_logged_in": {
-                    "description": "StayLoggedIn is accepted for SPA compatibility; sessions currently\nalways use the server-side idle TTL.",
+                    "description": "StayLoggedIn requests a long-lived session (30 days sliding\nexpiration, sys_session.permanent) instead of the 1-hour idle TTL.",
                     "type": "boolean"
                 },
                 "username": {
@@ -606,6 +649,10 @@ const docTemplate = `{
             "properties": {
                 "csrf_token": {
                     "description": "CSRFToken must be sent as X-CSRF-Token on every mutating\ncookie-authenticated request.",
+                    "type": "string"
+                },
+                "session_id": {
+                    "description": "SessionID is the session id, also set as the HTTP-only cookie.\nNon-browser clients present it as \"Authorization: Bearer \u003cid\u003e\".",
                     "type": "string"
                 },
                 "typ": {
@@ -633,9 +680,33 @@ const docTemplate = `{
                 }
             }
         },
+        "api.SchedulerJob": {
+            "type": "object",
+            "properties": {
+                "last_run": {
+                    "description": "LastRun is the RFC3339 time of the last execution, empty if never run.",
+                    "type": "string",
+                    "example": "2026-08-01T03:00:00Z"
+                },
+                "name": {
+                    "description": "Name is the job identifier (\"datalog_prune\").",
+                    "type": "string",
+                    "example": "datalog_prune"
+                },
+                "status": {
+                    "description": "Status is \"ok\" or \"error: \u003cmessage\u003e\" from the last execution.",
+                    "type": "string",
+                    "example": "ok"
+                }
+            }
+        },
         "api.SessionInfo": {
             "type": "object",
             "properties": {
+                "csrf_token": {
+                    "description": "CSRFToken is the per-session token for the X-CSRF-Token header, so a\nreloaded SPA can recover it without logging in again.",
+                    "type": "string"
+                },
                 "groups": {
                     "description": "Groups is the effective sys_group id list of the user.",
                     "type": "array",
@@ -709,7 +780,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "allow_empty": {
-                    "description": "AllowEmpty skips the check for empty values (tform allowempty 'y';\nhonored by UNIQUE and ISIP).",
+                    "description": "AllowEmpty skips the check for empty values (tform allowempty 'y';\nhonored by UNIQUE, ISEMAIL, ISINT, ISPOSITIVE and ISIP). Without it,\nan empty value fails those checks — a numeric rule must never be\nsilently satisfied by an absent value.",
                     "type": "boolean"
                 },
                 "errmsg": {

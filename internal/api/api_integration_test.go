@@ -79,7 +79,7 @@ func TestAPISmoke(t *testing.T) {
 	e.Use(echoMiddleware.Recover())
 	deps := &api.Deps{DB: db, Sessions: auth.NewStore(db, 0), Config: &config.Config{}}
 	require.NoError(t, api.Register(e, deps))
-	api.RegisterSwagger(e)
+	api.RegisterSwagger(e, deps.Sessions, deps.Config.Server.SwaggerPublic)
 	srv := httptest.NewServer(e)
 	defer srv.Close()
 
@@ -115,6 +115,7 @@ func TestAPISmoke(t *testing.T) {
 			}
 		}
 		require.NotEmpty(t, cookie, "session cookie missing")
+		require.Equal(t, cookie, login.SessionID, "session_id must match the cookie for bearer clients")
 	})
 
 	t.Run("session info reports the admin", func(t *testing.T) {
@@ -124,6 +125,18 @@ func TestAPISmoke(t *testing.T) {
 		require.NoError(t, json.Unmarshal(data, &info))
 		require.Equal(t, "admin", info.Username)
 		require.Equal(t, "admin", info.Typ)
+		require.Equal(t, csrf, info.CSRFToken, "session endpoint must return the CSRF token for SPA reloads")
+	})
+
+	t.Run("stay_logged_in creates a permanent session", func(t *testing.T) {
+		status, data := call(t, srv, http.MethodPost, "/api/login", "", "",
+			map[string]any{"username": "admin", "password": "smoke-test-pw", "stay_logged_in": true})
+		require.Equal(t, http.StatusOK, status)
+		var login api.LoginResponse
+		require.NoError(t, json.Unmarshal(data, &login))
+		var row model.SysSession
+		require.NoError(t, db.Where("session_id = ?", login.SessionID).First(&row).Error)
+		require.Equal(t, "y", row.Permanent)
 	})
 
 	t.Run("entity routes require a session", func(t *testing.T) {
@@ -226,13 +239,29 @@ func TestAPISmoke(t *testing.T) {
 		require.NotEmpty(t, meta.Tabs[0].Fields)
 	})
 
-	t.Run("swagger UI responds", func(t *testing.T) {
-		status, data := call(t, srv, http.MethodGet, "/swagger/", "", "", nil)
+	t.Run("swagger requires an admin session by default", func(t *testing.T) {
+		status, _ := call(t, srv, http.MethodGet, "/swagger/", "", "", nil)
+		require.Equal(t, http.StatusUnauthorized, status)
+
+		status, data := call(t, srv, http.MethodGet, "/swagger/", cookie, "", nil)
 		require.Equal(t, http.StatusOK, status)
 		require.Contains(t, string(data), "swagger-ui")
-		status, data = call(t, srv, http.MethodGet, "/swagger/doc.json", "", "", nil)
+		status, data = call(t, srv, http.MethodGet, "/swagger/doc.json", cookie, "", nil)
 		require.Equal(t, http.StatusOK, status)
 		require.Contains(t, string(data), `"/server_ip"`)
+	})
+
+	t.Run("scheduler status reads the sys_config mirror", func(t *testing.T) {
+		require.NoError(t, db.Exec(
+			"REPLACE INTO sys_config (`group`, `name`, `value`) VALUES ('scheduler', 'datalog_prune_last_run', '2026-08-01T03:00:00Z'), ('scheduler', 'datalog_prune_status', 'ok')").Error)
+		status, data := call(t, srv, http.MethodGet, "/api/system/scheduler", cookie, "", nil)
+		require.Equal(t, http.StatusOK, status)
+		var jobs []api.SchedulerJob
+		require.NoError(t, json.Unmarshal(data, &jobs))
+		require.Len(t, jobs, 1)
+		require.Equal(t, "datalog_prune", jobs[0].Name)
+		require.Equal(t, "2026-08-01T03:00:00Z", jobs[0].LastRun)
+		require.Equal(t, "ok", jobs[0].Status)
 	})
 
 	t.Run("delete removes the record and journals datalog", func(t *testing.T) {

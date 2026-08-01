@@ -5,7 +5,11 @@
 package api
 
 import (
+	"fmt"
+	"net/netip"
+
 	"github.com/labstack/echo/v5"
+	echoMiddleware "github.com/labstack/echo/v5/middleware"
 	"gorm.io/gorm"
 
 	"go-ispconfig/internal/auth"
@@ -37,19 +41,31 @@ type Deps struct {
 	Sessions *auth.Store
 	// Config is the loaded process configuration.
 	Config *config.Config
+
+	// trustedProxies is Config.Server.TrustedProxies parsed by Register.
+	trustedProxies []netip.Prefix
 }
 
 // Register mounts the /api group on e: session middleware, structured
-// request logging, the central error handler, the auth endpoints and the
-// registered CRUD entities. It replaces Echo's default HTTP error handler
-// with the i18n-key JSON one.
+// request logging, a 4M request body limit, the central error handler, the
+// auth endpoints and the registered CRUD entities. It replaces Echo's
+// default HTTP error handler with the i18n-key JSON one.
 func Register(e *echo.Echo, d *Deps) error {
 	e.HTTPErrorHandler = ErrorHandler()
 
-	g := e.Group("/api", requestLogger(), auth.Middleware(d.Sessions))
+	for _, cidr := range d.Config.Server.TrustedProxies {
+		p, err := netip.ParsePrefix(cidr)
+		if err != nil {
+			return fmt.Errorf("api: invalid server.trusted_proxies entry %q: %w", cidr, err)
+		}
+		d.trustedProxies = append(d.trustedProxies, p)
+	}
+
+	g := e.Group("/api", requestLogger(), echoMiddleware.BodyLimit(4<<20), auth.Middleware(d.Sessions))
 	registerAuthRoutes(g, d)
 
 	protected := g.Group("", auth.RequireAuth())
 	registerMetaRoutes(protected)
+	registerSystemRoutes(protected, d)
 	return registerEntities(protected, d)
 }
