@@ -125,6 +125,18 @@ type SysLog struct {
 // TableName maps SysLog to the ISPConfig table sys_log.
 func (SysLog) TableName() string { return "sys_log" }
 
+// AttemptsLogin is a failed-login counter row used for brute-force lockout
+// (table attempts_login, no primary key). IP holds the md5 hex of the remote
+// address, exactly as PHP ISPConfig stores it.
+type AttemptsLogin struct {
+	IP        string    `gorm:"column:ip"`
+	Times     int32     `gorm:"column:times"`
+	LoginTime time.Time `gorm:"column:login_time"`
+}
+
+// TableName maps AttemptsLogin to the ISPConfig table attempts_login.
+func (AttemptsLogin) TableName() string { return "attempts_login" }
+
 // SysSession is a DB-backed panel session (table sys_session).
 type SysSession struct {
 	SessionID   string     `gorm:"column:session_id;primaryKey"`
