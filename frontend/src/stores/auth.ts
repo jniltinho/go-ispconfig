@@ -1,8 +1,9 @@
-// Pinia auth store: login/logout against /api/login and /api/logout.
-// The endpoints land with the auth group (group 6); until then a 404 in dev
-// mode logs in with a mock session so the layout can be developed.
+// Pinia auth store: login/logout against /api/login and /api/logout, and
+// bootstrap() against GET /api/session so the session (and CSRF token)
+// survives a page reload. /api/session is the source of truth;
+// sessionStorage only caches the username for display before bootstrap.
 import { defineStore } from 'pinia'
-import { api, ApiError, setCsrfToken } from '../api'
+import { api, setCsrfToken, type SessionInfo } from '../api'
 
 interface LoginResponse {
   username?: string
@@ -12,12 +13,29 @@ interface LoginResponse {
 export const useAuthStore = defineStore('auth', {
   state: () => ({
     username: sessionStorage.getItem('auth.username') ?? '',
+    typ: '' as string,
     error: '' as string,
   }),
   getters: {
     isAuthenticated: (state) => state.username !== '',
   },
   actions: {
+    /**
+     * bootstrap rehydrates username/typ and the CSRF token from
+     * GET /api/session. On 401 (or any failure) the local session is cleared.
+     * Runs at app start, before the router's first guard.
+     */
+    async bootstrap(): Promise<void> {
+      try {
+        const session = await api.get<SessionInfo>('/api/session')
+        this.username = session.username
+        this.typ = session.typ
+        setCsrfToken(session.csrf_token)
+        sessionStorage.setItem('auth.username', this.username)
+      } catch {
+        this.clear()
+      }
+    },
     async login(username: string, password: string, stayLoggedIn: boolean): Promise<boolean> {
       this.error = ''
       try {
@@ -28,15 +46,9 @@ export const useAuthStore = defineStore('auth', {
         })
         if (res?.csrf_token) setCsrfToken(res.csrf_token)
         this.username = res?.username ?? username
-      } catch (err) {
-        if (err instanceof ApiError && err.status === 404 && import.meta.env.DEV) {
-          // Backend auth endpoints not implemented yet (group 6).
-          console.warn('[auth] /api/login returned 404 — using mock session (dev only)')
-          this.username = username
-        } else {
-          this.error = 'login.failed'
-          return false
-        }
+      } catch {
+        this.error = 'login.failed'
+        return false
       }
       sessionStorage.setItem('auth.username', this.username)
       return true
@@ -45,10 +57,15 @@ export const useAuthStore = defineStore('auth', {
       try {
         await api.post('/api/logout')
       } catch {
-        // Endpoint may not exist yet; clear the local session regardless.
+        // Clear the local session regardless.
       }
+      this.clear()
+    },
+    /** clear drops the local session: store state, CSRF token, display cache. */
+    clear(): void {
       setCsrfToken('')
       this.username = ''
+      this.typ = ''
       sessionStorage.removeItem('auth.username')
     },
   },
