@@ -252,6 +252,39 @@ func TestLogFolderOf(t *testing.T) {
 		logFolderOf(row{"type": "vhostalias", "domain": "other.org", "domain_id": float64(7)}, "example.com"))
 }
 
+// TestEnsureSiteSymlinks: the website_symlinks links resolve to the docroot
+// (they are what the rendered vhost root points through) and follow a
+// docroot move.
+func TestEnsureSiteSymlinks(t *testing.T) {
+	r := newFakeRunner()
+	p, base := testPlugin(t, r)
+	cfg := webCfg(base)
+	cfg.WebsiteSymlinks = base + "/[website_domain]/:" + base + "/clients/client[client_id]/[website_domain]/"
+
+	d := vhostRow(base)
+	s := site{cfg: cfg, action: "insert", old: row{}, new: d, clientID: 1}
+	require.NoError(t, p.ensureSite(context.Background(), s))
+
+	for _, link := range []string{
+		filepath.Join(base, "example.com"),
+		filepath.Join(base, "clients/client1/example.com"),
+	} {
+		target, err := os.Readlink(link)
+		require.NoErrorf(t, err, "symlink %s", link)
+		assert.Equal(t, d.str("document_root")+"/", target)
+	}
+
+	// Docroot move repoints the links.
+	moved := vhostRow(base)
+	moved["document_root"] = filepath.Join(base, "clients/client1/web2")
+	require.NoError(t, p.ensureSite(context.Background(), site{
+		cfg: cfg, action: "update", old: d, new: moved, clientID: 1, oldClientID: 1,
+	}))
+	target, err := os.Readlink(filepath.Join(base, "example.com"))
+	require.NoError(t, err)
+	assert.Equal(t, moved.str("document_root")+"/", target)
+}
+
 // sanity: fakeRunner honors argv slices only (no shell).
 func TestFakeRunnerRecordsArgv(t *testing.T) {
 	r := newFakeRunner()

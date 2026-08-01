@@ -24,6 +24,8 @@ type site struct {
 	old, new        row
 	parentDomain    string // parent web_domain.domain for sub/alias types
 	oldParentDomain string
+	clientID        int64 // client owning the site (sys_group lookup)
+	oldClientID     int64 // previous owner when the site changed clients
 }
 
 // systemNameRe is the allowed system user/group name pattern (PHP
@@ -182,6 +184,77 @@ func (p *Plugin) ensureSite(ctx context.Context, s site) error {
 				return fmt.Errorf("nginx: removing old log dir %s: %w", oldLogDir, err)
 			}
 		}
+	}
+
+	// Website symlinks (website_symlinks config): the rendered vhost's root
+	// is website_basedir/<domain>/<web_folder>, which resolves through
+	// these links, so they are load-bearing, not cosmetic.
+	if err := p.ensureSymlinks(s, docroot); err != nil {
+		return err
+	}
+	return nil
+}
+
+// symlinkTargets expands the website_symlinks templates for one domain and
+// client id, trailing slash removed.
+func symlinkTargets(cfg *getconf.WebConfig, domain string, clientID int64) []string {
+	var out []string
+	for _, tmpl := range strings.Split(cfg.WebsiteSymlinks, ":") {
+		tmpl = strings.TrimSpace(tmpl)
+		if tmpl == "" {
+			continue
+		}
+		link := strings.ReplaceAll(tmpl, "[client_id]", fmt.Sprint(clientID))
+		link = strings.ReplaceAll(link, "[website_domain]", domain)
+		out = append(out, strings.TrimSuffix(link, "/"))
+	}
+	return out
+}
+
+// ensureSymlinks creates the configured website symlinks pointing at the
+// docroot and removes stale ones after a rename, docroot move or client
+// change (port of the website_symlinks blocks of update()).
+func (p *Plugin) ensureSymlinks(s site, docroot string) error {
+	d := s.new
+	// Remove links of the previous domain/client when anything moved.
+	if s.action == "update" && s.old.str("domain") != "" &&
+		(s.old.str("domain") != d.str("domain") || s.old.str("document_root") != docroot || s.oldClientID != s.clientID) {
+		oldClient := s.oldClientID
+		if oldClient == 0 {
+			oldClient = s.clientID
+		}
+		for _, link := range symlinkTargets(s.cfg, s.old.str("domain"), oldClient) {
+			if info, err := os.Lstat(link); err == nil && info.Mode()&os.ModeSymlink != 0 {
+				if err := os.Remove(link); err != nil {
+					return fmt.Errorf("nginx: removing old symlink %s: %w", link, err)
+				}
+			}
+		}
+	}
+	for _, link := range symlinkTargets(s.cfg, d.str("domain"), s.clientID) {
+		if err := safeSitePath(link, s.cfg.WebsiteBasedir); err != nil {
+			p.log.Warn("nginx: skipping symlink outside website_basedir", "link", link)
+			continue
+		}
+		if info, err := os.Lstat(link); err == nil {
+			if info.Mode()&os.ModeSymlink == 0 {
+				continue // a real file/dir is never replaced
+			}
+			if target, err := os.Readlink(link); err == nil && target == docroot+"/" {
+				continue // already in place
+			}
+			// Symlink points at an old docroot: replace it.
+			if err := os.Remove(link); err != nil {
+				return fmt.Errorf("nginx: replacing symlink %s: %w", link, err)
+			}
+		}
+		if err := os.MkdirAll(filepath.Dir(link), 0o755); err != nil {
+			return fmt.Errorf("nginx: creating %s: %w", filepath.Dir(link), err)
+		}
+		if err := os.Symlink(docroot+"/", link); err != nil {
+			return fmt.Errorf("nginx: creating symlink %s: %w", link, err)
+		}
+		p.log.Info("nginx: created symlink", "link", link, "target", docroot)
 	}
 	return nil
 }

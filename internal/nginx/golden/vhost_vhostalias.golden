@@ -1,0 +1,77 @@
+server {
+        listen 192.168.10.5:80;
+
+        server_name shop.example.org www.shop.example.org;
+
+        root   /var/www/shop.example.org/shop;
+				disable_symlinks if_not_owner from=$document_root;
+		
+
+        index index.html index.htm index.php index.cgi index.pl index.xhtml standard_index.html;
+
+
+
+        error_log /var/log/ispconfig/httpd/shop.example.org/error.log;
+        access_log /var/log/ispconfig/httpd/shop.example.org/access.log combined;
+
+        ## Disable .htaccess and other hidden files
+		location ~ /\. {
+			deny all;
+		}
+
+        ## Allow access for .well-known/acme-challenge
+		location ^~ /.well-known/acme-challenge/ {
+			access_log off;
+			log_not_found off;
+			auth_basic off;
+			root /usr/local/ispconfig/interface/acme/;
+			autoindex off;
+			index index.html;
+			try_files $uri $uri/ =404;
+        }
+
+        location = /favicon.ico {
+            log_not_found off;
+            access_log off;
+            expires max;
+            add_header Cache-Control "public, must-revalidate, proxy-revalidate";
+        }
+
+        location = /robots.txt {
+            allow all;
+            log_not_found off;
+            access_log off;
+        }
+
+        location /stats/ {
+            
+            index index.html index.php;
+            auth_basic "Members Only";
+            auth_basic_user_file /var/www/clients/client1/web1/shop/stats/.htpasswd_stats;
+            add_header Content-Security-Policy "default-src * 'self' 'unsafe-inline' 'unsafe-eval' data:;";
+        }
+
+        location ^~ /awstats-icon {
+            alias /usr/share/awstats/icon;
+        }
+
+        location ~ \.php$ {
+            try_files /9f86d081884c7d659a2feaa0c55ad015.htm @php;
+        }
+
+        location @php {
+            try_files $uri =404;
+            include /etc/nginx/fastcgi_params;
+            fastcgi_pass unix:/var/lib/php8.3-fpm/web9.sock;
+            fastcgi_index index.php;
+            fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+            #fastcgi_param PATH_INFO $fastcgi_script_name;
+            fastcgi_intercept_errors on;
+        }
+
+
+
+
+
+}
+
