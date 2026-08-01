@@ -1,0 +1,30 @@
+# golangci-lint v2 configuration.
+# Design decision D11: every exported Go identifier gets a godoc comment,
+# enforced by the revive exported/package-comments rules.
+version: "2"
+
+linters:
+  # standard = errcheck, govet, ineffassign, staticcheck, unused
+  default: standard
+  enable:
+    - revive
+    - misspell
+  settings:
+    revive:
+      rules:
+        - name: exported
+          arguments: ["checkPrivateReceivers"]
+        - name: package-comments
+        - name: blank-imports
+        - name: context-as-argument
+        - name: error-return
+        - name: error-strings
+        - name: increment-decrement
+        - name: indent-error-flow
+        - name: receiver-naming
+        - name: unexported-return
+        - name: var-declaration
+
+formatters:
+  enable:
+    - gofmt
