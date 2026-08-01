@@ -38,8 +38,8 @@ Rule: every finished task = validated (tests pass) + conventional commit. Cross-
 
 ## 5. Master template engine
 
-- [ ] 5.1 Lexer/renderer for `<tmpl_var>`, `<tmpl_if op value>`, `<tmpl_else>`, `<tmpl_unless>`, `<tmpl_loop>` (subset used by nginx/bind templates)
-- [ ] 5.2 Golden-file tests: nginx_vhost.conf.master, php_fpm_pool.conf.master, bind_pri.domain.master, bind_named.conf.local.master + .slave rendered against fixtures
+- [x] 5.1 Lexer/renderer for `<tmpl_var>`, `<tmpl_if op value>`, `<tmpl_else>`, `<tmpl_unless>`, `<tmpl_loop>` (subset used by nginx/bind templates)
+- [x] 5.2 Golden-file tests: nginx_vhost.conf.master, php_fpm_pool.conf.master, bind_pri.domain.master, bind_named.conf.local.master + .slave rendered against fixtures
 
 ## 6. REST API core
 
