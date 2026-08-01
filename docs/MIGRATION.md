@@ -20,8 +20,8 @@ Use when go-ispconfig will take over the existing server and its `dbispconfig` d
    compatibility. Nothing is seeded; your data is untouched.
 5. **Start services.** `systemctl enable --now go-ispconfig-serve go-ispconfig-daemon`.
 6. **Log in.** Users keep their existing credentials — legacy crypt hashes
-   (SHA-512 `$6$`, MD5-crypt `$1$`) are verified and transparently re-hashed to
-   bcrypt on first login.
+   (SHA-512 `$6$`, MD5-crypt `$1$`) are verified in place. Re-hashing to bcrypt
+   is opt-in (`auth.rehash_legacy`, see notes below).
 
 Notes:
 - **Minimum version: ISPConfig 3.3.x.** Older installs (3.1/3.2) must first be

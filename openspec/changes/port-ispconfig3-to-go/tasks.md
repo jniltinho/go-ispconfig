@@ -74,7 +74,7 @@ Rule: every finished task = validated (tests pass) + conventional commit. Cross-
 
 ## 8. Docs and release
 
-- [ ] 8.1 README.md (English): overview, install, quick start; docs/ARCHITECTURE.md with diagrams (datalog flow, module/plugin registries)
-- [ ] 8.2 AGENTS.md: environment bootstrap, build/test/validate commands, cross-agent validation workflow
-- [ ] 8.3 GitHub Actions: CI (lint, test, swagger staleness) + release workflow on tag `v*` (go-cubemail pattern)
-- [ ] 8.4 docs/MIGRATION.md: shared-DB cutover procedure from PHP ISPConfig3
+- [x] 8.1 README.md (English): overview, install, quick start; docs/ARCHITECTURE.md with diagrams (datalog flow, module/plugin registries)
+- [x] 8.2 AGENTS.md: environment bootstrap, build/test/validate commands, cross-agent validation workflow
+- [x] 8.3 GitHub Actions: CI (lint, test, swagger staleness) + release workflow on tag `v*` (go-cubemail pattern)
+- [x] 8.4 docs/MIGRATION.md: shared-DB cutover procedure from PHP ISPConfig3
