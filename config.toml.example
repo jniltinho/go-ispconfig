@@ -48,6 +48,12 @@ addr = "localhost:6379"
 db = 0
 password = ""
 
+[templates]
+# Directory checked before the embedded .master templates: a file here with
+# the same name overrides the embedded one (ISPConfig3 conf-custom parity).
+# Manage it with: go-ispconfig templates list / export <name> | --all
+custom_dir = "/etc/go-ispconfig/templates-custom"
+
 [auth]
 # Re-hash legacy ISPConfig crypt password hashes ($6$/$1$) to bcrypt on login.
 # Keep false until a migration cutover from PHP ISPConfig is final: PHP cannot

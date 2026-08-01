@@ -16,11 +16,20 @@ import (
 
 // Config is the root configuration object passed throughout the application.
 type Config struct {
-	Server   ServerConfig   `toml:"server" mapstructure:"server"`
-	Database DatabaseConfig `toml:"database" mapstructure:"database"`
-	Daemon   DaemonConfig   `toml:"daemon" mapstructure:"daemon"`
-	Auth     AuthConfig     `toml:"auth" mapstructure:"auth"`
-	Queue    QueueConfig    `toml:"queue" mapstructure:"queue"`
+	Server    ServerConfig    `toml:"server" mapstructure:"server"`
+	Database  DatabaseConfig  `toml:"database" mapstructure:"database"`
+	Daemon    DaemonConfig    `toml:"daemon" mapstructure:"daemon"`
+	Auth      AuthConfig      `toml:"auth" mapstructure:"auth"`
+	Queue     QueueConfig     `toml:"queue" mapstructure:"queue"`
+	Templates TemplatesConfig `toml:"templates" mapstructure:"templates"`
+}
+
+// TemplatesConfig controls the ".master" template override directory
+// (design D6b, conf-custom parity): a file in CustomDir with the same name
+// as an embedded template overrides it.
+type TemplatesConfig struct {
+	// CustomDir is the directory checked before the embedded template set.
+	CustomDir string `toml:"custom_dir" mapstructure:"custom_dir"`
 }
 
 // QueueConfig holds the Redis/Valkey connection for the asynq task queue
@@ -86,6 +95,7 @@ func setDefaults() {
 	viper.SetDefault("queue.addr", "localhost:6379")
 	viper.SetDefault("queue.db", 0)
 	viper.SetDefault("queue.password", "")
+	viper.SetDefault("templates.custom_dir", "/etc/go-ispconfig/templates-custom")
 }
 
 // Init configures the global Viper instance: defaults, GOISP_ environment
