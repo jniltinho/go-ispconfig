@@ -33,16 +33,26 @@ Examples:
 		}
 
 		targetFile := filepath.Join(cwd, initOutput)
-		if _, err := os.Stat(targetFile); err == nil {
-			return fmt.Errorf("file already exists: %s\nUse -o to specify a different filename", targetFile)
-		}
 
 		defaultConfig, err := fs.ReadFile(globalFS, "config.toml.example")
 		if err != nil {
 			return fmt.Errorf("failed to load embedded default configuration: %w", err)
 		}
 
-		if err := os.WriteFile(targetFile, defaultConfig, 0644); err != nil {
+		// O_EXCL: fail atomically if the file already exists (no Stat/Write race).
+		// 0600: the config holds database credentials.
+		f, err := os.OpenFile(targetFile, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+		if err != nil {
+			if os.IsExist(err) {
+				return fmt.Errorf("file already exists: %s\nUse -o to specify a different filename", targetFile)
+			}
+			return fmt.Errorf("failed to create configuration file: %w", err)
+		}
+		if _, err := f.Write(defaultConfig); err != nil {
+			_ = f.Close()
+			return fmt.Errorf("failed to write configuration file: %w", err)
+		}
+		if err := f.Close(); err != nil {
 			return fmt.Errorf("failed to write configuration file: %w", err)
 		}
 

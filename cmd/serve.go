@@ -21,14 +21,14 @@ import (
 	"github.com/labstack/echo/v5"
 	echoMiddleware "github.com/labstack/echo/v5/middleware"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 
 	"go-ispconfig/internal/config"
 )
 
 var serveCmd = &cobra.Command{
-	Use:   "serve",
-	Short: "Start the panel web server (API + embedded SPA)",
+	Use:          "serve",
+	Short:        "Start the panel web server (API + embedded SPA)",
+	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 			Level: slog.LevelInfo,
@@ -37,6 +37,13 @@ var serveCmd = &cobra.Command{
 		cfg, err := config.Load()
 		if err != nil {
 			return err
+		}
+		if port, _ := cmd.Flags().GetInt("port"); port != 0 {
+			cfg.Server.Port = port
+		}
+		if (cfg.Server.TLSCert == "") != (cfg.Server.TLSKey == "") {
+			return fmt.Errorf("config: server.tls_cert and server.tls_key must both be set to enable TLS (got cert=%q key=%q)",
+				cfg.Server.TLSCert, cfg.Server.TLSKey)
 		}
 
 		e := echo.New()
@@ -62,6 +69,7 @@ var serveCmd = &cobra.Command{
 			Addr:              fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port),
 			Handler:           e,
 			ReadTimeout:       30 * time.Second,
+			WriteTimeout:      60 * time.Second,
 			IdleTimeout:       120 * time.Second,
 			ReadHeaderTimeout: 10 * time.Second,
 		}
@@ -88,46 +96,44 @@ var serveCmd = &cobra.Command{
 	},
 }
 
-// registerSPA serves the embedded Vite build: static assets by extension with
-// correct MIME types, and index.html for every other path (history-mode router).
+// registerSPA serves the embedded Vite build: files that exist in the embed
+// are served with correct MIME types, everything else falls back to
+// index.html (history-mode router — including paths with dots such as FQDNs).
+// Unmatched /api/* paths get a JSON 404, never index.html.
 func registerSPA(e *echo.Echo, distFS fs.FS) {
 	e.GET("/*", func(c *echo.Context) error {
 		urlPath := c.Request().URL.Path
+		if urlPath == "/api" || strings.HasPrefix(urlPath, "/api/") {
+			return echo.ErrNotFound // Echo default handler renders JSON 404
+		}
 
-		ext := strings.ToLower(filepath.Ext(urlPath))
-		if ext != "" {
-			data, err := fs.ReadFile(distFS, strings.TrimPrefix(urlPath, "/"))
-			if err != nil {
-				return echo.ErrNotFound
+		if name := strings.TrimPrefix(urlPath, "/"); name != "" {
+			if data, err := fs.ReadFile(distFS, name); err == nil {
+				ext := strings.ToLower(filepath.Ext(name))
+				ct := mime.TypeByExtension(ext)
+				if ct == "" {
+					ct = "application/octet-stream"
+				}
+				if ext == ".js" || ext == ".mjs" {
+					ct = "application/javascript; charset=utf-8"
+				}
+				if strings.HasPrefix(urlPath, "/assets/") {
+					c.Response().Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+				}
+				return c.Blob(http.StatusOK, ct, data)
 			}
-			ct := mime.TypeByExtension(ext)
-			if ct == "" {
-				ct = "application/octet-stream"
-			}
-			if ext == ".js" || ext == ".mjs" {
-				ct = "application/javascript; charset=utf-8"
-			}
-			if strings.HasPrefix(urlPath, "/assets/") {
-				c.Response().Header().Set("Cache-Control", "public, max-age=31536000, immutable")
-			}
-			c.Response().Header().Set("Content-Type", ct)
-			_, _ = c.Response().Write(data)
-			return nil
 		}
 
 		indexHTML, err := fs.ReadFile(distFS, "index.html")
 		if err != nil {
 			return echo.ErrNotFound
 		}
-		c.Response().Header().Set("Content-Type", "text/html; charset=utf-8")
 		c.Response().Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
-		_, _ = c.Response().Write(indexHTML)
-		return nil
+		return c.HTMLBlob(http.StatusOK, indexHTML)
 	})
 }
 
 func init() {
 	rootCmd.AddCommand(serveCmd)
-	serveCmd.Flags().String("port", "", "HTTP port (overrides config)")
-	_ = viper.BindPFlag("server.port", serveCmd.Flags().Lookup("port"))
+	serveCmd.Flags().Int("port", 0, "HTTP port (overrides config; 0 = use config value)")
 }

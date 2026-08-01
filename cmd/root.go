@@ -36,6 +36,17 @@ Available commands:
   daemon    Start the config-apply daemon (sys_datalog consumer)
   migrate   Create or validate the database schema
   version   Show version information`,
+	SilenceErrors: true,
+	// Config is loaded here instead of cobra.OnInitialize so that commands
+	// that must not depend on an existing/valid config.toml (init, version,
+	// help, completion) still work with a broken config in the cwd.
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		switch cmd.Name() {
+		case "init", "version", "help", "completion", cobra.ShellCompRequestCmd, cobra.ShellCompNoDescRequestCmd:
+			return nil
+		}
+		return config.Init(cfgFile)
+	},
 }
 
 var globalFS embed.FS
@@ -51,16 +62,5 @@ func Execute(fs embed.FS) {
 }
 
 func init() {
-	cobra.OnInitialize(initConfig)
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "path to config.toml (default: ./config.toml)")
-}
-
-// initConfig loads configuration from disk and environment variables via Viper.
-// Search order: --config flag → ./config.toml → /etc/go-ispconfig/config.toml.
-// Environment variables prefixed with GOISP_ override any file values.
-func initConfig() {
-	if err := config.Init(cfgFile); err != nil {
-		fmt.Fprintf(os.Stderr, "error reading config: %v\n", err)
-		os.Exit(1)
-	}
 }

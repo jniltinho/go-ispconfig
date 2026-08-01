@@ -4,12 +4,14 @@ UPX_ARCHIVE      := upx-$(UPX_VERSION)-amd64_linux.tar.xz
 UPX_DIR          := upx-$(UPX_VERSION)-amd64_linux
 UPX_BIN          := /usr/local/bin/upx
 UPX_URL          := https://github.com/upx/upx/releases/download/v$(UPX_VERSION)/$(UPX_ARCHIVE)
+## SHA256 of $(UPX_ARCHIVE) — update together with UPX_VERSION
+UPX_SHA256       := 1ff660454227861e00772f743f66b900072116b9dc24f6ee28b97cce88a7828a
 
 ## Variables for Go application
 APP        := go-ispconfig
 BIN        := bin/$(APP)
 PREFIX     := go-ispconfig/cmd
-VERSION    := $(shell git describe --tags --abbrev=0 2>/dev/null || echo "dev")
+VERSION    := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 BUILD_TIME := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 
@@ -35,6 +37,9 @@ frontend:
 
 ## Run Vite dev server (proxy to :8080)
 frontend-dev:
+	@if [ ! -f frontend/package.json ]; then \
+		echo "frontend/ not scaffolded yet"; exit 1; \
+	fi
 	@echo "Starting Vite dev server on :5173 (proxy → :8080)..."
 	cd frontend && npm run dev
 
@@ -78,7 +83,10 @@ migrate:
 clean:
 	@echo "Cleaning up..."
 	rm -f $(BIN)
-	@if [ -f frontend/package.json ]; then rm -rf web/dist; fi
+	@if [ -f frontend/package.json ]; then \
+		rm -rf web/dist; \
+		git checkout -- web/dist/index.html; \
+	fi
 
 ## Go module tidy
 tidy:
@@ -101,7 +109,8 @@ swagger:
 
 install-upx:
 	@echo "Installing UPX $(UPX_VERSION)..."
-	curl -ksSL "$(UPX_URL)" -o "$(UPX_ARCHIVE)"
+	curl -sSL "$(UPX_URL)" -o "$(UPX_ARCHIVE)"
+	echo "$(UPX_SHA256)  $(UPX_ARCHIVE)" | sha256sum -c -
 	tar -xf "$(UPX_ARCHIVE)"
 	chmod +x "$(UPX_DIR)/upx"
 	mv "$(UPX_DIR)/upx" "$(UPX_BIN)"
