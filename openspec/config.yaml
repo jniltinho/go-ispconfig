@@ -1,0 +1,26 @@
+schema: spec-driven
+
+context: |
+  go-ispconfig: port of ISPConfig3 (PHP hosting control panel) to Golang.
+  Reference source: base/ispconfig3_install/ (ISPConfig 3.3.1p1, PHP).
+
+  Tech stack (follows jniltinho's project conventions — see go-cubemail, postfix-filter):
+  - Go backend: Echo v5, GORM with MariaDB, Cobra CLI + config.toml (Viper)
+  - Frontend: Vue 3 + Vite + TailwindCSS, embedded in the binary (embed.FS),
+    fonts vendored locally (no CDN), same UI layout as ISPConfig3, square corners
+    (no rounded corners), English first with i18n structure ready for translation
+  - Single binary: panel + API + server daemon + installer CLI
+  - Initial scope: nginx (web/HTTP) and Bind (DNS) modules only
+  - Target OS: Debian 11/12/13, Ubuntu 22.04/24.04
+  - Install testing: Vagrant VMs with Ubuntu 24.04
+  - E2E frontend tests with agent-browser; Go tests with testify
+  - Conventional commits; commit after each finished + validated task
+  - Docs in English under docs/; screenshots in docs/screenshots (committed)
+    and docs/prints (not committed, local validation only)
+
+rules:
+  proposal:
+    - Always include a "Non-goals" section
+    - Reference the original ISPConfig3 PHP file(s) being ported
+  tasks:
+    - Break tasks into small verifiable chunks, each ending in a commit

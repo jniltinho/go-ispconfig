@@ -1,0 +1,43 @@
+# Reference ISPConfig3 source — never committed
+base/
+
+# Local-only validation prints (curated screenshots go in docs/screenshots/)
+docs/prints/
+
+# Vagrant images/state and test data — never committed
+.vagrant/
+*.box
+testdata/
+*.sql.gz
+*.dump
+
+# Sensitive / local config
+config.toml
+config.local.toml
+*.pem
+*.key
+credentials*
+
+# Build artifacts
+bin/
+web/dist/
+go-ispconfig
+*.exe
+*.test
+*.out
+coverage.out
+tmp/
+
+# Frontend
+frontend/node_modules/
+
+# Databases
+*.db
+*.db-shm
+*.db-wal
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
