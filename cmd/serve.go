@@ -22,6 +22,8 @@ import (
 	echoMiddleware "github.com/labstack/echo/v5/middleware"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+
+	"go-ispconfig/internal/config"
 )
 
 var serveCmd = &cobra.Command{
@@ -32,13 +34,9 @@ var serveCmd = &cobra.Command{
 			Level: slog.LevelInfo,
 		})))
 
-		host := viper.GetString("server.host")
-		if host == "" {
-			host = "0.0.0.0"
-		}
-		port := viper.GetInt("server.port")
-		if port == 0 {
-			port = 8080
+		cfg, err := config.Load()
+		if err != nil {
+			return err
 		}
 
 		e := echo.New()
@@ -61,7 +59,7 @@ var serveCmd = &cobra.Command{
 		defer cancel()
 
 		srv := &http.Server{
-			Addr:              fmt.Sprintf("%s:%d", host, port),
+			Addr:              fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port),
 			Handler:           e,
 			ReadTimeout:       30 * time.Second,
 			IdleTimeout:       120 * time.Second,
@@ -77,11 +75,9 @@ var serveCmd = &cobra.Command{
 		}()
 
 		slog.Info("starting server", "addr", srv.Addr, "version", Version)
-		tlsCert := viper.GetString("server.tls_cert")
-		tlsKey := viper.GetString("server.tls_key")
 		var listenErr error
-		if tlsCert != "" && tlsKey != "" {
-			listenErr = srv.ListenAndServeTLS(tlsCert, tlsKey)
+		if cfg.Server.TLSCert != "" && cfg.Server.TLSKey != "" {
+			listenErr = srv.ListenAndServeTLS(cfg.Server.TLSCert, cfg.Server.TLSKey)
 		} else {
 			listenErr = srv.ListenAndServe()
 		}

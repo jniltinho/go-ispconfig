@@ -8,10 +8,10 @@ import (
 	"embed"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
+
+	"go-ispconfig/internal/config"
 )
 
 var (
@@ -59,22 +59,8 @@ func init() {
 // Search order: --config flag → ./config.toml → /etc/go-ispconfig/config.toml.
 // Environment variables prefixed with GOISP_ override any file values.
 func initConfig() {
-	if cfgFile != "" {
-		viper.SetConfigFile(cfgFile)
-	} else {
-		viper.SetConfigName("config")
-		viper.SetConfigType("toml")
-		viper.AddConfigPath(".")
-		viper.AddConfigPath("/etc/go-ispconfig/")
-	}
-
-	viper.SetEnvPrefix("GOISP")
-	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-	viper.AutomaticEnv()
-
-	if err := viper.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
-			fmt.Fprintf(os.Stderr, "error reading config: %v\n", err)
-		}
+	if err := config.Init(cfgFile); err != nil {
+		fmt.Fprintf(os.Stderr, "error reading config: %v\n", err)
+		os.Exit(1)
 	}
 }
