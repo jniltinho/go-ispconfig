@@ -25,6 +25,9 @@ import (
 	"go-ispconfig/internal/auth"
 	"go-ispconfig/internal/config"
 	"go-ispconfig/internal/database"
+	"go-ispconfig/internal/datalog"
+	"go-ispconfig/internal/model"
+	"go-ispconfig/internal/queue"
 )
 
 var serveCmd = &cobra.Command{
@@ -51,6 +54,21 @@ var serveCmd = &cobra.Command{
 		db, err := database.Open(cfg.Database.DSN)
 		if err != nil {
 			return fmt.Errorf("opening database: %w", err)
+		}
+
+		// Instant-wake queue producer (design D12): every datalog write made
+		// through the API enqueues a datalog:ready task for the local server
+		// so its daemon processes the change without waiting for the poll
+		// tick. Failure to resolve the server row only disables the wake —
+		// the daemon's tick polling remains the fallback consumer.
+		queueClient := queue.NewClient(cfg.Queue, slog.Default())
+		defer queueClient.Close() //nolint:errcheck // best-effort close on shutdown
+		var localServer model.Server
+		if err := db.Where("active = 1 AND mirror_server_id = 0").First(&localServer).Error; err != nil {
+			slog.Warn("could not resolve local server row, datalog ready notifications disabled",
+				"error", err)
+		} else {
+			datalog.SetReadyNotifier(queueClient.ReadyNotifier(localServer.ServerID))
 		}
 
 		e := echo.New()
