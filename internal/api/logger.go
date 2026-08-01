@@ -13,6 +13,10 @@ import (
 // applied to every /api request.
 func requestLogger() echo.MiddlewareFunc {
 	return middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
+		// HandleError runs the central error handler before logging so the
+		// logged status is the one sent to the client (the handler's
+		// committed-response check keeps Echo from handling it twice).
+		HandleError: true,
 		LogStatus:   true,
 		LogMethod:   true,
 		LogURIPath:  true,
