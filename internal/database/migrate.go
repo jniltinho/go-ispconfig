@@ -2,6 +2,7 @@ package database
 
 import (
 	"fmt"
+	"strings"
 
 	"gorm.io/gorm"
 )
@@ -16,16 +17,18 @@ const MinDBVersion = 104
 // executing the embedded ispconfig3.sql statement by statement, or adopts an
 // existing ISPConfig3 database after validating its server.dbversion.
 //
-// It returns created=true when the DDL was executed (fresh install, caller
-// should seed), and created=false when an existing schema was adopted.
-func Migrate(db *gorm.DB) (created bool, err error) {
+// It returns needSeed=true when the caller should run Seed: either the DDL
+// was just executed (fresh install) or a complete schema with an empty
+// server table was found (a previous install was interrupted between DDL
+// and seed). needSeed=false means an existing schema was adopted.
+func Migrate(db *gorm.DB) (needSeed bool, err error) {
 	hasServer, err := tableExists(db, "server")
 	if err != nil {
 		return false, err
 	}
 
 	if hasServer {
-		return false, validateExisting(db)
+		return validateExisting(db)
 	}
 
 	var tables int64
@@ -38,7 +41,11 @@ func Migrate(db *gorm.DB) (created bool, err error) {
 		return false, fmt.Errorf("database is not empty (%d tables) and has no ISPConfig `server` table; refusing to run DDL — point the DSN at an empty database or an existing ISPConfig 3.3.x database", tables)
 	}
 
-	for _, stmt := range SplitStatements(schemaSQL) {
+	stmts, err := SplitStatements(schemaSQL)
+	if err != nil {
+		return false, fmt.Errorf("parsing embedded schema: %w", err)
+	}
+	for _, stmt := range stmts {
 		if err := db.Exec(stmt).Error; err != nil {
 			return false, fmt.Errorf("executing schema DDL: %w", err)
 		}
@@ -48,26 +55,48 @@ func Migrate(db *gorm.DB) (created bool, err error) {
 
 // validateExisting checks that an already-present ISPConfig schema is at
 // least the 3.3.x dbversion supported by go-ispconfig. No DDL is executed.
-func validateExisting(db *gorm.DB) error {
+// A complete schema whose server table is empty (install interrupted after
+// the DDL, before the seed) returns needSeed=true so the caller resumes the
+// seed instead of aborting.
+func validateExisting(db *gorm.DB) (needSeed bool, err error) {
 	hasCol, err := columnExists(db, "server", "dbversion")
 	if err != nil {
-		return err
+		return false, err
 	}
 	if !hasCol {
-		return fmt.Errorf("existing `server` table has no `dbversion` column: this is not a supported ISPConfig database")
+		return false, fmt.Errorf("existing `server` table has no `dbversion` column: this is not a supported ISPConfig database")
 	}
 
 	var version *int64
 	if err := db.Raw("SELECT MIN(dbversion) FROM server").Scan(&version).Error; err != nil {
-		return fmt.Errorf("reading server.dbversion: %w", err)
+		return false, fmt.Errorf("reading server.dbversion: %w", err)
 	}
 	if version == nil {
-		return fmt.Errorf("ISPConfig schema present but the `server` table is empty (interrupted install?): drop the database and run migrate again")
+		complete, err := schemaComplete(db)
+		if err != nil {
+			return false, err
+		}
+		if complete {
+			return true, nil
+		}
+		return false, fmt.Errorf("partial ISPConfig schema present and the `server` table is empty (interrupted DDL?): drop the database and run migrate again")
 	}
 	if *version < MinDBVersion {
-		return fmt.Errorf("existing ISPConfig schema is dbversion %d, minimum supported is %d (ISPConfig 3.3.x): update the PHP ISPConfig install to 3.3.x first (its updater applies install/sql/incremental/), then run migrate again", *version, MinDBVersion)
+		return false, fmt.Errorf("existing ISPConfig schema is dbversion %d, minimum supported is %d (ISPConfig 3.3.x): update the PHP ISPConfig install to 3.3.x first (its updater applies install/sql/incremental/), then run migrate again", *version, MinDBVersion)
 	}
-	return nil
+	return false, nil
+}
+
+// schemaComplete reports whether the database has as many tables as the
+// embedded dump creates, i.e. the DDL ran to completion.
+func schemaComplete(db *gorm.DB) (bool, error) {
+	var tables int64
+	err := db.Raw("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE()").
+		Scan(&tables).Error
+	if err != nil {
+		return false, fmt.Errorf("inspecting database: %w", err)
+	}
+	return tables >= int64(strings.Count(schemaSQL, "CREATE TABLE")), nil
 }
 
 func tableExists(db *gorm.DB, name string) (bool, error) {

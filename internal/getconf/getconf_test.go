@@ -83,5 +83,7 @@ func TestStripSlashes(t *testing.T) {
 	assert.Equal(t, `it's a "test"`, StripSlashes(`it\'s a \"test\"`))
 	assert.Equal(t, `C:\dir`, StripSlashes(`C:\\dir`))
 	assert.Equal(t, "plain", StripSlashes("plain"))
+	// PHP drops a trailing lone backslash (verified with PHP 8.2:
+	// stripslashes("trailing\") == "trailing").
 	assert.Equal(t, "trailing", StripSlashes(`trailing\`))
 }

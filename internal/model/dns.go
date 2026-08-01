@@ -4,6 +4,8 @@ import "time"
 
 // DNSSoa is an authoritative DNS zone (table dns_soa). Origin is the FQDN
 // with trailing dot; RenderedZone caches the last rendered Bind zone file.
+// Unlike most ISPConfig tables, the Active, DNSSECInitialized and
+// DNSSECWanted enums use uppercase 'N'/'Y' values.
 type DNSSoa struct {
 	ID                uint32 `gorm:"column:id;primaryKey;autoIncrement"`
 	SysUserID         uint32 `gorm:"column:sys_userid"`
@@ -37,24 +39,26 @@ type DNSSoa struct {
 func (DNSSoa) TableName() string { return "dns_soa" }
 
 // DNSRr is a resource record inside a zone (table dns_rr). Zone references
-// dns_soa.id; Aux carries the MX/SRV priority.
+// dns_soa.id; Aux carries the MX/SRV priority. Stamp and Serial are pointers:
+// serial is DEFAULT NULL in the DDL, and a nil Stamp lets the database apply
+// its CURRENT_TIMESTAMP default on insert.
 type DNSRr struct {
-	ID           uint32    `gorm:"column:id;primaryKey;autoIncrement"`
-	SysUserID    uint32    `gorm:"column:sys_userid"`
-	SysGroupID   uint32    `gorm:"column:sys_groupid"`
-	SysPermUser  string    `gorm:"column:sys_perm_user"`
-	SysPermGroup string    `gorm:"column:sys_perm_group"`
-	SysPermOther string    `gorm:"column:sys_perm_other"`
-	ServerID     int32     `gorm:"column:server_id"`
-	Zone         uint32    `gorm:"column:zone"`
-	Name         string    `gorm:"column:name"`
-	Type         string    `gorm:"column:type"`
-	Data         string    `gorm:"column:data"`
-	Aux          uint32    `gorm:"column:aux"`
-	TTL          uint32    `gorm:"column:ttl"`
-	Active       string    `gorm:"column:active"`
-	Stamp        time.Time `gorm:"column:stamp;default:CURRENT_TIMESTAMP"`
-	Serial       uint32    `gorm:"column:serial"`
+	ID           uint32     `gorm:"column:id;primaryKey;autoIncrement"`
+	SysUserID    uint32     `gorm:"column:sys_userid"`
+	SysGroupID   uint32     `gorm:"column:sys_groupid"`
+	SysPermUser  string     `gorm:"column:sys_perm_user"`
+	SysPermGroup string     `gorm:"column:sys_perm_group"`
+	SysPermOther string     `gorm:"column:sys_perm_other"`
+	ServerID     int32      `gorm:"column:server_id"`
+	Zone         uint32     `gorm:"column:zone"`
+	Name         string     `gorm:"column:name"`
+	Type         string     `gorm:"column:type"`
+	Data         string     `gorm:"column:data"`
+	Aux          uint32     `gorm:"column:aux"`
+	TTL          uint32     `gorm:"column:ttl"`
+	Active       string     `gorm:"column:active"`
+	Stamp        *time.Time `gorm:"column:stamp;default:CURRENT_TIMESTAMP"`
+	Serial       *uint32    `gorm:"column:serial"`
 }
 
 // TableName maps DNSRr to the ISPConfig table dns_rr.

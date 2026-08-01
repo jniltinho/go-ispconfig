@@ -120,7 +120,9 @@ var ErrNotFound = errors.New("getconf: not found")
 // (port of getconf::get_server_config).
 func GetServerConfig(db *gorm.DB, serverID uint32) (*ServerConfig, error) {
 	var server model.Server
-	if err := db.Select("config").Take(&server, serverID).Error; err != nil {
+	// COALESCE: server.config is `text` NULL; adopted ISPConfig databases can
+	// hold NULL there, which must read as an empty INI, not an error.
+	if err := db.Select("COALESCE(config, '') AS config").Take(&server, serverID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, fmt.Errorf("%w: server %d", ErrNotFound, serverID)
 		}
@@ -137,7 +139,8 @@ func GetServerConfig(db *gorm.DB, serverID uint32) (*ServerConfig, error) {
 // (port of getconf::get_global_config).
 func GetGlobalConfig(db *gorm.DB) (Sections, error) {
 	var ini model.SysIni
-	if err := db.Take(&ini, 1).Error; err != nil {
+	// COALESCE: sys_ini.config is `longtext` NULL in adopted databases.
+	if err := db.Select("COALESCE(config, '') AS config").Take(&ini, 1).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, fmt.Errorf("%w: sys_ini row 1", ErrNotFound)
 		}

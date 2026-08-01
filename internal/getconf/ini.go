@@ -59,7 +59,9 @@ func StripSlashes(s string) string {
 		if s[i] == '\\' {
 			i++
 			if i >= len(s) {
-				break // PHP stripslashes drops a trailing lone backslash
+				// PHP stripslashes drops a trailing lone backslash:
+				// verified with PHP 8.2, stripslashes("a\") == "a".
+				break
 			}
 		}
 		b.WriteByte(s[i])

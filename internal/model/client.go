@@ -120,7 +120,7 @@ type Client struct {
 	Usertheme               string     `gorm:"column:usertheme"`
 	TemplateMaster          uint32     `gorm:"column:template_master"`
 	TemplateAdditional      string     `gorm:"column:template_additional"`
-	CreatedAt               int64      `gorm:"column:created_at"`
+	CreatedAt               *int64     `gorm:"column:created_at"` // bigint DEFAULT NULL in the DDL
 	Locked                  string     `gorm:"column:locked"`
 	Canceled                string     `gorm:"column:canceled"`
 	CanUseAPI               string     `gorm:"column:can_use_api"`

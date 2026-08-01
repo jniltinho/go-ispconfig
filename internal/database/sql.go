@@ -2,6 +2,7 @@ package database
 
 import (
 	_ "embed"
+	"fmt"
 	"strings"
 )
 
@@ -17,8 +18,9 @@ var schemaSQL string
 // strings (including backslash escapes), `-- `/`#` line comments and
 // `/* ... */` block comments, which is all ispconfig3.sql uses (the dump has
 // no DELIMITER blocks or stored procedures). Comment-only fragments and empty
-// statements are dropped.
-func SplitStatements(sql string) []string {
+// statements are dropped. A quote, backtick or block comment left open at
+// EOF is an error.
+func SplitStatements(sql string) ([]string, error) {
 	var stmts []string
 	var b strings.Builder
 
@@ -54,11 +56,21 @@ func SplitStatements(sql string) []string {
 				i++
 			}
 		case singleQuote, doubleQuote:
+			quote := byte('\'')
+			if state == doubleQuote {
+				quote = '"'
+			}
 			b.WriteByte(c)
-			if c == '\\' && i+1 < len(sql) {
+			switch {
+			case c == '\\' && i+1 < len(sql):
 				b.WriteByte(sql[i+1])
 				i++
-			} else if (state == singleQuote && c == '\'') || (state == doubleQuote && c == '"') {
+			case c == quote && i+1 < len(sql) && sql[i+1] == quote:
+				// SQL-style doubled quote ('' or "") escapes the quote
+				// character; the string stays open.
+				b.WriteByte(sql[i+1])
+				i++
+			case c == quote:
 				state = code
 			}
 		case backtick:
@@ -92,6 +104,12 @@ func SplitStatements(sql string) []string {
 			}
 		}
 	}
+	switch state {
+	case singleQuote, doubleQuote, backtick:
+		return nil, fmt.Errorf("unterminated quoted string at end of SQL input")
+	case blockComment:
+		return nil, fmt.Errorf("unterminated block comment at end of SQL input")
+	}
 	flush()
-	return stmts
+	return stmts, nil
 }

@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -26,11 +27,11 @@ var migrateCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		created, err := database.Migrate(db)
+		needSeed, err := database.Migrate(db)
 		if err != nil {
 			return err
 		}
-		if !created {
+		if !needSeed {
 			fmt.Println("Existing ISPConfig schema detected and validated; no DDL executed, no seed data written.")
 			return nil
 		}
@@ -38,13 +39,20 @@ var migrateCmd = &cobra.Command{
 		if err != nil || hostname == "" {
 			hostname = "server1"
 		}
-		password, err := database.Seed(db, hostname)
+		if !strings.Contains(hostname, ".") {
+			fmt.Fprintf(os.Stderr, "warning: hostname %q is not fully qualified (no domain part); the server row will be named %q\n", hostname, hostname)
+		}
+		// GOISP_ADMIN_PASSWORD allows unattended installs; when unset a
+		// random password is generated.
+		password, err := database.Seed(db, hostname, os.Getenv("GOISP_ADMIN_PASSWORD"))
 		if err != nil {
 			return err
 		}
-		fmt.Println("Schema created from embedded ispconfig3.sql.")
-		fmt.Printf("Admin login: admin / %s\n", password)
-		fmt.Println("This password is shown only once; store it now or change it after first login.")
+		fmt.Println("Schema created or completed from embedded ispconfig3.sql.")
+		// The password goes to stderr so it does not end up in stdout
+		// redirections or pipelines.
+		fmt.Fprintf(os.Stderr, "Admin login: admin / %s\n", password)
+		fmt.Fprintln(os.Stderr, "This password is shown only once; store it now or change it after first login.")
 		return nil
 	},
 }

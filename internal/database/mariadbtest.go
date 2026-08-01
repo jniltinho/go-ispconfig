@@ -4,6 +4,7 @@ package database
 
 import (
 	"fmt"
+	"math/rand/v2"
 	"os"
 	"os/exec"
 	"strings"
@@ -14,11 +15,12 @@ import (
 // StartMariaDB runs a throwaway mariadb:11 docker container on an ephemeral
 // local port for integration tests and returns the root DSN prefix
 // ("root:root@tcp(127.0.0.1:PORT)") plus the container name for
-// MariaDBExec. suffix keeps container names unique across test packages;
-// the container is removed via t.Cleanup.
+// MariaDBExec. suffix keeps container names unique across test packages and
+// the random part across runs (PIDs recycle; a crashed run may leave a
+// container behind); the container is removed via t.Cleanup.
 func StartMariaDB(t *testing.T, suffix string) (dsnPrefix, container string) {
 	t.Helper()
-	name := fmt.Sprintf("goisp-%s-test-%d", suffix, os.Getpid())
+	name := fmt.Sprintf("goisp-%s-test-%d-%08x", suffix, os.Getpid(), rand.Uint32())
 
 	out, err := exec.Command("docker", "run", "--rm", "-d", "--name", name,
 		"-e", "MARIADB_ROOT_PASSWORD=root", "-p", "127.0.0.1::3306", "mariadb:11").CombinedOutput()
