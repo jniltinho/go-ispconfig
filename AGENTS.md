@@ -61,6 +61,8 @@ codex exec "Revise este diff do go-ispconfig quanto a bugs, segurança e simplif
 
 opencode run -m kimi-for-coding/k3 "Revise o diff atual (git diff HEAD~1) do go-ispconfig. Precisa de refinamento, melhoria ou correção? Liste."
 
+opencode run -m minimax-coding-plan/MiniMax-M3 "Revise o diff atual (git diff HEAD~1) do go-ispconfig. Precisa de refinamento, melhoria ou correção? Liste."
+
 agent -p "Revise o diff atual do go-ispconfig (git diff HEAD~1). Precisa de refinamento, melhoria ou correção? Liste."
 ```
 
