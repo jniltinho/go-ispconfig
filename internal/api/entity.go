@@ -105,6 +105,14 @@ var (
 	registry   = map[string]*Entity{}
 )
 
+// lookupEntity returns a registered entity definition by name.
+func lookupEntity(name string) (*Entity, bool) {
+	registryMu.RLock()
+	defer registryMu.RUnlock()
+	ent, ok := registry[name]
+	return ent, ok
+}
+
 // entitySchemaCache caches gorm schema parses for the API layer.
 var entitySchemaCache = &sync.Map{}
 

@@ -50,5 +50,6 @@ func Register(e *echo.Echo, d *Deps) error {
 	registerAuthRoutes(g, d)
 
 	protected := g.Group("", auth.RequireAuth())
+	registerMetaRoutes(protected)
 	return registerEntities(protected, d)
 }
