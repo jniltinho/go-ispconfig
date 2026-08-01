@@ -1,0 +1,97 @@
+<script setup lang="ts">
+// Authenticated shell: topbar (logo, module tabs icon-over-title, global
+// search, red logout), per-module sidebar with sections, routed content area.
+import { computed, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { Search } from 'lucide-vue-next'
+import { moduleIcons } from '../icons'
+import { modules } from '../modules'
+import { useI18n } from '../i18n'
+import { useAuthStore } from '../stores/auth'
+
+const { t } = useI18n()
+const auth = useAuthStore()
+const route = useRoute()
+const router = useRouter()
+const search = ref('')
+
+const activeModule = computed(
+  () => modules.find((m) => route.path.startsWith(m.path)) ?? modules[0],
+)
+
+async function logout() {
+  await auth.logout()
+  router.push({ name: 'login' })
+}
+</script>
+
+<template>
+  <div class="flex min-h-full flex-col">
+    <header class="border-b border-border bg-surface">
+      <div class="flex items-center gap-6 px-4">
+        <!-- Logo placeholder (white-label logo arrives with add-panel-ui-theme) -->
+        <RouterLink to="/dashboard" class="py-3 text-lg font-bold text-brand no-underline">
+          {{ t('app.title') }}
+        </RouterLink>
+
+        <!-- Module tabs: 32px icon over bold title -->
+        <nav class="flex flex-1 justify-center">
+          <RouterLink
+            v-for="mod in modules"
+            :key="mod.id"
+            :to="mod.path"
+            class="flex w-24 flex-col items-center gap-1 py-2 text-text no-underline hover:text-brand"
+            :class="{ 'border-b-2 border-brand text-brand': activeModule.id === mod.id }"
+          >
+            <component :is="moduleIcons[mod.id]" :size="32" :stroke-width="1.5" />
+            <span class="text-xs font-bold">{{ t(`module.${mod.id}`) }}</span>
+          </RouterLink>
+        </nav>
+
+        <!-- Global search + logout -->
+        <div class="flex items-center gap-3">
+          <div class="flex items-center border border-border bg-surface">
+            <input
+              v-model="search"
+              type="search"
+              :placeholder="t('topbar.search_placeholder')"
+              class="w-40 px-2 py-1.5 text-sm outline-none"
+            />
+            <Search :size="16" class="mx-2 text-text" />
+          </div>
+          <button
+            type="button"
+            class="bg-brand px-4 py-2 text-xs font-bold text-white hover:opacity-90"
+            @click="logout"
+          >
+            {{ t('topbar.logout', { username: auth.username }) }}
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <div class="flex flex-1">
+      <!-- Per-module sidebar -->
+      <aside class="w-[215px] shrink-0 border-r border-border bg-surface">
+        <div class="border-b border-border bg-info px-3 py-2 text-sm font-bold">
+          {{ t(`module.${activeModule.id}`) }}
+        </div>
+        <ul>
+          <li v-for="section in activeModule.sections" :key="section.labelKey">
+            <RouterLink
+              :to="section.path"
+              class="block px-3 py-2.5 text-sm text-text no-underline hover:bg-info"
+            >
+              {{ t(section.labelKey) }}
+            </RouterLink>
+          </li>
+        </ul>
+      </aside>
+
+      <!-- Content area -->
+      <main class="flex-1 p-5">
+        <RouterView />
+      </main>
+    </div>
+  </div>
+</template>
