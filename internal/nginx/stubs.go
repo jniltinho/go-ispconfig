@@ -9,12 +9,6 @@ import (
 	"go-ispconfig/internal/engine"
 )
 
-// webDomainDelete removes a site (task 3.5).
-func (p *Plugin) webDomainDelete(context.Context, string, engine.Data) error { return nil }
-
-// clientDelete tears down all sites of a deleted client (task 3.5).
-func (p *Plugin) clientDelete(context.Context, string, engine.Data) error { return nil }
-
 // webFolderUpdate maintains folder protection (task 3.6).
 func (p *Plugin) webFolderUpdate(context.Context, string, engine.Data) error { return nil }
 
