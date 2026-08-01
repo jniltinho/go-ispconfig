@@ -43,3 +43,4 @@ frontend/node_modules/
 .vscode/
 *.swp
 .DS_Store
+.agents/scheduled_tasks.lock
