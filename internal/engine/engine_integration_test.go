@@ -159,7 +159,7 @@ func TestEngineE2E(t *testing.T) {
 	require.NoError(t, reg.Load([]engine.Module{webModule{}}, []engine.Plugin{plugin}))
 
 	sched := engine.NewScheduler(db, nil)
-	daemon, err := engine.NewDaemon(db, reg, services, sched, nil)
+	daemon, err := engine.NewDaemon(db, reg, services, nil)
 	require.NoError(t, err)
 	require.EqualValues(t, 1, daemon.ServerID())
 
@@ -302,20 +302,16 @@ func TestEngineE2E(t *testing.T) {
 		exec.Reset()
 	})
 
-	t.Run("scheduler runs due job and persists state", func(t *testing.T) {
+	t.Run("scheduler job run persists sys_config mirror", func(t *testing.T) {
 		ran := 0
 		require.NoError(t, sched.Register("e2e_job", "* * * * *", func(context.Context) error {
 			ran++
 			return nil
 		}))
-		past := time.Now().Add(-2 * time.Minute).Format(time.RFC3339)
-		require.NoError(t, db.Exec(
-			"REPLACE INTO sys_config (`group`, `name`, `value`) VALUES ('scheduler', 'e2e_job_last_run', ?)", past).Error)
 
-		require.NoError(t, daemon.RunCycle(ctx))
-		require.Equal(t, 1, ran, "due job runs exactly once")
-		require.NoError(t, daemon.RunCycle(ctx))
-		require.Equal(t, 1, ran, "job does not rerun before the next activation")
+		require.NoError(t, sched.RunJob(ctx, "e2e_job"))
+		require.Equal(t, 1, ran, "job body runs exactly once per activation")
+		require.Error(t, sched.RunJob(ctx, "no_such_job"), "unknown job name is an error")
 
 		var status model.SysConfig
 		require.NoError(t, db.Where("`group` = 'scheduler' AND `name` = 'e2e_job_status'").First(&status).Error)

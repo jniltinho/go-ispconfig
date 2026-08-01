@@ -37,20 +37,21 @@ type JobStatus struct {
 
 // job is one registered scheduler entry.
 type job struct {
-	name     string
-	spec     string
-	schedule cron.Schedule
-	fn       JobFunc
+	name string
+	spec string
+	fn   JobFunc
 }
 
-// Scheduler runs named cron-spec jobs inside the daemon loop, replacing
-// every ISPConfig system cron (design D1b). Jobs are registered in code;
-// last-run time and status persist in sys_config group "scheduler".
+// Scheduler holds the named cron-spec jobs replacing every ISPConfig system
+// cron (design D1b). Jobs are registered in code and executed as asynq
+// periodic tasks (design D12): the daemon registers each job's spec with the
+// queue worker, which enqueues a scheduler:job task per activation and
+// routes it back to RunJob. Last-run time and status persist in sys_config
+// group "scheduler" for the panel API.
 type Scheduler struct {
-	db      *gorm.DB
-	log     *slog.Logger
-	jobs    []*job
-	started time.Time
+	db   *gorm.DB
+	log  *slog.Logger
+	jobs []*job
 }
 
 // NewScheduler creates a Scheduler persisting job state through db and
@@ -59,7 +60,7 @@ func NewScheduler(db *gorm.DB, log *slog.Logger) *Scheduler {
 	if log == nil {
 		log = slog.Default()
 	}
-	return &Scheduler{db: db, log: log, started: time.Now()}
+	return &Scheduler{db: db, log: log}
 }
 
 // Register adds a job under a unique name with a standard 5-field cron spec
@@ -71,38 +72,33 @@ func (s *Scheduler) Register(name, spec string, fn JobFunc) error {
 			return fmt.Errorf("engine: scheduler job %q already registered", name)
 		}
 	}
-	schedule, err := cron.ParseStandard(spec)
-	if err != nil {
+	if _, err := cron.ParseStandard(spec); err != nil {
 		return fmt.Errorf("engine: parsing cron spec %q for job %q: %w", spec, name, err)
 	}
-	s.jobs = append(s.jobs, &job{name: name, spec: spec, schedule: schedule, fn: fn})
+	s.jobs = append(s.jobs, &job{name: name, spec: spec, fn: fn})
 	return nil
 }
 
-// Tick runs every job whose next activation since its last run (or since
-// scheduler start, for jobs that never ran) is due at now, and persists
-// last-run/status per executed job. A daemon that was down for days runs a
-// missed job once, not once per missed activation.
-func (s *Scheduler) Tick(ctx context.Context, now time.Time) {
+// RunJob executes the named job and persists its last-run/status mirror in
+// sys_config. It is the scheduler:job task handler body: the queue worker
+// calls it once per periodic activation. The job's own error is returned so
+// the task is marked failed in asynq (observability), after the status was
+// already recorded; an unknown name is an error too.
+func (s *Scheduler) RunJob(ctx context.Context, name string) error {
 	for _, j := range s.jobs {
-		last := s.lastRun(ctx, j.name)
-		if last.IsZero() {
-			// Never ran: baseline at scheduler start so a fresh daemon does
-			// not fire every job immediately on boot.
-			last = s.started
+		if j.name == name {
+			return s.runJob(ctx, j, time.Now())
 		}
-		if j.schedule.Next(last).After(now) {
-			continue
-		}
-		s.runJob(ctx, j, now)
 	}
+	return fmt.Errorf("engine: scheduler job %q is not registered", name)
 }
 
-// runJob executes one job and persists its state.
-func (s *Scheduler) runJob(ctx context.Context, j *job, now time.Time) {
+// runJob executes one job, persists its state and returns the job error.
+func (s *Scheduler) runJob(ctx context.Context, j *job, now time.Time) error {
 	s.log.Info("scheduler job starting", "job", j.name)
 	status := "ok"
-	if err := j.fn(ctx); err != nil {
+	err := j.fn(ctx)
+	if err != nil {
 		status = "error: " + err.Error()
 		s.log.Error("scheduler job failed", "job", j.name, "error", err)
 	} else {
@@ -110,6 +106,7 @@ func (s *Scheduler) runJob(ctx context.Context, j *job, now time.Time) {
 	}
 	s.setConfig(ctx, j.name+"_last_run", now.Format(time.RFC3339))
 	s.setConfig(ctx, j.name+"_status", status)
+	return err
 }
 
 // Jobs lists every registered job with its persisted last-run/status (the

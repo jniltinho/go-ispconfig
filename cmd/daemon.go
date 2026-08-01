@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 	"go-ispconfig/internal/config"
 	"go-ispconfig/internal/database"
 	"go-ispconfig/internal/engine"
+	"go-ispconfig/internal/queue"
 )
 
 var daemonCmd = &cobra.Command{
@@ -47,17 +49,37 @@ var daemonCmd = &cobra.Command{
 		}
 		services := engine.NewServices(engine.SystemctlExecutor{}, logger)
 
-		sched := engine.NewScheduler(db, logger)
-		daemon, err := engine.NewDaemon(db, reg, services, sched, logger)
+		daemon, err := engine.NewDaemon(db, reg, services, logger)
 		if err != nil {
 			return err
 		}
+		sched := engine.NewScheduler(db, logger)
 		if err := sched.RegisterDatalogPruning(daemon.ServerID(), cfg.Daemon.DatalogRetentionDays); err != nil {
 			return err
 		}
 
 		ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer cancel()
+
+		// Embedded asynq worker (design D12): scheduler jobs run as periodic
+		// tasks and datalog:ready wakes trigger immediate processing. A Redis
+		// outage never stops the daemon — the tick polling below is the
+		// fallback source of truth consumer.
+		worker := queue.NewWorker(cfg.Queue, daemon.ServerID(), logger)
+		worker.HandleSchedulerJobs(sched.RunJob)
+		for _, j := range sched.Jobs(ctx) {
+			worker.RegisterPeriodic(j.Spec, j.Name)
+		}
+		var wg sync.WaitGroup
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err := worker.Run(ctx); err != nil {
+				logger.Error("queue worker failed, continuing on tick polling only", "error", err)
+			}
+		}()
+		defer wg.Wait()
+
 		return daemon.Run(ctx, time.Duration(cfg.Daemon.TickSeconds)*time.Second)
 	},
 }

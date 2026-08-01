@@ -46,16 +46,16 @@ type Daemon struct {
 	db       *gorm.DB
 	reg      *Registry
 	services *Services
-	sched    *Scheduler
 	log      *slog.Logger
 	serverID uint32
 	busy     sync.Mutex
 }
 
 // NewDaemon validates the server table (startup guard) and builds a Daemon
-// bound to the single active server row. sched may be nil when no scheduled
-// jobs are wanted.
-func NewDaemon(db *gorm.DB, reg *Registry, services *Services, sched *Scheduler, log *slog.Logger) (*Daemon, error) {
+// bound to the single active server row. Scheduled jobs run as asynq
+// periodic tasks through the queue worker (design D12), not inside the
+// daemon cycle.
+func NewDaemon(db *gorm.DB, reg *Registry, services *Services, log *slog.Logger) (*Daemon, error) {
 	if log == nil {
 		log = slog.Default()
 	}
@@ -67,7 +67,6 @@ func NewDaemon(db *gorm.DB, reg *Registry, services *Services, sched *Scheduler,
 		db:       db,
 		reg:      reg,
 		services: services,
-		sched:    sched,
 		log:      log,
 		serverID: srv.ServerID,
 	}, nil
@@ -167,23 +166,24 @@ func (d *Daemon) drain() {
 }
 
 // RunCycle executes one full processing cycle: datalog batch, remote
-// actions, scheduled jobs, delayed service restarts. If a previous cycle is
-// still running the call is skipped (single in-process worker).
+// actions, delayed service restarts. If a previous cycle is still running
+// the call is skipped (single in-process worker).
 func (d *Daemon) RunCycle(ctx context.Context) error {
 	if !d.busy.TryLock() {
 		d.log.Warn("daemon tick skipped: previous cycle still running")
 		return nil
 	}
 	defer d.busy.Unlock()
+	return d.cycle(ctx)
+}
 
+// cycle is the shared cycle body; callers must hold busy.
+func (d *Daemon) cycle(ctx context.Context) error {
 	if err := d.processDatalog(ctx); err != nil {
 		return err
 	}
 	if err := d.processActions(ctx); err != nil {
 		return err
-	}
-	if d.sched != nil {
-		d.sched.Tick(ctx, time.Now())
 	}
 	if d.services != nil {
 		d.services.ProcessDelayedActions(ctx)

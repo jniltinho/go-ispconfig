@@ -34,6 +34,24 @@ func TestSchedulerRegister(t *testing.T) {
 	require.Equal(t, "0 3 * * *", jobs[0].Spec)
 }
 
+func TestSchedulerRunJob(t *testing.T) {
+	s := NewScheduler(schedDB(t), nil)
+	ran := 0
+	require.NoError(t, s.Register("job", "@daily", func(context.Context) error {
+		ran++
+		return nil
+	}))
+	require.NoError(t, s.Register("broken", "@daily", func(context.Context) error {
+		return context.DeadlineExceeded
+	}))
+
+	require.NoError(t, s.RunJob(context.Background(), "job"))
+	require.Equal(t, 1, ran)
+	require.ErrorIs(t, s.RunJob(context.Background(), "broken"), context.DeadlineExceeded,
+		"job error propagates for asynq observability")
+	require.ErrorContains(t, s.RunJob(context.Background(), "missing"), "not registered")
+}
+
 func TestSchedulerDatalogPruningSpec(t *testing.T) {
 	s := NewScheduler(schedDB(t), nil)
 	require.NoError(t, s.RegisterDatalogPruning(1, 30))
