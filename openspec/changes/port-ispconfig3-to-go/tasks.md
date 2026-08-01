@@ -38,7 +38,7 @@ Rule: every finished task = validated (tests pass) + conventional commit. Cross-
 
 ## 4b. Task queue (asynq — added by user requirement)
 
-- [ ] 4b.1 `internal/queue/`: asynq client/server wrappers — `[queue]` config (redis addr, db, password), per-server queue naming `server:<id>`, typed task registration helper with retry/backoff defaults, graceful shutdown wired into the daemon
+- [x] 4b.1 `internal/queue/`: asynq client/server wrappers — `[queue]` config (redis addr, db, password), per-server queue naming `server:<id>`, typed task registration helper with retry/backoff defaults, graceful shutdown wired into the daemon
 - [ ] 4b.2 Scheduler on asynq: register D1b cron jobs as asynq periodic tasks (daemon embeds the asynq worker), keep sys_config status mirroring; remove/adapt the in-process ticker execution path
 - [ ] 4b.3 Instant wake: datalog writer enqueues `datalog:ready` post-commit (enqueue failure = warning only, never fails the transaction); daemon triggers a processing cycle on receipt; tick polling stays as fallback
 - [ ] 4b.4 Integration test (docker redis + mariadb): job routed to correct per-server queue, retry on failure, periodic task fires once, datalog:ready wakes processing before tick, Redis-down degradation (write succeeds, poll picks up)

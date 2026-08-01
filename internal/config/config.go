@@ -20,6 +20,20 @@ type Config struct {
 	Database DatabaseConfig `toml:"database" mapstructure:"database"`
 	Daemon   DaemonConfig   `toml:"daemon" mapstructure:"daemon"`
 	Auth     AuthConfig     `toml:"auth" mapstructure:"auth"`
+	Queue    QueueConfig    `toml:"queue" mapstructure:"queue"`
+}
+
+// QueueConfig holds the Redis/Valkey connection for the asynq task queue
+// (design D12). The queue is always enabled; when Redis is unreachable the
+// daemon keeps working through its datalog tick polling and producers
+// degrade to warnings — a lost Redis never loses configuration.
+type QueueConfig struct {
+	// Addr is the Redis/Valkey host:port.
+	Addr string `toml:"addr" mapstructure:"addr"`
+	// DB is the Redis logical database number.
+	DB int `toml:"db" mapstructure:"db"`
+	// Password is the Redis AUTH password, empty for none.
+	Password string `toml:"password" mapstructure:"password"`
 }
 
 // ServerConfig holds HTTP server settings for the panel (serve command).
@@ -63,6 +77,9 @@ func setDefaults() {
 	viper.SetDefault("daemon.tick_seconds", 10)
 	viper.SetDefault("daemon.datalog_retention_days", 30)
 	viper.SetDefault("auth.rehash_legacy", false)
+	viper.SetDefault("queue.addr", "localhost:6379")
+	viper.SetDefault("queue.db", 0)
+	viper.SetDefault("queue.password", "")
 }
 
 // Init configures the global Viper instance: defaults, GOISP_ environment
