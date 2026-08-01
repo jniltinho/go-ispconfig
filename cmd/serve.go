@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/fs"
 	"log/slog"
@@ -20,6 +21,7 @@ import (
 	"github.com/labstack/echo/v5"
 	echoMiddleware "github.com/labstack/echo/v5/middleware"
 	"github.com/spf13/cobra"
+	"gorm.io/gorm"
 
 	"go-ispconfig/internal/api"
 	"go-ispconfig/internal/auth"
@@ -63,8 +65,7 @@ var serveCmd = &cobra.Command{
 		// the daemon's tick polling remains the fallback consumer.
 		queueClient := queue.NewClient(cfg.Queue, slog.Default())
 		defer queueClient.Close() //nolint:errcheck // best-effort close on shutdown
-		var localServer model.Server
-		if err := db.Where("active = 1 AND mirror_server_id = 0").First(&localServer).Error; err != nil {
+		if localServer, err := resolveLocalServer(db); err != nil {
 			slog.Warn("could not resolve local server row, datalog ready notifications disabled",
 				"error", err)
 		} else {
@@ -73,15 +74,26 @@ var serveCmd = &cobra.Command{
 
 		e := echo.New()
 		e.Use(echoMiddleware.Recover())
+		// Security headers: HSTS is only emitted by the middleware on TLS
+		// requests; the CSP allows just the embedded SPA's own assets
+		// (inline styles are injected by the Vue toolchain).
+		e.Use(echoMiddleware.SecureWithConfig(echoMiddleware.SecureConfig{
+			ContentTypeNosniff:    "nosniff",
+			XFrameOptions:         "DENY",
+			HSTSMaxAge:            31536000,
+			ContentSecurityPolicy: "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'",
+			ReferrerPolicy:        "no-referrer",
+		}))
 
-		if err := api.Register(e, &api.Deps{
+		deps := &api.Deps{
 			DB:       db,
 			Sessions: auth.NewStore(db, 0),
 			Config:   cfg,
-		}); err != nil {
+		}
+		if err := api.Register(e, deps); err != nil {
 			return fmt.Errorf("registering API: %w", err)
 		}
-		api.RegisterSwagger(e)
+		api.RegisterSwagger(e, deps.Sessions, cfg.Server.SwaggerPublic)
 
 		e.GET("/api/health", func(c *echo.Context) error {
 			return c.JSON(http.StatusOK, map[string]string{
@@ -128,6 +140,32 @@ var serveCmd = &cobra.Command{
 		}
 		return listenErr
 	},
+}
+
+// resolveLocalServer finds the server row of this host for the datalog
+// ready notifier: the active non-mirror row whose server_name matches the
+// OS hostname (the same identity the daemon serves). When no row matches
+// the hostname it falls back to the single active row with a warning, so a
+// renamed host keeps its instant-wake notifications.
+func resolveLocalServer(db *gorm.DB) (*model.Server, error) {
+	var srv model.Server
+	hostname, _ := os.Hostname()
+	if hostname != "" {
+		err := db.Where("active = 1 AND mirror_server_id = 0 AND server_name = ?", hostname).
+			First(&srv).Error
+		if err == nil {
+			return &srv, nil
+		}
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, err
+		}
+	}
+	if err := db.Where("active = 1 AND mirror_server_id = 0").First(&srv).Error; err != nil {
+		return nil, err
+	}
+	slog.Warn("no server row matches this hostname, falling back to the single active server",
+		"hostname", hostname, "server_name", srv.ServerName, "server_id", srv.ServerID)
+	return &srv, nil
 }
 
 // registerSPA serves the embedded Vite build: files that exist in the embed

@@ -53,15 +53,20 @@ func TestResolveTLSGeneratesAndReuses(t *testing.T) {
 	_, err = tls.LoadX509KeyPair(certFile, keyFile)
 	require.NoError(t, err)
 
-	// Second start reuses the same files untouched.
+	// Second start reuses the same files untouched and re-asserts the
+	// private key mode even when an operator loosened it.
 	before, err := os.ReadFile(certFile)
 	require.NoError(t, err)
+	require.NoError(t, os.Chmod(keyFile, 0o644))
 	certFile2, _, err := resolveTLS(httpsCfg(), dir)
 	require.NoError(t, err)
 	require.Equal(t, certFile, certFile2)
 	after, err := os.ReadFile(certFile)
 	require.NoError(t, err)
 	require.Equal(t, before, after)
+	info, err := os.Stat(keyFile)
+	require.NoError(t, err)
+	require.Equal(t, os.FileMode(0o600), info.Mode().Perm(), "reused key must be chmodded back to 0600")
 }
 
 func TestResolveTLSRegeneratesExpired(t *testing.T) {

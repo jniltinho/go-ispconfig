@@ -68,6 +68,11 @@ func resolveTLS(srv config.ServerConfig, dir string) (certFile, keyFile string, 
 	certFile = filepath.Join(dir, "ssl", panelCertFile)
 	keyFile = filepath.Join(dir, "ssl", panelKeyFile)
 	if err := validateCertKey(certFile, keyFile); err == nil {
+		// Re-assert the private key mode on reuse: a key loosened by an
+		// operator (or created by an older build) must not stay readable.
+		if err := os.Chmod(keyFile, 0o600); err != nil {
+			return "", "", fmt.Errorf("restricting permissions of %s: %w", keyFile, err)
+		}
 		slog.Info("reusing self-signed certificate", "cert", certFile)
 		return certFile, keyFile, nil
 	} else if !os.IsNotExist(err) {
