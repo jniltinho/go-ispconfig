@@ -55,7 +55,10 @@ Port the tform validator set as composable Go validators: REGEX, UNIQUE, NOTEMPT
 
 ### D6 — `.master` template engine port
 Small lexer/renderer for `<tmpl_var>`, `<tmpl_if op= value=>`, `<tmpl_else>`, `<tmpl_loop>` (port of `server/lib/classes/tpl.inc.php` subset used by nginx/bind templates). Rationale: lets us copy `nginx_vhost.conf.master`, `bind_pri.domain.master`, `bind_named.conf.local.master`, `php_fpm_pool.conf.master` nearly verbatim — the templates encode years of edge cases; translating them to text/template would be the riskiest part of the port.
-*Alternative considered*: convert templates to Go text/template — rejected for initial port, may happen later.
+*Alternative considered*: convert templates to Go text/template — rejected for initial port, may happen later (Go text/template remains allowed for future internal templates that have no ISPConfig counterpart).
+
+### D6b — Custom template override directory + export (conf-custom parity)
+Port of ISPConfig's `conf-custom/` mechanism (user requirement): template lookup resolves **custom dir first, embedded second** — `/etc/go-ispconfig/templates-custom/<name>.master` overrides the embedded template of the same name, exactly like `server/conf-custom/` overrides `server/conf/` in PHP. A CLI subcommand `go-ispconfig templates` supports `list` (embedded + overridden markers), `export <name>|--all` (writes embedded originals into the custom dir for the operator to edit; refuses to overwrite an existing customized file without `--force`). The daemon logs which template source (custom/embedded) each render used. Custom dir path configurable via `[templates] custom_dir` in config.toml.
 
 ### D7 — Frontend: Vue 3 + Tailwind v4, Vite outDir → `web/dist`, embed.FS
 Exactly the go-cubemail pattern: `//go:embed all:web/dist`, Vite dev proxy `/api → :8080`, Pinia stores, fonts self-hosted under `web/static/fonts`, axios-style API client. i18n: JSON locale files (`en.json` first) loaded by a light i18n composable — replaces `.lng` PHP arrays; every UI string goes through it from day one. Square corners enforced via Tailwind theme (`--radius: 0`).
