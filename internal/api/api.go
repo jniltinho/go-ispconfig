@@ -47,6 +47,6 @@ func Register(e *echo.Echo, d *Deps) error {
 	e.HTTPErrorHandler = ErrorHandler()
 
 	g := e.Group("/api", requestLogger(), auth.Middleware(d.Sessions))
-	_ = g // auth endpoints and CRUD entities are mounted by the next tasks
+	registerAuthRoutes(g, d)
 	return nil
 }
