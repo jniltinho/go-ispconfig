@@ -56,12 +56,12 @@ Rule: every finished task = validated (tests pass) + conventional commit. Cross-
 
 ## 6. REST API core
 
-- [ ] 6.1 Echo v5 bootstrap: SPA static serve from embed, `/api` group, error handler with i18n keys, request logging (slog)
-- [ ] 6.2 Auth endpoints: login/logout/session-info; Swagger security definitions
-- [ ] 6.3 CRUD framework: entity definitions (fields, validators, tabs), generic handlers wiring validation → limit hook (no-op registration, vetoable) → permission scope → datalog writer
-- [ ] 6.4 Validators: REGEX, UNIQUE, NOTEMPTY, ISEMAIL, ISINT, ISPOSITIVE, ISIPV4, ISIPV6, ISIP, CUSTOM + 422 field-error map + tests
-- [ ] 6.5 Form metadata endpoint `/api/meta/forms/<entity>`
-- [ ] 6.6 swaggo annotations on all endpoints; embedded Swagger UI at `/swagger/`; CI staleness check
+- [x] 6.1 Echo v5 bootstrap: SPA static serve from embed, `/api` group, error handler with i18n keys, request logging (slog)
+- [x] 6.2 Auth endpoints: login/logout/session-info; Swagger security definitions
+- [x] 6.3 CRUD framework: entity definitions (fields, validators, tabs), generic handlers wiring validation → limit hook (no-op registration, vetoable) → permission scope → datalog writer
+- [x] 6.4 Validators: REGEX, UNIQUE, NOTEMPTY, ISEMAIL, ISINT, ISPOSITIVE, ISIPV4, ISIPV6, ISIP, CUSTOM + 422 field-error map + tests
+- [x] 6.5 Form metadata endpoint `/api/meta/forms/<entity>`
+- [x] 6.6 swaggo annotations on all endpoints; embedded Swagger UI at `/swagger/`; CI staleness check
 
 ## 7. Panel skeleton (frontend)
 
