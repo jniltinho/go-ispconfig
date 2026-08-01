@@ -18,7 +18,10 @@ import (
 	"go-ispconfig/internal/config"
 	"go-ispconfig/internal/database"
 	"go-ispconfig/internal/engine"
+	"go-ispconfig/internal/getconf"
+	"go-ispconfig/internal/nginx"
 	"go-ispconfig/internal/queue"
+	"go-ispconfig/internal/web"
 )
 
 var daemonCmd = &cobra.Command{
@@ -40,19 +43,43 @@ var daemonCmd = &cobra.Command{
 			return err
 		}
 
+		// Services registry with the web-module guard: 'httpd' maps to the
+		// nginx unit behind an nginx -t check, php-fpm units pass through.
+		runner := engine.ExecRunner{}
+		services := engine.NewServices(web.GuardedExecutor{
+			Inner:  engine.SystemctlExecutor{},
+			Runner: runner,
+		}, logger)
+
 		reg := engine.NewRegistry(logger)
-		// Real modules/plugins (nginx vhosts, Bind zones) register here as
-		// their own openspec changes land; the engine runs with an empty
-		// registry until then.
-		if err := reg.Load(nil, nil); err != nil {
+		modules := []engine.Module{web.NewModule()}
+		plugins := []engine.Plugin{
+			nginx.NewPlugin(db, services, runner, cfg.Templates.CustomDir, logger),
+		}
+		if err := reg.Load(modules, plugins); err != nil {
 			return err
 		}
-		services := engine.NewServices(engine.SystemctlExecutor{}, logger)
 
 		daemon, err := engine.NewDaemon(db, reg, services, logger)
 		if err != nil {
 			return err
 		}
+
+		// Register the web services: httpd plus one php-fpm service per
+		// known FPM unit (server default + active server_php rows).
+		fpmUnits := []string{}
+		if srvCfg, err := getconf.GetServerConfig(db, daemon.ServerID()); err == nil {
+			fpmUnits = append(fpmUnits, srvCfg.Web.PHPFPMInitScript)
+		} else {
+			logger.Warn("daemon: could not load server web config", "error", err)
+		}
+		var phpUnits []string
+		if err := db.Table("server_php").
+			Where("server_id = ? AND active = 'y'", daemon.ServerID()).
+			Pluck("php_fpm_init_script", &phpUnits).Error; err != nil {
+			logger.Warn("daemon: could not load server_php units", "error", err)
+		}
+		web.RegisterServices(services, append(fpmUnits, phpUnits...)...)
 		sched := engine.NewScheduler(db, logger)
 		if err := sched.RegisterDatalogPruning(daemon.ServerID(), cfg.Daemon.DatalogRetentionDays); err != nil {
 			return err
