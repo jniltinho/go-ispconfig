@@ -47,7 +47,11 @@ func (p *Plugin) applyWebDomain(ctx context.Context, action string, oldRow, newR
 		return fmt.Errorf("nginx: document_root not set for %s", newRow.str("domain"))
 	}
 
-	s := site{cfg: cfg, action: action, old: oldRow, new: newRow}
+	s := site{
+		cfg: cfg, action: action, old: oldRow, new: newRow,
+		clientID:    p.clientIDOf(newRow.num("sys_groupid")),
+		oldClientID: p.clientIDOf(oldRow.num("sys_groupid")),
+	}
 	if newRow.str("type") != "vhost" {
 		s.parentDomain = p.domainName(newRow.num("parent_domain_id"))
 		s.oldParentDomain = p.domainName(oldRow.num("parent_domain_id"))
@@ -81,6 +85,17 @@ func (p *Plugin) loadDomainRow(domainID int64) (row, error) {
 		return nil, fmt.Errorf("nginx: loading web_domain %d: %w", domainID, err)
 	}
 	return rec, nil
+}
+
+// clientIDOf resolves the client id owning a sys_group (0 for admin-owned).
+func (p *Plugin) clientIDOf(groupID int64) int64 {
+	if groupID == 0 {
+		return 0
+	}
+	var id int64
+	_ = p.db.Table("sys_group").Where("groupid = ?", groupID).
+		Pluck("client_id", &id).Error
+	return id
 }
 
 // domainName returns the domain of a web_domain row ("" when missing).

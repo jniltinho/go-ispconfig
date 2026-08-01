@@ -26,6 +26,9 @@ type site struct {
 	oldParentDomain string
 	clientID        int64 // client owning the site (sys_group lookup)
 	oldClientID     int64 // previous owner when the site changed clients
+	// sslChanged marks that certificate files were replaced in this run
+	// (set by the ssl handler) so a failed nginx -t also restores them.
+	sslChanged bool
 }
 
 // systemNameRe is the allowed system user/group name pattern (PHP

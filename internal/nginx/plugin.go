@@ -26,6 +26,10 @@ type Plugin struct {
 	customTplDir string
 	// logBaseDir is DefaultLogBaseDir in production, a temp dir in tests.
 	logBaseDir string
+	// nginxVersion caches the `nginx -v` probe (preset in tests).
+	nginxVersion string
+	// dummyFile overrides the per-render random php dummy file (tests).
+	dummyFile string
 }
 
 // NewPlugin creates the nginx plugin. customTplDir may be empty (embedded

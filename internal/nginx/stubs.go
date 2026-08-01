@@ -9,9 +9,6 @@ import (
 	"go-ispconfig/internal/engine"
 )
 
-// applyVhost renders, merges and activates the vhost (tasks 3.2–3.4).
-func (p *Plugin) applyVhost(context.Context, site) error { return nil }
-
 // webDomainDelete removes a site (task 3.5).
 func (p *Plugin) webDomainDelete(context.Context, string, engine.Data) error { return nil }
 
