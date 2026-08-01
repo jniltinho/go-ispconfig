@@ -5,10 +5,10 @@ Rule: every finished task = validated (tests pass) + conventional commit. Cross-
 ## 1. Repository and skeleton
 
 - [ ] 1.1 Create GitHub repo `go-ispconfig` with `gh`, init git, push initial layout (README.md stub, LICENSE, .gitignore excluding: `docs/prints/`, `base/`, `.vagrant/`, `*.box`, `testdata/`, `config.toml`, DB files, built binary — no Vagrant images, no testdata, no sensitive data in the repo)
-- [ ] 1.2 `go mod init go-ispconfig` (plain module name, binary named `go-ispconfig` — project convention, see go-cubemail); add Echo v5, GORM+mysql, Cobra, Viper, testify
-- [ ] 1.3 Cobra skeleton: `cmd/{root,serve,daemon,migrate,init,version}.go`, ldflags version injection, `main.go` with `embed.FS` pass-through (go-cubemail pattern)
-- [ ] 1.4 `internal/config`: Viper load (flag → ./config.toml → /etc/go-ispconfig/), env prefix `GOISP_`, `config.toml.example`; `init` command generates default config
-- [ ] 1.5 Makefile (`all: clean frontend build`, CGO_ENABLED=0, trimpath, UPX build-prod), golangci-lint config with godoc-enforcing rules
+- [x] 1.2 `go mod init go-ispconfig` (plain module name, binary named `go-ispconfig` — project convention, see go-cubemail); add Echo v5, GORM+mysql, Cobra, Viper, testify
+- [x] 1.3 Cobra skeleton: `cmd/{root,serve,daemon,migrate,init,version}.go`, ldflags version injection, `main.go` with `embed.FS` pass-through (go-cubemail pattern)
+- [x] 1.4 `internal/config`: Viper load (flag → ./config.toml → /etc/go-ispconfig/), env prefix `GOISP_`, `config.toml.example`; `init` command generates default config
+- [x] 1.5 Makefile (`all: clean frontend build`, CGO_ENABLED=0, trimpath, UPX build-prod), golangci-lint config with godoc-enforcing rules
 
 ## 2. Database layer
 
