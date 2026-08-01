@@ -1,4 +1,6 @@
-/* Base styles. Theme tokens land with the theme-tokens task. */
+/* Theme tokens ported from the ISPConfig3 default theme
+   (docs/research/ispconfig3-theme.md). Minimal set only — visual polish
+   (dark mode, shadows, dashlets) belongs to the add-panel-ui-theme change. */
 @import 'tailwindcss';
 
 /* Vendored Inter (web/static/fonts, copied into the build via publicDir).
@@ -25,6 +27,25 @@
   src: url('/fonts/inter-v20-latin-700.woff2') format('woff2');
 }
 
+@theme {
+  --color-brand: #c70f19;
+  --color-bg: #f2f5f7;
+  --color-surface: #ffffff;
+  --color-text: #3c444b;
+  --color-link: #2371ca;
+  --color-success: #3cb355;
+  --color-border: #d3d7da;
+  --color-info: #dfeaf6;
+  --color-danger: #f7dfdf;
+  --color-danger-border: #dcb2b3;
+  --color-danger-text: #95686b;
+  --color-thead: #3e474e;
+  --font-sans: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  /* Square corners everywhere (ISPConfig3 port requirement). */
+  --radius: 0;
+  --radius-*: initial;
+}
+
 html,
 body,
 #app {
@@ -33,8 +54,33 @@ body,
 
 body {
   margin: 0;
-  font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-family: var(--font-sans);
   font-size: 14px;
   line-height: 1.428;
+  color: var(--color-text);
+  background: var(--color-bg);
   -webkit-font-smoothing: antialiased;
+}
+
+/* radius 0 GLOBAL — no rounded corner may survive. */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  border-radius: 0 !important;
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+a {
+  color: var(--color-link);
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
 }
