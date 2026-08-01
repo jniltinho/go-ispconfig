@@ -17,6 +17,7 @@ config.local.toml
 *.pem
 *.key
 credentials*
+AGENTS.local.md
 
 # Build artifacts (web/dist/index.html placeholder stays tracked so the
 # go:embed of web/dist always compiles from a fresh clone)

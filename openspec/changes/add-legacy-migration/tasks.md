@@ -41,3 +41,8 @@
 ## 7. Docs
 
 - [ ] 7.1 Write `docs/legacy-migration.md`: remote_user setup on the legacy panel (required read grants, enabling Remote API), wizard and CLI walkthrough, SOAP fallback note, rsync/file-transfer responsibility with uid/gid remap (`--usermap`/`--groupmap` or per-site chown), operational order (rsync files before enabling SSL/Let's Encrypt — webroot challenge fails on empty docroot), bulk password-reset flow for panel users, multi-server guard, DNS cutover order (wait for datalog drain, lower TTLs), rollback notes. Screenshots to docs/screenshots. Commit.
+
+## 8. Real-server validation (read-only)
+
+- [ ] 8.1 Validate the legacy API client against the real ISPConfig3 server (Apache2 + PHP-FPM, see AGENTS.local.md — read-only): remote API login, inventory counts (clients/sites/zones), dry-run report; agent-browser read-only walkthrough with screenshots to docs/prints/
+- [ ] 8.2 Compare a mysqldump of the real server's schema (analysis only, dump never committed) against the embedded DDL to confirm drop-in adoption compatibility of a long-lived production database

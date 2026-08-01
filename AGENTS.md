@@ -68,6 +68,15 @@ agent -p "Revise o diff atual do go-ispconfig (git diff HEAD~1). Precisa de refi
 
 Consolidar o feedback: aplicar correções procedentes, descartar falsos positivos com justificativa curta, e só então marcar a task como concluída no `tasks.md` da change OpenSpec.
 
+## Servidor legado real (validação de migração)
+
+Existe um servidor ISPConfig3 PHP **real** (Apache2 + PHP-FPM) disponível como base
+de leitura para validação de migração e testes da API legada — acessos e regras em
+`AGENTS.local.md` (**não commitado**; nunca copiar credenciais para arquivos
+versionados). Regra absoluta: **somente leitura** — inventário, API remota,
+agent-browser e SELECTs/dumps para análise local; nada de escrita. Se a VPN cair:
+`nmcli connection up VPN_Criare`.
+
 ## Testar e validar
 
 | O quê | Como |

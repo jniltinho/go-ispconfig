@@ -29,7 +29,7 @@ proposal now and get design/specs/tasks when scheduled.
 | `add-dns-powerdns-module` | PowerDNS as alternative DNS backend — same DNS UI/API, SQL zone sync (`powerdns_plugin`, `powerdns.sql`) |
 | `add-xmpp-module` | XMPP domains/users (`xmpp_module`, `xmpp_plugin`) — future only, proposal when scheduled |
 | `add-vm-module` | OpenVZ/VM management (`vm_module`, `openvz_plugin`) — future only, proposal when scheduled |
-| `add-web-apache-module` | Apache2 as alternative web backend (`apache2_plugin`) — future only, proposal when scheduled |
+| `add-web-apache-module` | Apache2 as alternative web backend (`apache2_plugin`) — future only, proposal when scheduled; a real Apache2+PHP-FPM reference server exists for validation (see AGENTS.local.md) |
 | `add-aps-module` | APS package installer (`aps_plugin`, `aps_*` tables) — future only, proposal when scheduled |
 | `add-mailinglist-module` | Mailing lists (`mailman_plugin`, `mail_mailinglist`) — future only, proposal when scheduled |
 
