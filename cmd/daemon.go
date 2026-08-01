@@ -47,7 +47,16 @@ var daemonCmd = &cobra.Command{
 		}
 		services := engine.NewServices(engine.SystemctlExecutor{}, logger)
 
-		daemon, err := engine.NewDaemon(db, reg, services, logger)
+		srv, err := engine.GuardServer(db)
+		if err != nil {
+			return err
+		}
+		sched := engine.NewScheduler(db, logger)
+		if err := sched.RegisterDatalogPruning(srv.ServerID, cfg.Daemon.DatalogRetentionDays); err != nil {
+			return err
+		}
+
+		daemon, err := engine.NewDaemon(db, reg, services, sched, logger)
 		if err != nil {
 			return err
 		}

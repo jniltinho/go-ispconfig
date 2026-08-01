@@ -39,6 +39,9 @@ type DatabaseConfig struct {
 type DaemonConfig struct {
 	// TickSeconds is the interval between sys_datalog processing cycles.
 	TickSeconds int `toml:"tick_seconds" mapstructure:"tick_seconds"`
+	// DatalogRetentionDays is how long processed sys_datalog rows are kept
+	// before the daily pruning job removes them.
+	DatalogRetentionDays int `toml:"datalog_retention_days" mapstructure:"datalog_retention_days"`
 }
 
 // AuthConfig holds authentication behavior toggles.
@@ -58,6 +61,7 @@ func setDefaults() {
 	viper.SetDefault("server.tls_key", "")
 	viper.SetDefault("database.dsn", "root:@tcp(127.0.0.1:3306)/dbispconfig?charset=utf8mb4&parseTime=True&loc=Local")
 	viper.SetDefault("daemon.tick_seconds", 10)
+	viper.SetDefault("daemon.datalog_retention_days", 30)
 	viper.SetDefault("auth.rehash_legacy", false)
 }
 

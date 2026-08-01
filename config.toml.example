@@ -28,6 +28,9 @@ dsn = "root:@tcp(127.0.0.1:3306)/dbispconfig?charset=utf8mb4&parseTime=True&loc=
 [daemon]
 # Interval between sys_datalog processing cycles.
 tick_seconds = 10
+# Processed sys_datalog rows older than this many days are removed by the
+# daily pruning job (03:00, internal scheduler).
+datalog_retention_days = 30
 
 [auth]
 # Re-hash legacy ISPConfig crypt password hashes ($6$/$1$) to bcrypt on login.
