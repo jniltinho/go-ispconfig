@@ -92,12 +92,12 @@ var _ = []any{serverIPListDoc, serverIPGetDoc, serverIPCreateDoc, serverIPUpdate
 //	@Description	Paginated, permission-scoped list. Any declared field name may be passed as a query parameter for substring filtering (e.g. ?ip_address=10.0).
 //	@Tags			server_ip
 //	@Produce		json
-//	@Param			page	query		int		false	"1-based page number"	default(1)
-//	@Param			limit	query		int		false	"Page size (max 100)"	default(25)
-//	@Param			ip_address	query	string	false	"Substring filter on ip_address"
-//	@Success		200	{object}	ListResponse
-//	@Failure		401	{object}	ErrorResponse
-//	@Failure		403	{object}	ErrorResponse
+//	@Param			page		query		int		false	"1-based page number"	default(1)
+//	@Param			limit		query		int		false	"Page size (max 100)"	default(25)
+//	@Param			ip_address	query		string	false	"Substring filter on ip_address"
+//	@Success		200			{object}	ListResponse
+//	@Failure		401			{object}	ErrorResponse
+//	@Failure		403			{object}	ErrorResponse
 //	@Router			/server_ip [get]
 //	@Security		CookieAuth
 //	@Security		BearerAuth
@@ -105,16 +105,16 @@ func serverIPListDoc() {}
 
 // serverIPGetDoc documents GET /api/server_ip/{id}.
 //
-//	@Summary		Get a server IP address
-//	@Tags			server_ip
-//	@Produce		json
-//	@Param			id	path		int	true	"server_ip_id"
-//	@Success		200	{object}	model.ServerIP
-//	@Failure		401	{object}	ErrorResponse
-//	@Failure		403	{object}	ErrorResponse	"Permission denied or record not found"
-//	@Router			/server_ip/{id} [get]
-//	@Security		CookieAuth
-//	@Security		BearerAuth
+//	@Summary	Get a server IP address
+//	@Tags		server_ip
+//	@Produce	json
+//	@Param		id	path		int	true	"server_ip_id"
+//	@Success	200	{object}	model.ServerIP
+//	@Failure	401	{object}	ErrorResponse
+//	@Failure	403	{object}	ErrorResponse	"Permission denied or record not found"
+//	@Router		/server_ip/{id} [get]
+//	@Security	CookieAuth
+//	@Security	BearerAuth
 func serverIPGetDoc() {}
 
 // serverIPCreateDoc documents POST /api/server_ip.
@@ -154,13 +154,13 @@ func serverIPUpdateDoc() {}
 
 // serverIPDeleteDoc documents DELETE /api/server_ip/{id}.
 //
-//	@Summary		Delete a server IP address
-//	@Tags			server_ip
-//	@Param			id	path	int	true	"server_ip_id"
-//	@Success		204	"Deleted"
-//	@Failure		401	{object}	ErrorResponse
-//	@Failure		403	{object}	ErrorResponse
-//	@Router			/server_ip/{id} [delete]
-//	@Security		CookieAuth
-//	@Security		BearerAuth
+//	@Summary	Delete a server IP address
+//	@Tags		server_ip
+//	@Param		id	path	int	true	"server_ip_id"
+//	@Success	204	"Deleted"
+//	@Failure	401	{object}	ErrorResponse
+//	@Failure	403	{object}	ErrorResponse
+//	@Router		/server_ip/{id} [delete]
+//	@Security	CookieAuth
+//	@Security	BearerAuth
 func serverIPDeleteDoc() {}

@@ -19,7 +19,7 @@ LDFLAGS    := -trimpath -ldflags "-s -w -X $(PREFIX).Version=$(VERSION) -X $(PRE
 
 .PHONY: all build build-prod run clean frontend frontend-dev \
         migrate tidy deps deps-frontend install-upx lint swagger \
-        test test-race help
+        swagger-check test test-race help
 
 ## Default: build frontend + go binary
 all: clean frontend build
@@ -103,9 +103,16 @@ deps-frontend:
 	@echo "Installing frontend dependencies..."
 	cd frontend && npm install
 
-## Generate Swagger documentation (wired by the REST API core tasks)
+## Generate Swagger documentation (swaggo annotations → internal/api/docs)
 swagger:
-	@echo "swagger: not wired yet (REST API core, task 6.6)"
+	swag fmt --dir internal/api
+	swag init --dir internal/api --generalInfo api.go --output internal/api/docs \
+		--outputTypes go,json --parseDependency
+
+## Fail when the committed swagger spec is stale (CI staleness check)
+swagger-check: swagger
+	@git diff --exit-code internal/api/docs internal/api \
+		|| { echo "swagger docs are stale: run 'make swagger' and commit"; exit 1; }
 
 install-upx:
 	@echo "Installing UPX $(UPX_VERSION)..."

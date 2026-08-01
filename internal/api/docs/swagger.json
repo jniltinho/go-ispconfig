@@ -1,0 +1,737 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "description": "REST API of go-ispconfig, the Go port of ISPConfig3. Authenticate via POST /api/login: browsers receive an HTTP-only session cookie (mutating requests then require the X-CSRF-Token header returned by login); non-browser clients present the same session id as a bearer token.",
+        "title": "go-ispconfig API",
+        "contact": {},
+        "version": "1.0"
+    },
+    "basePath": "/api",
+    "paths": {
+        "/login": {
+            "post": {
+                "description": "Verifies sys_user credentials (bcrypt or legacy ISPConfig3 crypt hashes) with brute-force lockout, creates a sys_session and returns the CSRF token. The session id is set as an HTTP-only cookie; non-browser clients may present it as a bearer token instead.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Log in",
+                "parameters": [
+                    {
+                        "description": "Login credentials",
+                        "name": "credentials",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.LoginRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.LoginResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Invalid credentials",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too many failed attempts",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/logout": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Deletes the current sys_session and clears the session cookie. Succeeds with 204 even without a valid session.",
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Log out",
+                "responses": {
+                    "204": {
+                        "description": "Logged out"
+                    }
+                }
+            }
+        },
+        "/meta/forms/{entity}": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns the tabs, fields, types, defaults and validator hints of a registered entity so the SPA renders its form from the same source of truth used for validation.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "meta"
+                ],
+                "summary": "Form metadata of an entity",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "example": "server_ip",
+                        "description": "Entity name",
+                        "name": "entity",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.FormMeta"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Unknown entity",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/server_ip": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Paginated, permission-scoped list. Any declared field name may be passed as a query parameter for substring filtering (e.g. ?ip_address=10.0).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "server_ip"
+                ],
+                "summary": "List server IP addresses",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "1-based page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 25,
+                        "description": "Page size (max 100)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Substring filter on ip_address",
+                        "name": "ip_address",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.ListResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Validates the declared fields (ip_address must be a unique valid IP), runs the client limit hook, stamps ownership server-side and journals the insert to sys_datalog.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "server_ip"
+                ],
+                "summary": "Create a server IP address",
+                "parameters": [
+                    {
+                        "description": "Field values (declared fields only; sys_ columns are ignored)",
+                        "name": "record",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.ServerIP"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/model.ServerIP"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Per-field validation errors",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/server_ip/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "server_ip"
+                ],
+                "summary": "Get a server IP address",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "server_ip_id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.ServerIP"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied or record not found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Merges the declared body fields over the stored record, validates the result and saves it under the u-flag permission scope with a sys_datalog diff.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "server_ip"
+                ],
+                "summary": "Update a server IP address",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "server_ip_id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Changed field values",
+                        "name": "record",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.ServerIP"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.ServerIP"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Per-field validation errors",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "server_ip"
+                ],
+                "summary": "Delete a server IP address",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "server_ip_id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Deleted"
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/session": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns the logged-in user: username, access level, effective groups and language.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Current session",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.SessionInfo"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "api.ErrorInfo": {
+            "type": "object",
+            "properties": {
+                "fields": {
+                    "description": "Fields maps field names to their i18n validation error keys\n(422 responses only).",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "key": {
+                    "description": "Key is the i18n message key describing the error.",
+                    "type": "string",
+                    "example": "error.permission_denied"
+                }
+            }
+        },
+        "api.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "description": "Error describes what went wrong.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/api.ErrorInfo"
+                        }
+                    ]
+                }
+            }
+        },
+        "api.FormFieldMeta": {
+            "type": "object",
+            "properties": {
+                "datatype": {
+                    "description": "Datatype is the tform datatype (INTEGER, VARCHAR, ...).",
+                    "type": "string"
+                },
+                "default": {
+                    "description": "Default is the value applied when a create omits the field."
+                },
+                "formtype": {
+                    "description": "Formtype is the original tform form control name.",
+                    "type": "string"
+                },
+                "label": {
+                    "description": "Label is the i18n label key.",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "Name is the DB column and JSON key of the field.",
+                    "type": "string"
+                },
+                "options": {
+                    "description": "Options lists the allowed values of select/checkbox fields.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/api.Option"
+                    }
+                },
+                "type": {
+                    "description": "Type is the SPA control type (text, password, textarea, select,\ncheckbox), derived from the tform formtype.",
+                    "type": "string"
+                },
+                "validators": {
+                    "description": "Validators are the declarative rules the API enforces.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/validator.Rule"
+                    }
+                }
+            }
+        },
+        "api.FormMeta": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "description": "Name is the entity name.",
+                    "type": "string"
+                },
+                "tabs": {
+                    "description": "Tabs are the form tabs.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/api.FormTabMeta"
+                    }
+                },
+                "title": {
+                    "description": "Title is the i18n title key of the form.",
+                    "type": "string"
+                }
+            }
+        },
+        "api.FormTabMeta": {
+            "type": "object",
+            "properties": {
+                "fields": {
+                    "description": "Fields are the fields rendered on the tab.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/api.FormFieldMeta"
+                    }
+                },
+                "label": {
+                    "description": "Label is the i18n label key.",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "Name identifies the tab.",
+                    "type": "string"
+                }
+            }
+        },
+        "api.ListResponse": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "description": "Items are the records of the requested page, keyed by DB column.",
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": {}
+                    }
+                },
+                "limit": {
+                    "description": "Limit is the applied page size.",
+                    "type": "integer"
+                },
+                "page": {
+                    "description": "Page is the returned 1-based page number.",
+                    "type": "integer"
+                },
+                "total": {
+                    "description": "Total is the number of records matching the filters (all pages).",
+                    "type": "integer"
+                }
+            }
+        },
+        "api.LoginRequest": {
+            "type": "object",
+            "properties": {
+                "password": {
+                    "description": "Password is the cleartext password.",
+                    "type": "string",
+                    "example": "secret"
+                },
+                "stay_logged_in": {
+                    "description": "StayLoggedIn is accepted for SPA compatibility; sessions currently\nalways use the server-side idle TTL.",
+                    "type": "boolean"
+                },
+                "username": {
+                    "description": "Username is the sys_user login name.",
+                    "type": "string",
+                    "example": "admin"
+                }
+            }
+        },
+        "api.LoginResponse": {
+            "type": "object",
+            "properties": {
+                "csrf_token": {
+                    "description": "CSRFToken must be sent as X-CSRF-Token on every mutating\ncookie-authenticated request.",
+                    "type": "string"
+                },
+                "typ": {
+                    "description": "Typ is the access level (\"admin\" or \"user\").",
+                    "type": "string",
+                    "example": "admin"
+                },
+                "username": {
+                    "description": "Username is the authenticated login name.",
+                    "type": "string",
+                    "example": "admin"
+                }
+            }
+        },
+        "api.Option": {
+            "type": "object",
+            "properties": {
+                "label": {
+                    "description": "Label is the i18n label key of the option.",
+                    "type": "string"
+                },
+                "value": {
+                    "description": "Value is the stored value.",
+                    "type": "string"
+                }
+            }
+        },
+        "api.SessionInfo": {
+            "type": "object",
+            "properties": {
+                "groups": {
+                    "description": "Groups is the effective sys_group id list of the user.",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "language": {
+                    "description": "Language is the panel language of the user.",
+                    "type": "string",
+                    "example": "en"
+                },
+                "typ": {
+                    "description": "Typ is the access level (\"admin\" or \"user\").",
+                    "type": "string",
+                    "example": "admin"
+                },
+                "username": {
+                    "description": "Username is the sys_user login name.",
+                    "type": "string",
+                    "example": "admin"
+                }
+            }
+        },
+        "model.ServerIP": {
+            "type": "object",
+            "properties": {
+                "client_id": {
+                    "type": "integer"
+                },
+                "ip_address": {
+                    "type": "string",
+                    "example": "10.0.0.1"
+                },
+                "ip_type": {
+                    "type": "string",
+                    "example": "IPv4"
+                },
+                "server_id": {
+                    "type": "integer"
+                },
+                "server_ip_id": {
+                    "type": "integer"
+                },
+                "sys_groupid": {
+                    "type": "integer"
+                },
+                "sys_perm_group": {
+                    "type": "string"
+                },
+                "sys_perm_other": {
+                    "type": "string"
+                },
+                "sys_perm_user": {
+                    "type": "string"
+                },
+                "sys_userid": {
+                    "type": "integer"
+                },
+                "virtualhost": {
+                    "type": "string",
+                    "example": "y"
+                },
+                "virtualhost_port": {
+                    "type": "string",
+                    "example": "80,443"
+                }
+            }
+        },
+        "validator.Rule": {
+            "type": "object",
+            "properties": {
+                "allow_empty": {
+                    "description": "AllowEmpty skips the check for empty values (tform allowempty 'y';\nhonored by UNIQUE and ISIP).",
+                    "type": "boolean"
+                },
+                "errmsg": {
+                    "description": "ErrKey is the i18n message key reported on failure (tform errmsg).",
+                    "type": "string"
+                },
+                "regex": {
+                    "description": "Regex is the pattern of a REGEX rule (Go syntax).",
+                    "type": "string"
+                },
+                "type": {
+                    "description": "Type is the validator name: REGEX, UNIQUE, NOTEMPTY, ISEMAIL, ISINT,\nISPOSITIVE, ISIPV4, ISIPV6, ISIP or CUSTOM.",
+                    "type": "string"
+                }
+            }
+        }
+    },
+    "securityDefinitions": {
+        "BearerAuth": {
+            "description": "Session id as bearer token: \"Bearer \u003csession id\u003e\". No CSRF token required on this transport.",
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
+        },
+        "CookieAuth": {
+            "description": "Browser transport: goisp_session HTTP-only cookie set by POST /api/login. Mutating requests must also send the X-CSRF-Token header.",
+            "type": "apiKey",
+            "name": "Cookie",
+            "in": "header"
+        }
+    }
+}

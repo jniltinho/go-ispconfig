@@ -63,6 +63,7 @@ var serveCmd = &cobra.Command{
 		}); err != nil {
 			return fmt.Errorf("registering API: %w", err)
 		}
+		api.RegisterSwagger(e)
 
 		e.GET("/api/health", func(c *echo.Context) error {
 			return c.JSON(http.StatusOK, map[string]string{
