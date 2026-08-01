@@ -403,7 +403,7 @@ func testSessionStore(t *testing.T, db *gorm.DB) {
 	})
 
 	t.Run("permanent session never expires", func(t *testing.T) {
-		pid, err := store.Create(&auth.SessionData{UserID: 21, Username: "clientA"})
+		pid, err := store.Create(&auth.SessionData{UserID: 21, Username: "clientA", Typ: "user"})
 		require.NoError(t, err)
 		require.NoError(t, db.Exec(
 			"UPDATE sys_session SET permanent = 'y', last_updated = ? WHERE session_id = ?",
@@ -413,7 +413,7 @@ func testSessionStore(t *testing.T, db *gorm.DB) {
 	})
 
 	t.Run("delete removes the session", func(t *testing.T) {
-		did, err := store.Create(&auth.SessionData{UserID: 21})
+		did, err := store.Create(&auth.SessionData{UserID: 21, Typ: "user"})
 		require.NoError(t, err)
 		require.NoError(t, store.Delete(did))
 		_, err = store.Get(did)
