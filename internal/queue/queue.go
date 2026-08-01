@@ -91,6 +91,19 @@ func (c *Client) EnqueueDatalogReady(serverID uint32) {
 	}
 }
 
+// ReadyNotifier returns a datalog.SetReadyNotifier-compatible function that
+// enqueues a datalog:ready wake for the changed record's server. A record
+// with server_id 0 is an every-server broadcast; with the single-server
+// guard in place it targets defaultServerID (the panel's own active server).
+func (c *Client) ReadyNotifier(defaultServerID uint32) func(serverID uint32) {
+	return func(serverID uint32) {
+		if serverID == 0 {
+			serverID = defaultServerID
+		}
+		c.EnqueueDatalogReady(serverID)
+	}
+}
+
 // periodicEntry is one cron entry registered before Run starts the embedded
 // asynq scheduler.
 type periodicEntry struct {

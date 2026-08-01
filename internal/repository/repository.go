@@ -166,12 +166,24 @@ func (r *Repo[T]) Insert(ctx context.Context, id *Identity, rec *T) error {
 	if !r.canInsert(id, rec) {
 		return ErrPermissionDenied
 	}
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return r.txn(ctx, func(tx *gorm.DB) error {
 		if err := tx.Create(rec).Error; err != nil {
 			return err
 		}
 		return datalog.LogInsert(tx, rec, id.Username)
 	})
+}
+
+// txn runs fn in a transaction under a datalog.NotifyAfterCommit context and
+// fires the datalog:ready notifier only after a successful commit — never
+// before it and never on rollback (design D12 instant wake).
+func (r *Repo[T]) txn(ctx context.Context, fn func(tx *gorm.DB) error) error {
+	ctx, flush := datalog.NotifyAfterCommit(ctx)
+	if err := r.db.WithContext(ctx).Transaction(fn); err != nil {
+		return err
+	}
+	flush()
+	return nil
 }
 
 // Update saves a record. The stored row is loaded under the u-flag
@@ -186,7 +198,7 @@ func (r *Repo[T]) Update(ctx context.Context, id *Identity, rec *T) error {
 		return ErrPermissionDenied
 	}
 	pk, _ := r.fieldValue(ctx, rec, r.pk)
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return r.txn(ctx, func(tx *gorm.DB) error {
 		var old T
 		err := tx.Scopes(WithPerm(id, PermUpdate)).Where(r.pk+" = ?", pk).First(&old).Error
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -224,7 +236,7 @@ func (r *Repo[T]) Delete(ctx context.Context, id *Identity, pk any) error {
 	if id == nil {
 		return ErrPermissionDenied
 	}
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return r.txn(ctx, func(tx *gorm.DB) error {
 		var old T
 		err := tx.Scopes(WithPerm(id, PermDelete)).Where(r.pk+" = ?", pk).First(&old).Error
 		if errors.Is(err, gorm.ErrRecordNotFound) {

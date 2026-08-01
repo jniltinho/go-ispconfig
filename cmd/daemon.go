@@ -67,6 +67,9 @@ var daemonCmd = &cobra.Command{
 		// fallback source of truth consumer.
 		worker := queue.NewWorker(cfg.Queue, daemon.ServerID(), logger)
 		worker.HandleSchedulerJobs(sched.RunJob)
+		worker.Handle(queue.TypeDatalogReady, func(ctx context.Context, _ []byte) error {
+			return daemon.Wake(ctx)
+		})
 		for _, j := range sched.Jobs(ctx) {
 			worker.RegisterPeriodic(j.Spec, j.Name)
 		}

@@ -177,6 +177,16 @@ func (d *Daemon) RunCycle(ctx context.Context) error {
 	return d.cycle(ctx)
 }
 
+// Wake runs a processing cycle for a datalog:ready task (design D12 instant
+// wake). Unlike the tick path it waits for an in-flight cycle instead of
+// skipping, so a change committed while a cycle runs is still processed
+// immediately afterwards; the single-cycle lock is always respected.
+func (d *Daemon) Wake(ctx context.Context) error {
+	d.busy.Lock()
+	defer d.busy.Unlock()
+	return d.cycle(ctx)
+}
+
 // cycle is the shared cycle body; callers must hold busy.
 func (d *Daemon) cycle(ctx context.Context) error {
 	if err := d.processDatalog(ctx); err != nil {

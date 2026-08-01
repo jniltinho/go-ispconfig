@@ -1,6 +1,7 @@
 package datalog
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -71,4 +72,30 @@ func TestRecordMap(t *testing.T) {
 	require.Equal(t, "a.tld", m["domain"])
 	require.Equal(t, uint32(1), m["server_id"])
 	require.Empty(t, recordMap(s, nil))
+}
+
+func TestNotifyAfterCommit(t *testing.T) {
+	var fired []uint32
+	SetReadyNotifier(func(id uint32) { fired = append(fired, id) })
+	t.Cleanup(func() { SetReadyNotifier(nil) })
+
+	t.Run("deferred until flush, deduplicated per server", func(t *testing.T) {
+		ctx, flush := NotifyAfterCommit(context.Background())
+		markReady(ctx, 1)
+		markReady(ctx, 1)
+		markReady(ctx, 2)
+		require.Empty(t, fired, "nothing fires before commit")
+		flush()
+		require.ElementsMatch(t, []uint32{1, 2}, fired)
+
+		fired = nil
+		flush()
+		require.Empty(t, fired, "flush is one-shot")
+	})
+
+	t.Run("immediate without collector", func(t *testing.T) {
+		fired = nil
+		markReady(context.Background(), 7)
+		require.Equal(t, []uint32{7}, fired)
+	})
 }

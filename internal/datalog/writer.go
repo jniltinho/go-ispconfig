@@ -44,6 +44,74 @@ type Diff struct {
 // schemaCache caches gorm schema parses across writer calls.
 var schemaCache = &sync.Map{}
 
+// notifyMu guards notifyReady.
+var notifyMu sync.RWMutex
+
+// notifyReady is the registered instant-wake hook (design D12), nil when the
+// queue is not wired.
+var notifyReady func(serverID uint32)
+
+// SetReadyNotifier registers fn as the datalog:ready hook: it receives the
+// server_id of every journaled change so the owning daemon can be woken
+// without waiting for its poll tick. fn must never fail the business
+// transaction — an enqueue problem is a warning, sys_datalog stays the
+// source of truth. A nil fn disables notification.
+func SetReadyNotifier(fn func(serverID uint32)) {
+	notifyMu.Lock()
+	defer notifyMu.Unlock()
+	notifyReady = fn
+}
+
+// collector accumulates the server ids journaled inside one transaction so
+// the notifier fires only after commit (and never on rollback).
+type collector struct {
+	mu  sync.Mutex
+	ids map[uint32]struct{}
+}
+
+// collectorKey is the context key carrying a *collector.
+type collectorKey struct{}
+
+// NotifyAfterCommit returns a derived context that defers ready
+// notifications for datalog writes made under it, plus a flush function the
+// caller runs after the transaction committed. Without this context the
+// writer notifies at write time, which is only correct outside a
+// transaction; the repository layer wraps every datalog transaction with it.
+func NotifyAfterCommit(ctx context.Context) (context.Context, func()) {
+	c := &collector{ids: map[uint32]struct{}{}}
+	return context.WithValue(ctx, collectorKey{}, c), func() {
+		c.mu.Lock()
+		ids := c.ids
+		c.ids = map[uint32]struct{}{}
+		c.mu.Unlock()
+		for id := range ids {
+			fireReady(id)
+		}
+	}
+}
+
+// markReady records one journaled change for post-commit notification, or
+// notifies immediately when ctx carries no collector.
+func markReady(ctx context.Context, serverID uint32) {
+	if c, ok := ctx.Value(collectorKey{}).(*collector); ok {
+		c.mu.Lock()
+		c.ids[serverID] = struct{}{}
+		c.mu.Unlock()
+		return
+	}
+	fireReady(serverID)
+}
+
+// fireReady invokes the registered notifier, if any.
+func fireReady(serverID uint32) {
+	notifyMu.RLock()
+	fn := notifyReady
+	notifyMu.RUnlock()
+	if fn != nil {
+		fn(serverID)
+	}
+}
+
 // LogInsert journals a created record with action i and the full new record
 // as data. It is a no-op when rec is not Tracked. Call it inside the same
 // transaction that created the record.
@@ -116,6 +184,7 @@ func logChange(tx *gorm.DB, action string, oldRec, newRec any, username string) 
 	if err := tx.Create(&row).Error; err != nil {
 		return fmt.Errorf("datalog: inserting sys_datalog row for %s: %w", s.Table, err)
 	}
+	markReady(tx.Statement.Context, row.ServerID)
 	return nil
 }
 
