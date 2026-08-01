@@ -13,6 +13,21 @@ The application SHALL build as a single static binary (`CGO_ENABLED=0`) exposing
 - **WHEN** the user runs `go-ispconfig serve` with a valid config.toml
 - **THEN** Echo listens on the configured address serving both `/api/*` and the embedded SPA
 
+### Requirement: Standalone HTTPS by default with self-signed fallback
+`serve` SHALL run standalone (no nginx/apache in front) and default to HTTPS: configured cert/key are used when valid; otherwise a 10-year self-signed certificate (CN/SAN = hostname + host IPs) SHALL be generated automatically into the config's `ssl/` directory (0600) and used. Plain HTTP SHALL require explicit `server.https = false`.
+
+#### Scenario: First start without any cert
+- **WHEN** `serve` starts with no TLS files configured
+- **THEN** it generates a 10-year self-signed cert/key, serves HTTPS on the configured port, and reuses the same files on subsequent starts
+
+#### Scenario: Expired or invalid cert replaced
+- **WHEN** the auto-generated cert on disk is expired or unreadable at startup
+- **THEN** `serve` regenerates it and starts HTTPS (explicitly configured certs are never overwritten — startup fails with a clear error instead)
+
+#### Scenario: Explicit HTTP opt-in
+- **WHEN** `server.https = false` is set
+- **THEN** serve listens in plain HTTP without generating certificates
+
 ### Requirement: Configuration via config.toml with env override
 The binary SHALL load configuration from `config.toml` searched at `--config` flag path, `./config.toml`, then `/etc/go-ispconfig/config.toml`, with environment overrides using prefix `GOISP_` (e.g. `GOISP_SERVER_PORT`).
 

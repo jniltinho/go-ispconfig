@@ -66,6 +66,9 @@ Exactly the go-cubemail pattern: `//go:embed all:web/dist`, Vite dev proxy `/api
 ### D8 — Config: config.toml via Viper + DB-stored runtime config
 Static process config (listen address, DB DSN, paths) in `config.toml` (Viper, env prefix `GOISP_`). Runtime server behavior config stays **in the DB** like ISPConfig (`server.config` INI text, `sys_config`/`sys_ini`) parsed into typed structs — port of `getconf`. Rationale: the daemon of a given server must be reconfigurable from the panel, which is exactly why ISPConfig stores it in the DB.
 
+### D13 — Standalone HTTPS panel (no web server in front)
+The panel is fully standalone (user requirement): `serve` never depends on nginx/apache in front — it listens on its own configured port and terminates TLS itself. **HTTPS is the default**: when `server.tls_cert`/`tls_key` are configured and valid, they are used; when absent (or expired/invalid at startup), `serve` generates a **10-year self-signed certificate** (crypto/x509, CN/SAN = hostname + detected IPs) into the config directory (`ssl/` next to config.toml, 0600) and uses it — regenerating only when missing or invalid. Plain HTTP requires explicit opt-in (`server.https = false`). The installer's cert step (add-installer-cli D8) becomes a pre-seed of the same path; the binary self-heals without it.
+
 ### D12 — asynq task queue (Redis/Valkey) for system jobs and multiserver coordination
 System tasks and the job queue run on **asynq** (github.com/hibiken/asynq) backed by Redis or Valkey (`[queue]` section in config.toml, default localhost). Design:
 - **Per-server queues**: each server consumes only its queue (`server:<id>`); the API/panel enqueues jobs targeted at the owning server — the multiserver dispatch ISPConfig does via datalog polling, but with retries, priorities, uniqueness and observability built in.

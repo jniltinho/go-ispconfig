@@ -50,6 +50,10 @@ Rule: every finished task = validated (tests pass) + conventional commit. Cross-
 - [x] 5.2 Golden-file tests: nginx_vhost.conf.master, php_fpm_pool.conf.master, bind_pri.domain.master, bind_named.conf.local.master + .slave rendered against fixtures
 - [ ] 5.3 Custom template override dir (custom-first lookup, [templates] custom_dir config, source logging) + `go-ispconfig templates list/export` CLI (refuse overwrite without --force) — conf-custom parity (D6b)
 
+## 1b. Standalone HTTPS (added by user requirement)
+
+- [ ] 1b.1 `serve` HTTPS por default: auto-gera cert self-signed de 10 anos (crypto/x509, CN/SAN=hostname+IPs, ssl/ junto ao config, 0600) quando não houver cert válido; regenera se expirado/ilegível (nunca sobrescreve cert explicitamente configurado — erro claro); `server.https = false` para HTTP explícito; testes (D13)
+
 ## 6. REST API core
 
 - [ ] 6.1 Echo v5 bootstrap: SPA static serve from embed, `/api` group, error handler with i18n keys, request logging (slog)
