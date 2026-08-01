@@ -28,7 +28,11 @@ func (p *Plugin) webDomainUpdate(ctx context.Context, _ string, data engine.Data
 func (p *Plugin) applyWebDomain(ctx context.Context, action string, oldRow, newRow row) error {
 	// Alias and subdomain records render inside their parent's vhost: apply
 	// the parent instead (port of the parent_domain_id redirect).
-	if !isVhostType(newRow.str("type")) && newRow.num("parent_domain_id") > 0 {
+	if !isVhostType(newRow.str("type")) {
+		if newRow.num("parent_domain_id") <= 0 {
+			p.log.Warn("nginx: ignoring non-vhost domain without parent", "domain", newRow.str("domain"))
+			return nil
+		}
 		var errs []error
 		if action == "update" && oldRow.num("parent_domain_id") != newRow.num("parent_domain_id") {
 			if err := p.applyParent(ctx, oldRow.num("parent_domain_id")); err != nil {
