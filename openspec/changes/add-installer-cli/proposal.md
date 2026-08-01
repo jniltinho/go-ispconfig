@@ -9,7 +9,7 @@ go-ispconfig currently assumes a hand-prepared host (packages installed, MariaDB
 - New Cobra subcommand **`go-ispconfig install`** — native Go port of the `install/` layer for the nginx+bind scope. Interactive (question/answer, port of `simple_query`/`free_query`) and non-interactive (`--yes` plus flags and/or an answers file) modes.
 - **Distro detection** via `/etc/os-release`: Debian 11/12/13 and Ubuntu 22.04/24.04, each mapped to a static distro profile (paths, package names, service names, PHP-FPM version) — the Go port of `install/dist/conf/debian110|120|130.conf.php` and `ubuntu2204|2404.conf.php`. Unsupported distros abort with a clear error.
 - **Install steps** (each idempotent, re-runnable):
-  1. Install OS packages via apt (nginx, bind9, mariadb-server; php-fpm optional).
+  1. Install OS packages via apt (nginx, bind9, mariadb-server, plus `redis-server` or `valkey` per the distro profile — backing for the asynq task queue, foundation D12; php-fpm optional).
   2. Configure MariaDB: create `dbispconfig` using the **embedded original ISPConfig3 DDL** (reuses the foundation `migrate` machinery — the installer does not carry a second schema), create the `ispconfig` DB user with a generated password (port of `configure_database`).
   3. Detect host IPs and populate `server_ip` (port of `detect_ips`/`get_host_ips`).
   4. Create the `server` row with `web_server=1`, `dns_server=1` and default `server.config` INI (port of `add_database_server_record`).

@@ -42,7 +42,7 @@ Rule: every finished task = validated (tests pass) + conventional commit. Cross-
 - [x] 4b.2 Scheduler on asynq: register D1b cron jobs as asynq periodic tasks (daemon embeds the asynq worker), keep sys_config status mirroring; remove/adapt the in-process ticker execution path
 - [x] 4b.3 Instant wake: datalog writer enqueues `datalog:ready` post-commit (enqueue failure = warning only, never fails the transaction); daemon triggers a processing cycle on receipt; tick polling stays as fallback
 - [x] 4b.4 Integration test (docker redis + mariadb): job routed to correct per-server queue, retry on failure, periodic task fires once, datalog:ready wakes processing before tick, Redis-down degradation (write succeeds, poll picks up)
-- [ ] 4b.5 config.toml.example `[queue]` section + AGENTS.md dev env note (docker redis) + installer change note: add redis/valkey package step to add-installer-cli (Modified Capability)
+- [x] 4b.5 config.toml.example `[queue]` section + AGENTS.md dev env note (docker redis) + installer change note: add redis/valkey package step to add-installer-cli (Modified Capability)
 
 ## 5. Master template engine
 

@@ -32,6 +32,15 @@ tick_seconds = 10
 # daily pruning job (03:00, internal scheduler).
 datalog_retention_days = 30
 
+[queue]
+# Redis/Valkey backing the asynq task queue (scheduler jobs, instant datalog
+# wake, per-server job routing). The queue transports work, never state:
+# sys_datalog remains the source of truth, so with Redis down the daemon
+# keeps applying changes via tick polling and writes only log a warning.
+addr = "localhost:6379"
+db = 0
+password = ""
+
 [auth]
 # Re-hash legacy ISPConfig crypt password hashes ($6$/$1$) to bcrypt on login.
 # Keep false until a migration cutover from PHP ISPConfig is final: PHP cannot

@@ -22,6 +22,7 @@ Projeto: port do ISPConfig3 (PHP) para Go — painel de hospedagem com nginx (we
 ```bash
 # Dependências: go >= 1.26, node >= 22, mariadb (local ou docker), vagrant+virtualbox (testes de instalação)
 docker run -d --name mariadb-ispconfig -e MARIADB_ROOT_PASSWORD=root -p 3306:3306 mariadb:11
+docker run -d --name redis-ispconfig -p 6379:6379 redis:7-alpine   # task queue asynq (D12)
 
 make all            # clean + frontend (npm run build → web/dist) + build do binário
 ./go-ispconfig init      # gera config.toml default
