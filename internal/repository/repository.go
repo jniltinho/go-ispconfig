@@ -15,6 +15,8 @@ import (
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/schema"
+
+	"go-ispconfig/internal/datalog"
 )
 
 // Permission flags, one per operation (Unix-style riud strings stored in
@@ -129,15 +131,24 @@ func (r *Repo[T]) CheckPerm(ctx context.Context, id *Identity, pk any, perm byte
 
 // Insert creates a record after checking the i flag against the record's
 // own sys_ permission preset (port of tform::checkPerm for record_id 0).
+// When T is datalog.Tracked, a sys_datalog row is written in the same
+// transaction, so a rollback removes both the record and its journal entry.
 func (r *Repo[T]) Insert(ctx context.Context, id *Identity, rec *T) error {
 	if !r.canInsert(id, rec) {
 		return ErrPermissionDenied
 	}
-	return r.db.WithContext(ctx).Create(rec).Error
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(rec).Error; err != nil {
+			return err
+		}
+		return datalog.LogInsert(tx, rec, id.Username)
+	})
 }
 
 // Update saves a record after verifying the identity holds the u flag on
-// the stored row (checkPerm-then-update, as tform's "Update denied").
+// the stored row (checkPerm-then-update, as tform's "Update denied"). When T
+// is datalog.Tracked, the changed-fields diff against the stored row is
+// journaled to sys_datalog in the same transaction.
 func (r *Repo[T]) Update(ctx context.Context, id *Identity, rec *T) error {
 	pk, _ := r.fieldValue(ctx, rec, r.pk)
 	ok, err := r.CheckPerm(ctx, id, pk, PermUpdate)
@@ -147,11 +158,21 @@ func (r *Repo[T]) Update(ctx context.Context, id *Identity, rec *T) error {
 	if !ok {
 		return ErrPermissionDenied
 	}
-	return r.db.WithContext(ctx).Save(rec).Error
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var old T
+		if err := tx.Where(r.pk+" = ?", pk).First(&old).Error; err != nil {
+			return err
+		}
+		if err := tx.Save(rec).Error; err != nil {
+			return err
+		}
+		return datalog.LogUpdate(tx, &old, rec, id.Username)
+	})
 }
 
 // Delete removes the record with the given primary key after verifying the
-// d flag.
+// d flag. When T is datalog.Tracked, the full old record is journaled to
+// sys_datalog in the same transaction.
 func (r *Repo[T]) Delete(ctx context.Context, id *Identity, pk any) error {
 	ok, err := r.CheckPerm(ctx, id, pk, PermDelete)
 	if err != nil {
@@ -160,7 +181,16 @@ func (r *Repo[T]) Delete(ctx context.Context, id *Identity, pk any) error {
 	if !ok {
 		return ErrPermissionDenied
 	}
-	return r.db.WithContext(ctx).Where(r.pk+" = ?", pk).Delete(new(T)).Error
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var old T
+		if err := tx.Where(r.pk+" = ?", pk).First(&old).Error; err != nil {
+			return err
+		}
+		if err := tx.Where(r.pk+" = ?", pk).Delete(new(T)).Error; err != nil {
+			return err
+		}
+		return datalog.LogDelete(tx, &old, id.Username)
+	})
 }
 
 // canInsert ports the checkPerm(0, 'i') preset branch using the record's

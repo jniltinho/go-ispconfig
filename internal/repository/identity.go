@@ -15,6 +15,8 @@ import (
 type Identity struct {
 	// UserID is sys_user.userid.
 	UserID uint32
+	// Username is sys_user.username, recorded in sys_datalog.user.
+	Username string
 	// Typ is sys_user.typ: "admin" bypasses record permissions.
 	Typ string
 	// Groups is the effective sys_group id list: the sys_user.groups CSV
@@ -42,9 +44,10 @@ func (id *Identity) InGroup(groupID uint32) bool {
 // user's client — the full ISPConfig reseller graph (design D4).
 func ResolveIdentity(db *gorm.DB, u *model.SysUser) (*Identity, error) {
 	id := &Identity{
-		UserID: u.UserID,
-		Typ:    u.Typ,
-		Groups: parseGroupCSV(u.Groups),
+		UserID:   u.UserID,
+		Username: u.Username,
+		Typ:      u.Typ,
+		Groups:   parseGroupCSV(u.Groups),
 	}
 	if !id.IsAdmin() && u.ClientID > 0 {
 		var childGroups []uint32
