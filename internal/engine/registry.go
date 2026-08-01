@@ -146,8 +146,16 @@ func (r *Registry) RegisterAction(action string, fn ActionFunc) {
 
 // RaiseTableHook dispatches a decoded datalog change to every hook
 // registered for the table (port of modules.inc.php raiseTableHook). Hook
-// errors are joined and returned; remaining hooks still run.
+// errors are joined and returned; remaining hooks still run. A table with no
+// registered hook is logged as a warning: the row is still consumed
+// (server.updated advances), so a typoed dbtable must at least be visible.
+// Hooks run at-least-once (see Daemon idempotency contract) and MUST be
+// idempotent.
 func (r *Registry) RaiseTableHook(table, action string, data Data) error {
+	if len(r.hooks[table]) == 0 {
+		r.log.Warn("engine: no table hook registered, change ignored", "table", table, "action", action)
+		return nil
+	}
 	var errs []error
 	for _, fn := range r.hooks[table] {
 		if err := fn(table, action, data); err != nil {

@@ -27,10 +27,21 @@ const (
 // modules.inc.php processDatalog).
 const datalogBatchSize = 1000
 
+// maxDatalogPayload is the sys_datalog.data size accepted for JSON decoding.
+// A larger payload is quarantined without being parsed, so a giant row can
+// never become a memory/CPU DoS vector inside the root daemon.
+const maxDatalogPayload = 4 << 20 // 4 MiB
+
 // Daemon is the persistent sys_datalog consumer (port of server.php): every
 // tick it processes pending datalog rows in order, dispatches table hooks,
 // advances server.updated per row, runs pending sys_remoteaction rows and
 // flushes delayed service restarts.
+//
+// Idempotency contract: server.updated advances only after a row's hooks
+// ran, so a crash between hook execution and the advance reprocesses that
+// row on the next cycle. Module/plugin handlers MUST therefore be
+// idempotent (by design — applying the same config change twice must be
+// harmless).
 type Daemon struct {
 	db       *gorm.DB
 	reg      *Registry
@@ -134,10 +145,24 @@ func (d *Daemon) Run(ctx context.Context, tick time.Duration) error {
 		}
 		select {
 		case <-ctx.Done():
+			d.drain()
 			d.log.Info("daemon stopped")
 			return nil
 		case <-ticker.C:
 		}
+	}
+}
+
+// drain waits for an in-flight cycle (e.g. a concurrent Wake) to finish and
+// flushes any delayed service actions it left queued, so SIGTERM never drops
+// a pending nginx/bind reload.
+func (d *Daemon) drain() {
+	d.busy.Lock()
+	defer d.busy.Unlock()
+	if d.services != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		d.services.ProcessDelayedActions(ctx)
 	}
 }
 
@@ -196,14 +221,24 @@ func (d *Daemon) processDatalog(ctx context.Context) error {
 		}
 
 		var data Data
-		if err := json.Unmarshal([]byte(row.Data), &data); err != nil {
+		if len(row.Data) > maxDatalogPayload {
+			if err := d.quarantineRow(ctx, row, fmt.Sprintf("datalogError: payload for datalog_id %d (table %s) exceeds %d bytes, refusing to parse", row.DatalogID, row.DBTable, maxDatalogPayload)); err != nil {
+				return err
+			}
+		} else if err := json.Unmarshal([]byte(row.Data), &data); err != nil {
 			// Non-JSON payload (leftover PHP serialize from before the
 			// cutover): quarantine, record the error, advance (design D2).
-			d.quarantineRow(ctx, row, fmt.Sprintf("datalogError: non-JSON payload for datalog_id %d (table %s): %v", row.DatalogID, row.DBTable, err))
+			if err := d.quarantineRow(ctx, row, fmt.Sprintf("datalogError: non-JSON payload for datalog_id %d (table %s): %v", row.DatalogID, row.DBTable, err)); err != nil {
+				return err
+			}
 		} else if len(data.Old) == 0 && len(data.New) == 0 {
-			d.sysLog(ctx, row.DatalogID, logLevelWarn, fmt.Sprintf("Data array was empty for datalog_id %d", row.DatalogID))
+			if err := d.sysLog(ctx, row.DatalogID, logLevelWarn, fmt.Sprintf("Data array was empty for datalog_id %d", row.DatalogID)); err != nil {
+				d.log.Error("failed to write sys_log entry", "error", err)
+			}
 		} else if err := d.reg.RaiseTableHook(row.DBTable, row.Action, data); err != nil {
-			d.quarantineRow(ctx, row, fmt.Sprintf("datalogError: processing datalog_id %d (table %s) failed: %v", row.DatalogID, row.DBTable, err))
+			if err := d.quarantineRow(ctx, row, fmt.Sprintf("datalogError: processing datalog_id %d (table %s) failed: %v", row.DatalogID, row.DBTable, err)); err != nil {
+				return err
+			}
 		}
 
 		if err := d.advance(ctx, row.DatalogID); err != nil {
@@ -226,22 +261,27 @@ func (d *Daemon) advance(ctx context.Context, datalogID uint32) error {
 }
 
 // quarantineRow marks a datalog row as failed (status/error columns) and
-// writes a sys_log error entry, so server.updated never silently advances
-// past a bad row without the error being recorded.
-func (d *Daemon) quarantineRow(ctx context.Context, row *model.SysDatalog, msg string) {
+// writes a sys_log error entry. It returns an error when either write fails:
+// server.updated must never advance past a bad row without the error being
+// recorded (design D2), so a failed quarantine aborts the cycle and the next
+// tick retries the row.
+func (d *Daemon) quarantineRow(ctx context.Context, row *model.SysDatalog, msg string) error {
 	d.log.Error("datalog row quarantined", "datalog_id", row.DatalogID, "table", row.DBTable, "message", msg)
 	err := d.db.WithContext(ctx).Model(&model.SysDatalog{}).
 		Where("datalog_id = ?", row.DatalogID).
 		Updates(map[string]any{"status": "error", "error": msg}).Error
 	if err != nil {
-		d.log.Error("failed to mark datalog row", "datalog_id", row.DatalogID, "error", err)
+		return fmt.Errorf("engine: marking datalog row %d as quarantined: %w", row.DatalogID, err)
 	}
-	d.sysLog(ctx, row.DatalogID, logLevelError, msg)
+	if err := d.sysLog(ctx, row.DatalogID, logLevelError, msg); err != nil {
+		return fmt.Errorf("engine: recording quarantine of datalog row %d: %w", row.DatalogID, err)
+	}
+	return nil
 }
 
 // sysLog writes a sys_log row, the DB-visible daemon log ISPConfig tools
 // and the monitor UI read.
-func (d *Daemon) sysLog(ctx context.Context, datalogID uint32, level int8, msg string) {
+func (d *Daemon) sysLog(ctx context.Context, datalogID uint32, level int8, msg string) error {
 	entry := model.SysLog{
 		ServerID:  d.serverID,
 		DatalogID: datalogID,
@@ -249,9 +289,7 @@ func (d *Daemon) sysLog(ctx context.Context, datalogID uint32, level int8, msg s
 		Tstamp:    uint32(time.Now().Unix()),
 		Message:   msg,
 	}
-	if err := d.db.WithContext(ctx).Create(&entry).Error; err != nil {
-		d.log.Error("failed to write sys_log entry", "error", err)
-	}
+	return d.db.WithContext(ctx).Create(&entry).Error
 }
 
 // processActions ports modules.inc.php processActions: pending

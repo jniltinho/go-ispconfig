@@ -72,9 +72,14 @@ func (s *Services) Register(service string) {
 // RestartServiceDelayed queues action for service until the end of the
 // current daemon cycle (port of restartServiceDelayed). Duplicate requests
 // collapse into one; a restart request wins over a queued reload and a later
-// reload never downgrades a queued restart. Unregistered services are
-// ignored with a warning, PHP parity.
+// reload never downgrades a queued restart. Unregistered services and
+// actions other than reload/restart are ignored with a warning (the daemon
+// runs systemctl as root — only whitelisted verbs may reach it).
 func (s *Services) RestartServiceDelayed(service, action string) {
+	if action != ActionReload && action != ActionRestart {
+		s.log.Warn("engine: delayed service action rejected, not in whitelist", "service", service, "action", action)
+		return
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if _, ok := s.registered[service]; !ok {
