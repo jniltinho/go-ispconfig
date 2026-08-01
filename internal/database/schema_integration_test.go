@@ -3,59 +3,24 @@
 package database
 
 import (
-	"fmt"
 	"os"
 	"os/exec"
 	"regexp"
-	"strings"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 )
 
-// startMariaDB runs a throwaway mariadb:11 container on an ephemeral local
-// port and returns the root DSN prefix ("root:root@tcp(127.0.0.1:PORT)").
-func startMariaDB(t *testing.T) string {
-	t.Helper()
-	name := fmt.Sprintf("goisp-schema-test-%d", os.Getpid())
-
-	out, err := exec.Command("docker", "run", "--rm", "-d", "--name", name,
-		"-e", "MARIADB_ROOT_PASSWORD=root", "-p", "127.0.0.1::3306", "mariadb:11").CombinedOutput()
-	require.NoError(t, err, "docker run: %s", out)
-	t.Cleanup(func() { _ = exec.Command("docker", "rm", "-f", name).Run() })
-
-	for i := 0; i < 60; i++ {
-		if exec.Command("docker", "exec", name, "mariadb", "-uroot", "-proot", "-e", "SELECT 1").Run() == nil {
-			portOut, err := exec.Command("docker", "port", name, "3306/tcp").Output()
-			require.NoError(t, err)
-			addr := strings.TrimSpace(strings.Split(string(portOut), "\n")[0])
-			return "root:root@tcp(" + addr + ")"
-		}
-		time.Sleep(time.Second)
-	}
-	t.Fatal("mariadb container did not become ready in 60s")
-	return ""
-}
-
-func mariadbExec(t *testing.T, sql string) {
-	t.Helper()
-	name := fmt.Sprintf("goisp-schema-test-%d", os.Getpid())
-	out, err := exec.Command("docker", "exec", name, "mariadb", "-uroot", "-proot", "-e", sql).CombinedOutput()
-	require.NoError(t, err, "mariadb -e %q: %s", sql, out)
-}
-
 // TestSchemaIdentity runs migrate against an empty database and imports the
 // original ispconfig3.sql with the mariadb client into a second database,
 // then requires SHOW CREATE TABLE to be identical for every table (core-
 // database spec, scenario "Migration creates identical schema").
 func TestSchemaIdentity(t *testing.T) {
-	dsnPrefix := startMariaDB(t)
-	name := fmt.Sprintf("goisp-schema-test-%d", os.Getpid())
+	dsnPrefix, name := StartMariaDB(t, "schema")
 
-	mariadbExec(t, "CREATE DATABASE migrated CHARACTER SET utf8mb4; CREATE DATABASE original CHARACTER SET utf8mb4")
+	MariaDBExec(t, name, "CREATE DATABASE migrated CHARACTER SET utf8mb4; CREATE DATABASE original CHARACTER SET utf8mb4")
 
 	// Path 1: go-ispconfig migrate.
 	db, err := Open(dsnPrefix + "/migrated?charset=utf8mb4&parseTime=True&loc=Local")
