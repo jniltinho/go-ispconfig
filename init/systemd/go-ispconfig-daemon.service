@@ -1,0 +1,26 @@
+[Unit]
+Description=go-ispconfig config-apply daemon (sys_datalog consumer + scheduler)
+Documentation=https://github.com/jniltinho/go-ispconfig
+After=network-online.target mariadb.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+# The daemon writes root-owned service configs (nginx vhosts, Bind zones)
+# and restarts services, so it must run as root (design D1).
+User=root
+ExecStart=/usr/local/bin/go-ispconfig daemon --config /etc/go-ispconfig/config.toml
+Restart=on-failure
+RestartSec=5
+
+# Hardening compatible with writing /etc configs and calling systemctl.
+NoNewPrivileges=yes
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+RestrictRealtime=yes
+LockPersonality=yes
+
+[Install]
+WantedBy=multi-user.target

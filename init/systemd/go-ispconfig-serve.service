@@ -1,0 +1,30 @@
+[Unit]
+Description=go-ispconfig panel (API + embedded SPA)
+Documentation=https://github.com/jniltinho/go-ispconfig
+After=network-online.target mariadb.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+# The panel never touches the OS (design D1): it only reads/writes the
+# database, so it runs fully unprivileged.
+DynamicUser=yes
+ExecStart=/usr/local/bin/go-ispconfig serve --config /etc/go-ispconfig/config.toml
+Restart=on-failure
+RestartSec=5
+
+# Hardening
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+LockPersonality=yes
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target
