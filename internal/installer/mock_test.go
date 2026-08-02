@@ -75,5 +75,17 @@ func testState(t *testing.T) (*State, *mockExec, *bytes.Buffer) {
 	st.BinPath = dir + "/usr/local/bin/go-ispconfig"
 	st.CredentialsFile = dir + "/root/.go-ispconfig-credentials"
 	st.LegacyMarker = dir + "/usr/local/ispconfig/server/lib/config.inc.php"
+	st.AcmeWebroot = dir + "/usr/local/ispconfig/interface/acme"
+
+	// Point the profile's absolute paths into the temp dir.
+	p := st.Profile
+	p.NginxConfigDir = dir + "/etc/nginx"
+	p.NginxVhostConfDir = dir + "/etc/nginx/sites-available"
+	p.NginxVhostEnabledDir = dir + "/etc/nginx/sites-enabled"
+	p.WebsiteBasedir = dir + "/var/www"
+	p.BindZonefilesDir = dir + "/etc/bind"
+	p.NamedConfPath = dir + "/etc/bind/named.conf"
+	p.NamedConfLocalPath = dir + "/etc/bind/named.conf.local"
+	p.NamedConfOptionsPath = dir + "/etc/bind/named.conf.options"
 	return st, mock, out
 }

@@ -9,6 +9,8 @@ import (
 	"os"
 
 	"gorm.io/gorm"
+
+	"go-ispconfig/internal/nginx"
 )
 
 // Step is one idempotent installer action (design D1). Run must check
@@ -61,6 +63,9 @@ type State struct {
 	// HostIPs enumerates the host's global addresses (tests inject fixed
 	// values).
 	HostIPs func() []net.IP
+	// AcmeWebroot is the Let's Encrypt challenge dir served by site vhosts
+	// (must match internal/nginx.AcmeWebroot).
+	AcmeWebroot string
 
 	// Set by the mariadb step, consumed by later steps.
 	DB         *gorm.DB
@@ -91,6 +96,7 @@ func NewState(profile *Profile, answers *Answers) *State {
 		DBAddr:          "127.0.0.1:3306",
 		DBUserHosts:     []string{"localhost", "127.0.0.1"},
 		HostIPs:         detectHostIPs,
+		AcmeWebroot:     nginx.AcmeWebroot,
 	}
 }
 

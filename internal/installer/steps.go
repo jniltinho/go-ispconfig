@@ -11,6 +11,7 @@ func InstallSteps() []Step {
 		userStep{},
 		configTomlStep{},
 		tlsCertStep{},
+		nginxBaseStep{},
 		summaryStep{},
 	}
 }
