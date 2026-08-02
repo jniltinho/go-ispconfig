@@ -211,12 +211,6 @@
   "username_error_empty": "The username is empty.",
   "username_error_regex": "The username contains invalid characters.",
   "password_error_empty": "The password is empty.",
-  "demo.websites_title": "Websites",
-  "demo.websites_description": "Demo DataTable with mock data (dashboard placeholder).",
-  "demo.add_new": "Add new record",
-  "demo.form_title": "Demo form",
-  "demo.active": "Active",
-  "demo.inactive": "Inactive",
   "sidebar.dns.slave_zones": "Secondary Zones",
   "sidebar.dns.templates": "Zone Templates",
   "dns.zones_title": "DNS Zones",
@@ -420,5 +414,6 @@
   "sidebar.toggle": "Toggle navigation",
   "table.empty_hint": "Try clearing the column filters or add a new record.",
   "login.password_lost": "Password lost?",
-  "login.password_lost_hint": "Ask your administrator to generate a one-time password-reset token for your account."
+  "login.password_lost_hint": "Ask your administrator to generate a one-time password-reset token for your account.",
+  "dashboard.open_module": "Open {module}"
 }

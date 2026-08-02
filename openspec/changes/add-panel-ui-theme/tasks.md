@@ -25,7 +25,7 @@
 ## 4. Screens: login and dashboard
 
 - [x] 4.1 Restyle the login screen: centered square card on `#F2F5F7` with logo, credential fields, "stay logged in" checkbox, password-lost link, solid submit button; commit
-- [ ] 4.2 Restyle the dashboard as dashlet cards (`#E1E4E9` light background, large module icon, title, full-width button); commit
+- [x] 4.2 Restyle the dashboard as dashlet cards (`#E1E4E9` light background, large module icon, title, full-width button); commit
 
 ## 5. Visual validation
 
