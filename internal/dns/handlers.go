@@ -19,6 +19,9 @@ func (p *Plugin) OnLoad(r *engine.Registry) error {
 	}{
 		{"dns_soa_insert", p.soaInsert},
 		{"dns_soa_update", p.soaUpdate},
+		{"dns_rr_insert", p.rrInsert},
+		{"dns_rr_update", p.rrUpdate},
+		{"dns_rr_delete", p.rrDelete},
 	}
 	for _, s := range subs {
 		if err := r.RegisterEvent(s.event, s.fn); err != nil {
