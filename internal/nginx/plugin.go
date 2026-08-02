@@ -30,6 +30,11 @@ type Plugin struct {
 	nginxVersion string
 	// dummyFile overrides the per-render random php dummy file (tests).
 	dummyFile string
+	// sslChangedDomain names the domain whose certificate files the ssl
+	// handler just rewrote, so the following update handler restores the SSL
+	// ~ backups if nginx -t fails (port of ssl_certificate_changed). The
+	// daemon processes rows one at a time, so a plain field is safe.
+	sslChangedDomain string
 }
 
 // NewPlugin creates the nginx plugin. customTplDir may be empty (embedded
@@ -55,19 +60,30 @@ func (*Plugin) Name() string { return "nginx" }
 // nginx_plugin.inc.php onLoad, nginx paths only). The ssl handler slot of
 // the PHP dual registration (design D2) is added by the web-ssl tasks.
 func (p *Plugin) OnLoad(r *engine.Registry) error {
-	subs := map[string]engine.EventFunc{
-		"web_domain_insert":      p.webDomainInsert,
-		"web_domain_update":      p.webDomainUpdate,
-		"web_domain_delete":      p.webDomainDelete,
-		"web_folder_update":      p.webFolderUpdate,
-		"web_folder_delete":      p.webFolderDelete,
-		"web_folder_user_insert": p.webFolderUser,
-		"web_folder_user_update": p.webFolderUser,
-		"web_folder_user_delete": p.webFolderUser,
-		"client_delete":          p.clientDelete,
+	// Ordered registration (design D2): the ssl handler runs BEFORE the
+	// insert/update/delete handler of the same web_domain event, so the
+	// certificate files exist on disk before the vhost that references them
+	// is rendered and nginx is reloaded. The registry dispatches handlers of
+	// one event in registration order, so the slice order is load-bearing.
+	subs := []struct {
+		event string
+		fn    engine.EventFunc
+	}{
+		{"web_domain_insert", p.ssl},
+		{"web_domain_insert", p.webDomainInsert},
+		{"web_domain_update", p.ssl},
+		{"web_domain_update", p.webDomainUpdate},
+		{"web_domain_delete", p.ssl},
+		{"web_domain_delete", p.webDomainDelete},
+		{"web_folder_update", p.webFolderUpdate},
+		{"web_folder_delete", p.webFolderDelete},
+		{"web_folder_user_insert", p.webFolderUser},
+		{"web_folder_user_update", p.webFolderUser},
+		{"web_folder_user_delete", p.webFolderUser},
+		{"client_delete", p.clientDelete},
 	}
-	for event, fn := range subs {
-		if err := r.RegisterEvent(event, fn); err != nil {
+	for _, s := range subs {
+		if err := r.RegisterEvent(s.event, s.fn); err != nil {
 			return err
 		}
 	}

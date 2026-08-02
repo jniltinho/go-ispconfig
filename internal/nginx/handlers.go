@@ -56,6 +56,12 @@ func (p *Plugin) applyWebDomain(ctx context.Context, action string, oldRow, newR
 		clientID:    p.clientIDOf(newRow.num("sys_groupid")),
 		oldClientID: p.clientIDOf(oldRow.num("sys_groupid")),
 	}
+	// The ssl handler ran first this event; if it rewrote this domain's certs
+	// the activation restores the SSL backups on an nginx -t failure.
+	if p.sslChangedDomain == newRow.str("domain") {
+		s.sslChanged = true
+		p.sslChangedDomain = ""
+	}
 	if newRow.str("type") != "vhost" {
 		s.parentDomain = p.domainName(newRow.num("parent_domain_id"))
 		s.oldParentDomain = p.domainName(oldRow.num("parent_domain_id"))
