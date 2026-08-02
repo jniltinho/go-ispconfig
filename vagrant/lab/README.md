@@ -94,6 +94,28 @@ vagrant snapshot list legacy
 - **Future module fixtures** (mail, client, database, ftp-shell, cron):
   the dataset of `vagrant/lab/dataset.md` on both legacy VMs.
 
-## Migration inventory (task 4.4)
+## Migration inventory (validated 2026-08-02)
 
-`migrate-from --dry-run` numbers recorded after fixture creation: TBD
+`migrate-from --dry-run` (CLI on the `ubuntu` guest) and the panel wizard
+(connect → inventory → dry-run) were both run against BOTH lab VMs with
+the `goisp-lab` remote user — the API happy path that was blocked on the
+real read-only server:
+
+| Inventory        | legacy (.20) | legacy-apache (.21) |
+|------------------|--------------|---------------------|
+| clients          | 8            | 5                   |
+| web domains      | 6            | 4                   |
+| dns zones        | 5            | 4                   |
+| dns records      | 39           | 32                  |
+| dns templates    | 1            | 1                   |
+
+- `legacy-apache`: plan fully clean — "Dry-run: no conflicts; nothing
+  was written" (5 clients, 4 web_domain, 4 dns_soa, 32 dns_rr create).
+- `legacy`: 10 conflicts, all legitimate — parity1/parity2 site + zone
+  records already exist on the go-ispconfig panel (created as admin by
+  the parity flows), correctly reported as owned-by-a-different-user.
+- The runs exposed and fixed two real bugs in the legacy client/importer
+  (paged-filter JSON key order; owner resolution via `client_get_id` on
+  3.3.x panels) — see the `fix(legacy):` commits.
+
+Curated screenshots: `docs/screenshots/lab-migration-*.png`.
