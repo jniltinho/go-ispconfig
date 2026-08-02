@@ -57,5 +57,5 @@
 
 ## 8. Integration and docs
 
-- [ ] 8.1 End-to-end integration test against MariaDB: API zone+record create → datalog → daemon run → zone file + named.conf.local rendered, validated, reload queued (commit: `test(dns): datalog-to-bind pipeline integration`)
+- [x] 8.1 End-to-end integration test against MariaDB: API zone+record create → datalog → daemon run → zone file + named.conf.local rendered, validated, reload queued (commit: `test(dns): datalog-to-bind pipeline integration`)
 - [ ] 8.2 Module docs in `docs/` (dns config section, file layout, DNSSEC ops, migration notes: self-healing regeneration after cutover) (commit: `docs(dns): dns module documentation`)

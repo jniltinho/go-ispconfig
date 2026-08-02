@@ -1,11 +1,12 @@
 //go:build integration
 
-// Package dns integration suite: the datalog-to-bind pipeline against a
-// real MariaDB — repository write → sys_datalog row → daemon cycle → dns
-// module table hook → bind plugin → zone file + named.conf.local +
-// rendered_zone cache + delayed bind reload. The OS seam (chown,
-// named-checkzone, systemctl) stays mocked: integration here means the
-// database and datalog plumbing, not the operating system.
+// Package dns integration suite (task 8.1): the datalog-to-bind pipeline
+// against real docker MariaDB and Redis — repository write → sys_datalog
+// row → datalog:ready wake over the queue → daemon cycle → dns module
+// table hook → bind plugin → zone file + named.conf.local + rendered_zone
+// cache + delayed bind reload. The OS seam (chown, named-checkzone,
+// systemctl) stays mocked: integration here means the database, queue and
+// datalog plumbing, not the operating system.
 package dns
 
 import (
@@ -14,17 +15,49 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"go-ispconfig/internal/config"
 	"go-ispconfig/internal/database"
+	"go-ispconfig/internal/datalog"
 	"go-ispconfig/internal/engine"
 	"go-ispconfig/internal/model"
+	"go-ispconfig/internal/queue"
 	"go-ispconfig/internal/repository"
 )
+
+// syncExecutor records service actions thread-safely: the queue worker
+// flushes delayed actions from its own goroutine while the test polls.
+type syncExecutor struct {
+	mu   sync.Mutex
+	runs [][2]string
+}
+
+func (e *syncExecutor) Run(_ context.Context, service, action string) error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.runs = append(e.runs, [2]string{service, action})
+	return nil
+}
+
+func (e *syncExecutor) Reset() [][2]string {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	out := e.runs
+	e.runs = nil
+	return out
+}
+
+func (e *syncExecutor) runsSnapshot() [][2]string {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return append([][2]string(nil), e.runs...)
+}
 
 // dnsToolsFake emulates dnssec-keygen and dnssec-signzone side effects
 // (key files, dsset, .signed) for the pipeline test. Like the real
@@ -114,7 +147,7 @@ func TestDatalogToBindPipeline(t *testing.T) {
 	rrRepo, err := repository.New[model.DNSRr](db)
 	require.NoError(t, err)
 
-	exec := &recordingExecutor{}
+	exec := &syncExecutor{}
 	services := engine.NewServices(&BindExecutor{Inner: exec, UnitExists: func(string) bool { return true }}, nil)
 	RegisterServices(services)
 	runner := &scriptRunner{handler: dnsToolsFake(t, base)}
@@ -135,13 +168,36 @@ func TestDatalogToBindPipeline(t *testing.T) {
 		require.NoError(t, soaRepo.Insert(ctx, admin, soa))
 		require.NoError(t, daemon.RunCycle(ctx))
 		assert.NoFileExists(t, zoneFile)
-		assert.Empty(t, exec.runs, "no reload for a recordless zone (PHP parity)")
+		assert.Empty(t, exec.Reset(), "no reload for a recordless zone (PHP parity)")
 	})
 
-	t.Run("rr insert regenerates the whole zone", func(t *testing.T) {
+	t.Run("rr insert over the queue wake regenerates the whole zone", func(t *testing.T) {
+		// Real Redis carries the datalog:ready wake: no RunCycle is called
+		// here, only the worker may process the rows (design D12).
+		addr := queue.StartRedis(t, "dns")
+		qcfg := config.QueueConfig{Addr: addr}
+		client := queue.NewClient(qcfg, nil)
+		t.Cleanup(func() { _ = client.Close() })
+		worker := queue.NewWorker(qcfg, daemon.ServerID(), nil)
+		worker.Handle(queue.TypeDatalogReady, func(ctx context.Context, _ []byte) error {
+			return daemon.Wake(ctx)
+		})
+		wctx, cancel := context.WithCancel(ctx)
+		done := make(chan error, 1)
+		go func() { done <- worker.Run(wctx) }()
+		t.Cleanup(func() {
+			cancel()
+			require.NoError(t, <-done)
+		})
+		datalog.SetReadyNotifier(client.ReadyNotifier(daemon.ServerID()))
+		t.Cleanup(func() { datalog.SetReadyNotifier(nil) })
+
 		require.NoError(t, rrRepo.Insert(ctx, admin, newRR(soa.ID, "", "NS", "ns1.example.com.", 0)))
 		require.NoError(t, rrRepo.Insert(ctx, admin, newRR(soa.ID, "", "A", "192.0.2.1", 0)))
-		require.NoError(t, daemon.RunCycle(ctx))
+		require.Eventually(t, func() bool {
+			_, err := os.Stat(zoneFile)
+			return err == nil && len(exec.runsSnapshot()) > 0
+		}, 30*time.Second, 200*time.Millisecond, "wake must render the zone and flush the delayed reload")
 
 		content, err := os.ReadFile(zoneFile)
 		require.NoError(t, err)
@@ -161,23 +217,32 @@ func TestDatalogToBindPipeline(t *testing.T) {
 
 		assert.True(t, runner.has("named-checkzone", "example.com.", zoneFile))
 		assert.True(t, runner.has("chown", "bind:bind", zoneFile))
-		assert.Equal(t, [][2]string{{"bind9", "reload"}}, exec.runs, "exactly one delayed reload per batch")
-		exec.runs = nil
+		for _, run := range exec.Reset() {
+			assert.Equal(t, [2]string{"bind9", "reload"}, run, "only delayed bind reloads flushed")
+		}
 	})
 
-	t.Run("rr update rewrites the zone file", func(t *testing.T) {
+	t.Run("rr update rewrites the zone file with the bumped serial", func(t *testing.T) {
 		var rec model.DNSRr
 		require.NoError(t, db.Where("zone = ? AND type = 'A'", soa.ID).First(&rec).Error)
 		require.NoError(t, rrRepo.Get(ctx, admin, rec.ID, &rec))
 		rec.Data = "192.0.2.99"
 		require.NoError(t, rrRepo.Update(ctx, admin, &rec))
+		// The API bumps the SOA serial in the same transaction as the
+		// record write (design D7); mirror that second datalog row here.
+		var z model.DNSSoa
+		require.NoError(t, soaRepo.Get(ctx, admin, soa.ID, &z))
+		z.Serial = 2026080102
+		require.NoError(t, soaRepo.Update(ctx, admin, &z))
 		require.NoError(t, daemon.RunCycle(ctx))
 
 		content, err := os.ReadFile(zoneFile)
 		require.NoError(t, err)
 		assert.Contains(t, string(content), "192.0.2.99")
 		assert.NotContains(t, string(content), "192.0.2.1\n")
-		exec.runs = nil
+		assert.Contains(t, string(content), "2026080102", "zone re-rendered with the new serial")
+		assert.Equal(t, [][2]string{{"bind9", "reload"}}, exec.Reset(),
+			"record + serial rows in one batch dedup to exactly one delayed reload")
 	})
 
 	t.Run("invalid zone is quarantined and datalog row records the error", func(t *testing.T) {
@@ -210,7 +275,7 @@ func TestDatalogToBindPipeline(t *testing.T) {
 		require.NoError(t, db.Where("dbtable = 'dns_rr'").Order("datalog_id DESC").First(&dlRow).Error)
 		assert.Equal(t, "error", dlRow.Status)
 		assert.Contains(t, dlRow.Error, "bad owner name")
-		exec.runs = nil
+		exec.Reset()
 	})
 
 	t.Run("rr events without a parent SOA are no-ops", func(t *testing.T) {
@@ -223,7 +288,7 @@ func TestDatalogToBindPipeline(t *testing.T) {
 
 		assert.Equal(t, before, readFile(t, zoneFile), "no zone touched")
 		assert.NoFileExists(t, base+"/pri.")
-		exec.runs = nil
+		exec.Reset()
 	})
 
 	t.Run("secondary zone reaches named.conf and creates the slave dir", func(t *testing.T) {
@@ -247,8 +312,7 @@ func TestDatalogToBindPipeline(t *testing.T) {
 		info, err := os.Stat(base + "/slave")
 		require.NoError(t, err)
 		assert.Equal(t, os.FileMode(0o770), info.Mode().Perm())
-		assert.Equal(t, [][2]string{{"bind9", "reload"}}, exec.runs)
-		exec.runs = nil
+		assert.Equal(t, [][2]string{{"bind9", "reload"}}, exec.Reset())
 
 		// Delete: named.conf entry and transferred file are removed.
 		require.NoError(t, os.WriteFile(base+"/slave/sec.customer.net", []byte("transferred"), 0o644))
@@ -256,7 +320,7 @@ func TestDatalogToBindPipeline(t *testing.T) {
 		require.NoError(t, daemon.RunCycle(ctx))
 		assert.NotContains(t, readFile(t, namedConf), "customer.net")
 		assert.NoFileExists(t, base+"/slave/sec.customer.net")
-		exec.runs = nil
+		exec.Reset()
 	})
 
 	t.Run("enabling dnssec generates keys, signs and publishes info", func(t *testing.T) {
@@ -278,7 +342,7 @@ func TestDatalogToBindPipeline(t *testing.T) {
 		assert.Contains(t, z.DNSSECInfo, "DNSKEY-Records:\n")
 
 		assert.Contains(t, readFile(t, namedConf), zoneFile+".signed", "named.conf points at the signed file")
-		exec.runs = nil
+		exec.Reset()
 	})
 
 	t.Run("dns_resign job re-signs only stale zones", func(t *testing.T) {
@@ -294,11 +358,11 @@ func TestDatalogToBindPipeline(t *testing.T) {
 		stale := time.Now().Add(-6 * 24 * time.Hour).Unix()
 		require.NoError(t, db.Exec("UPDATE dns_soa SET dnssec_last_signed = ? WHERE id = ?", stale, soa.ID).Error)
 		runner.calls = nil
-		exec.runs = nil
+		exec.Reset()
 		require.NoError(t, sched.RunJob(ctx, "dns_resign"))
 		assert.True(t, runner.has("dnssec-signzone"))
 		services.ProcessDelayedActions(ctx)
-		assert.Equal(t, [][2]string{{"bind9", "reload"}}, exec.runs)
+		assert.Equal(t, [][2]string{{"bind9", "reload"}}, exec.Reset())
 
 		var z model.DNSSoa
 		require.NoError(t, db.Where("id = ?", soa.ID).First(&z).Error)
@@ -308,7 +372,7 @@ func TestDatalogToBindPipeline(t *testing.T) {
 		require.Len(t, jobs, 1)
 		assert.Equal(t, "dns_resign", jobs[0].Name)
 		assert.Equal(t, "ok", jobs[0].Status, "job bookkeeping persisted")
-		exec.runs = nil
+		exec.Reset()
 	})
 
 	t.Run("disabling dnssec removes the signed file", func(t *testing.T) {
@@ -323,7 +387,7 @@ func TestDatalogToBindPipeline(t *testing.T) {
 		assert.Contains(t, named, `file "`+zoneFile+`";`, "named.conf back at the unsigned file")
 		keys, _ := filepath.Glob(base + "/Kexample.com.*")
 		assert.NotEmpty(t, keys, "keys stay until zone delete")
-		exec.runs = nil
+		exec.Reset()
 	})
 
 	t.Run("zone delete removes file, dnssec materials and named.conf entry", func(t *testing.T) {
@@ -335,8 +399,7 @@ func TestDatalogToBindPipeline(t *testing.T) {
 		leftovers, _ := filepath.Glob(base + "/Kexample.com.*")
 		assert.Empty(t, leftovers, "key files removed on zone delete")
 		assert.NoFileExists(t, base+"/dsset-example.com.")
-		assert.Equal(t, [][2]string{{"bind9", "reload"}}, exec.runs)
-		exec.runs = nil
+		assert.Equal(t, [][2]string{{"bind9", "reload"}}, exec.Reset())
 	})
 
 }
