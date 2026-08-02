@@ -47,13 +47,17 @@ Notes:
 ## Path B — Remote API import (legacy panel on another host/database)
 
 Use when the legacy ISPConfig3 stays where it is and you are populating a fresh
-go-ispconfig server. Implemented by the `add-legacy-migration` module.
+go-ispconfig server. Implemented by the `add-legacy-migration` module —
+**full walkthrough: [legacy-migration.md](legacy-migration.md)**.
 
-- **Web UI wizard** (System → Migration): enter the legacy panel URL and a
-  `remote_user`'s credentials → test connection → review the inventory (clients,
-  sites, DNS zones) → dry-run with conflict report → import with live progress.
-- **CLI**: `go-ispconfig migrate-from --url https://legacy:8080/remote/json.php
-  --user <remote_user> --password <pw> [--dry-run] [--only clients,sites,dns]`.
+- **Web UI wizard** (System → Migrate from ISPConfig3): enter the legacy panel
+  URL and a `remote_user`'s credentials → test connection → review the
+  inventory (clients, sites, DNS zones) → dry-run with conflict report →
+  import with live progress.
+- **CLI**: `go-ispconfig migrate-from --url https://legacy:8080
+  --user <remote_user> [--dry-run] [--only clients,sites,dns]`
+  (the `/remote/json.php` path is appended automatically; the password is
+  prompted when omitted).
 
 Behavior:
 - Imports clients (resellers first, preserving `parent_client_id` hierarchy),

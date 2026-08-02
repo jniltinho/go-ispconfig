@@ -40,7 +40,7 @@
 
 ## 7. Docs
 
-- [ ] 7.1 Write `docs/legacy-migration.md`: remote_user setup on the legacy panel (required read grants, enabling Remote API), wizard and CLI walkthrough, SOAP fallback note, rsync/file-transfer responsibility with uid/gid remap (`--usermap`/`--groupmap` or per-site chown), operational order (rsync files before enabling SSL/Let's Encrypt — webroot challenge fails on empty docroot), bulk password-reset flow for panel users, multi-server guard, DNS cutover order (wait for datalog drain, lower TTLs), rollback notes. Screenshots to docs/screenshots. Commit.
+- [x] 7.1 Write `docs/legacy-migration.md`: remote_user setup on the legacy panel (required read grants, enabling Remote API), wizard and CLI walkthrough, SOAP fallback note, rsync/file-transfer responsibility with uid/gid remap (`--usermap`/`--groupmap` or per-site chown), operational order (rsync files before enabling SSL/Let's Encrypt — webroot challenge fails on empty docroot), bulk password-reset flow for panel users, multi-server guard, DNS cutover order (wait for datalog drain, lower TTLs), rollback notes. Screenshots to docs/screenshots. Commit.
 
 ## 8. Real-server validation (read-only)
 
