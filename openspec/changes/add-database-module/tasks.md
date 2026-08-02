@@ -8,7 +8,7 @@
 
 ## 2. database module (daemon events)
 
-- [ ] 2.1 Implement `internal/modules/database` Module: announce the 6 events (`database_insert/update/delete`, `database_user_insert/update/delete`), register table hooks for `web_database` / `web_database_user`, map datalog actions `i`/`u`/`d` to events; gate on `server.db_server=1` + config.toml enablement; unit tests with fake registries. Commit.
+- [x] 2.1 Implement `internal/modules/database` Module: announce the 6 events (`database_insert/update/delete`, `database_user_insert/update/delete`), register table hooks for `web_database` / `web_database_user`, map datalog actions `i`/`u`/`d` to events; gate on `server.db_server=1` + config.toml enablement; unit tests with fake registries. Commit.
 - [ ] 2.2 Confirm no MySQL service is registered in the services registry; test that module load does not add restart/reload handlers. Commit.
 
 ## 3. mysql_clientdb plugin — provisioning
