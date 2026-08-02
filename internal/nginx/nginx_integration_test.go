@@ -22,6 +22,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"go-ispconfig/internal/clients"
 	"go-ispconfig/internal/config"
 	"go-ispconfig/internal/database"
 	"go-ispconfig/internal/datalog"
@@ -124,7 +125,9 @@ func TestDatalogToNginxPipeline(t *testing.T) {
 	plugin.logBaseDir = filepath.Join(base, "httpd-logs")
 
 	reg := engine.NewRegistry(nil)
-	require.NoError(t, reg.Load([]engine.Module{web.NewModule()}, []engine.Plugin{plugin}))
+	// Daemon-shaped load: the nginx plugin subscribes client_delete,
+	// announced by the client module (as in cmd/daemon).
+	require.NoError(t, reg.Load([]engine.Module{web.NewModule(), clients.NewModule()}, []engine.Plugin{plugin}))
 	daemon, err := engine.NewDaemon(db, reg, services, nil)
 	require.NoError(t, err)
 
