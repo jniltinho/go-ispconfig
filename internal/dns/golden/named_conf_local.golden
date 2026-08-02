@@ -1,0 +1,28 @@
+zone "example.com" {
+        type master;
+        allow-transfer {192.168.10.6;192.168.10.7;};
+        also-notify {192.168.10.6;};
+        file "/etc/bind/pri.example.com";
+};
+zone "example.org" {
+        type master;
+        file "/etc/bind/pri.example.org.signed";
+};
+zone "dynamic.example" {
+        type master;
+        allow-update {10.0.0.5;};
+        file "/etc/bind/pri.dynamic.example";
+};
+
+zone "customer.net" {
+        type slave;
+        masters {192.168.10.20;};
+        allow-transfer {none;};
+        file "/etc/bind/slave/sec.customer.net";
+};
+zone "partner.example" {
+        type slave;
+        masters {192.168.10.30;192.168.10.31;};
+        allow-transfer {192.168.10.6;};
+        file "/etc/bind/slave/sec.partner.example";
+};
