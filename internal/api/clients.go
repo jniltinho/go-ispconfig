@@ -126,7 +126,7 @@ func clientTabs(reseller bool) []Tab {
 				validator.Rule{Type: "CUSTOM", ErrKey: "username_error_regex", Fn: checkClientUsername}),
 			// The plaintext password is bcrypt-hashed in Prepare and never
 			// echoed back (redacted in every response).
-			text("password", "password_txt"),
+			{Name: "password", Label: "password_txt", Datatype: "VARCHAR", Formtype: "PASSWORD"},
 			selectField("language", "language_txt", "VARCHAR", "en", nil),
 			text("usertheme", "usertheme_txt"),
 			text("street", "street_txt"),

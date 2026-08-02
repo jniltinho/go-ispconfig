@@ -18,6 +18,7 @@ import TemplateList from './views/dns/TemplateList.vue'
 import MigrationWizard from './views/system/MigrationWizard.vue'
 import ClientList from './views/clients/ClientList.vue'
 import ResellerList from './views/clients/ResellerList.vue'
+import ClientForm from './views/clients/ClientForm.vue'
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -32,6 +33,13 @@ export const router = createRouter({
         { path: 'sites', name: 'sites', component: WebDomainList },
         { path: 'clients', name: 'clients', component: ClientList },
         { path: 'clients/resellers', name: 'resellers', component: ResellerList },
+        { path: 'clients/new', name: 'client-new', component: ClientForm },
+        {
+          path: 'clients/:id(\\d+)',
+          name: 'client-edit',
+          component: ClientForm,
+          props: (route) => ({ id: String(route.params.id) }),
+        },
         {
           path: 'sites/domains/new',
           name: 'sites-domain-new',

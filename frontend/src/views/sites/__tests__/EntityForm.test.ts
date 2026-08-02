@@ -76,6 +76,26 @@ beforeEach(() => {
 })
 
 describe('EntityForm', () => {
+  it('optionOverrides render a text field as a select with the given options', async () => {
+    fetchMock.mockResolvedValueOnce(res(200, meta))
+    const wrapper = mount(EntityForm, {
+      props: {
+        ...domainProps,
+        optionOverrides: {
+          domain: [
+            { value: 'DE', label: 'Germany' },
+            { value: 'BR', label: 'Brazil' },
+          ],
+        },
+      },
+    })
+    await flushPromises()
+    const select = wrapper.find('select#field-domain')
+    expect(select.exists()).toBe(true)
+    const labels = select.findAll('option').map((o) => o.text())
+    expect(labels).toEqual(['Germany', 'Brazil'])
+  })
+
   it('renders tabs and fields from the metadata endpoint', async () => {
     fetchMock.mockResolvedValueOnce(res(200, meta))
     const wrapper = mount(EntityForm, { props: domainProps })

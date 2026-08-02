@@ -26,6 +26,12 @@ const props = defineProps<{
   embedded?: boolean
   /** readonlyFields render disabled (e.g. the server-managed serial). */
   readonlyFields?: string[]
+  /**
+   * optionOverrides force a field to render as a select with the given
+   * options (e.g. country list or parent reseller ids fetched from the
+   * API by the wrapping view).
+   */
+  optionOverrides?: Record<string, { value: string; label: string }[]>
 }>()
 
 const { t } = useI18n()
@@ -74,22 +80,29 @@ function toFormMetadata(meta: ServerMeta): FormMetadata {
     tabs: meta.tabs.map((tab) => ({
       name: tab.name,
       label: t(tab.label),
-      fields: tab.fields.map((field) => ({
+      fields: tab.fields.map((field) => {
+        const override = props.optionOverrides?.[field.name]
+        return {
         name: field.name,
         // SELECTs whose options come from a server datasource (not ported
         // yet, e.g. server_id) arrive without options; render them as text
         // inputs so the value stays editable.
-        type: field.type === 'select' && !field.options?.length ? 'text' : field.type,
+        type: override
+          ? ('select' as const)
+          : field.type === 'select' && !field.options?.length
+            ? 'text'
+            : field.type,
         readonly: props.readonlyFields?.includes(field.name) || undefined,
         label: t(field.label),
-        options: field.options?.map((o) => ({ value: o.value, label: t(o.label) })),
+        options: override ?? field.options?.map((o) => ({ value: o.value, label: t(o.label) })),
         default:
           field.type === 'checkbox'
             ? String(field.default ?? '') === truthyOption(field)
             : field.default == null
               ? undefined
               : String(field.default),
-      })),
+        }
+      }),
     })),
   }
 }
