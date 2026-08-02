@@ -15,8 +15,5 @@
 #
 # Data-level entries (substring of the parity-test label):
 #
-# go-ispconfig has no client module yet (openspec add-client-module is a
-# future change): records are created as admin, the legacy clients are
-# baseline/migration-source data only. Remove this entry when the client
-# module ships.
-client (contact, username, email)
+# (the client-module allowlist entry was removed 2026-08-02: the client
+# module shipped and the client table is now compared for real)

@@ -6,12 +6,10 @@ by the agent-browser flows. Parity scope: **clients + sites + DNS** —
 email accounts are created on the legacy side only (future mail-module
 baseline / migration-source data) and are never compared.
 
-## Clients (legacy only until add-client-module ships)
+## Clients (both panels)
 
-go-ispconfig has no client module yet, so clients exist only on the legacy
-panel as baseline/migration-source data; the `client` table diff is an
-allowlisted intended difference (see `intended-differences.txt`). On
-go-ispconfig the sites/zones are created as admin.
+Created on both panels since add-client-module shipped (2026-08-02); the
+`client` table is compared for real by the parity suite, no allowlist.
 
 | # | Contact name      | Username  | Email                  |
 |---|-------------------|-----------|------------------------|
