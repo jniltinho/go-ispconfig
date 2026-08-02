@@ -409,5 +409,10 @@
   "migration.report.reset_once": "Tokens are shown ONCE — store them now and hand them to the users.",
   "migration.report.order_title": "Operational order",
   "migration.report.rsync_title": "Site file transfer (operator responsibility)",
-  "migration.report.rsync_note": "Site files are not copied by the import. Run one rsync per site — uid/gid remapping included, or use the chown alternative after a plain rsync."
+  "migration.report.rsync_note": "Site files are not copied by the import. Run one rsync per site — uid/gid remapping included, or use the chown alternative after a plain rsync.",
+  "migration.start_over": "Start a new migration",
+  "migration.plan.conflicts_more": "…and {n} more (full list in the CLI/API output)",
+  "migration.inventory.orphans_to_admin": "Assign DNS zones whose owning client is absent to admin (instead of conflicting)",
+  "migration.report.copy_tokens": "Copy all",
+  "migration.report.copied": "Copied"
 }

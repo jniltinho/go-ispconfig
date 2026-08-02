@@ -166,6 +166,70 @@ describe('MigrationWizard', () => {
     expect(wrapper.find('[data-test="mig-rsync"]').text()).toContain('--usermap')
   })
 
+  it('reattaches to a failed run showing the error and a way out', async () => {
+    fetchMock.mockResolvedValueOnce(
+      res(200, {
+        state: 'failed',
+        error: 'applying web_domain: boom',
+        progress: { client: { entity: 'client', done: 3, total: 3 } },
+      }),
+    )
+    const wrapper = mount(MigrationWizard)
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="mig-run-error"]').text()).toContain('applying web_domain: boom')
+    await wrapper.find('[data-test="mig-start-over"]').trigger('click')
+    expect(wrapper.find('[data-test="mig-url"]').exists()).toBe(true)
+  })
+
+  it('disables dry-run when nothing is selected and sends the orphan flag', async () => {
+    const wrapper = await mountWizard()
+    fetchMock.mockResolvedValueOnce(res(200, { servers: [{ server_id: '1', server_name: 'l1' }], multi_server: false, insecure: false, plain_http: false }))
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+    fetchMock.mockResolvedValueOnce(res(200, { ...inventory, multi_server: false }))
+    await wrapper.find('[data-test="mig-to-inventory"]').trigger('click')
+    await flushPromises()
+
+    // Deselecting everything blocks the next step (never a silent "all").
+    await wrapper.find('[data-test="mig-sel-clients"]').setValue(false)
+    await wrapper.find('[data-test="mig-sel-sites"]').setValue(false)
+    await wrapper.find('[data-test="mig-sel-dns"]').setValue(false)
+    expect(wrapper.find('[data-test="mig-to-dryrun"]').attributes('disabled')).toBeDefined()
+
+    await wrapper.find('[data-test="mig-sel-dns"]').setValue(true)
+    await wrapper.find('[data-test="mig-orphans"]').setValue(true)
+    fetchMock.mockResolvedValueOnce(res(200, { counts: {}, conflicts: [], warnings: [], reset_required: [] }))
+    await wrapper.find('[data-test="mig-to-dryrun"]').trigger('click')
+    await flushPromises()
+
+    const body = JSON.parse(fetchMock.mock.calls.at(-1)![1].body as string)
+    expect(body.assign_orphan_zones_to_admin).toBe(true)
+    expect(body.selection).toEqual({ clients: false, sites: false, dns: true })
+  })
+
+  it('report lists conflicts and offers a new migration', async () => {
+    fetchMock.mockResolvedValueOnce(
+      res(200, {
+        state: 'done',
+        report: {
+          counts: {},
+          conflicts: [{ table: 'web_domain', key: 'x.com (vhost)', action: 'conflict', reason: 'owned by a different user' }],
+          reset_required: [],
+          warnings: [],
+          rsync_suggestions: [],
+          operational_order: [],
+        },
+      }),
+    )
+    const wrapper = mount(MigrationWizard)
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="mig-report-conflicts"]').text()).toContain('owned by a different user')
+    await wrapper.find('[data-test="mig-new-migration"]').trigger('click')
+    expect(wrapper.find('[data-test="mig-url"]').exists()).toBe(true)
+  })
+
   it('generates one-time reset tokens from the report', async () => {
     fetchMock.mockResolvedValueOnce(
       res(200, {

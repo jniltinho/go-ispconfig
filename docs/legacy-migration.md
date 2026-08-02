@@ -44,7 +44,8 @@ Admin-only. Five steps; the legacy credentials are held only in the panel
 process memory for the wizard session — never stored in the database, config
 files, logs or responses.
 
-1. **Connection** — legacy panel URL, remote user, password. *Skip TLS
+1. **Connection** — legacy panel URL, remote user, password.
+   ![Connection form](screenshots/migration-01-connect-empty.png) *Skip TLS
    verification* is available for self-signed panels but is loudly warned
    about and echoed in the final report; plain `http://` URLs work but are
    flagged (credentials travel unencrypted). *Test connection* logs in, runs

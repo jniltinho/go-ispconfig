@@ -154,7 +154,12 @@ export const router = createRouter({
           }),
         },
         { path: 'system', name: 'system', component: ModulePlaceholder },
-        { path: 'system/migration', name: 'system-migration', component: MigrationWizard },
+        {
+          path: 'system/migration',
+          name: 'system-migration',
+          component: MigrationWizard,
+          meta: { adminOnly: true },
+        },
       ],
     },
   ],
@@ -164,4 +169,7 @@ router.beforeEach((to) => {
   const auth = useAuthStore()
   if (to.name !== 'login' && !auth.isAuthenticated) return { name: 'login' }
   if (to.name === 'login' && auth.isAuthenticated) return { name: 'dashboard' }
+  // Admin-only routes (the API enforces this too; the guard avoids
+  // rendering a view that can only 403).
+  if (to.meta.adminOnly && auth.typ !== 'admin') return { name: 'dashboard' }
 })

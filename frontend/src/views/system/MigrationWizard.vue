@@ -3,7 +3,7 @@
 // connect → inventory → dry-run → execute → report over the admin-only
 // /api/system/migration/* endpoints. Credentials go to the backend once
 // on connect and never come back in any response.
-import { onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { api, ApiError } from '../../api'
 import { useI18n } from '../../i18n'
 
@@ -103,6 +103,16 @@ const inventory = ref<Inventory | null>(null)
 const selection = ref({ clients: true, sites: true, dns: true })
 const targetServerId = ref<number>(0)
 const confirmMapAll = ref(false)
+const orphansToAdmin = ref(false)
+
+// Deselecting everything must not silently mean "import everything".
+const nothingSelected = computed(
+  () => !selection.value.clients && !selection.value.sites && !selection.value.dns,
+)
+
+// Long conflict lists are capped in the UI; the full list is in the API
+// response and the CLI output.
+const conflictLimit = 100
 
 // Go marshals empty slices as null; normalize them once at the fetch
 // boundary so the template can use .length safely.
@@ -175,6 +185,7 @@ function runOptions() {
   return {
     selection: { ...selection.value },
     target_server_id: targetServerId.value || 0,
+    assign_orphan_zones_to_admin: orphansToAdmin.value,
     confirm_map_all_to_local_server: confirmMapAll.value,
   }
 }
@@ -286,6 +297,10 @@ async function reattach() {
       progress.value = status.progress ?? {}
       step.value = 'execute'
       watchProgress()
+    } else if (status.state === 'failed') {
+      runError.value = status.error ?? 'failed'
+      progress.value = status.progress ?? {}
+      step.value = 'execute'
     } else if (status.state === 'done' && status.report) {
       report.value = reportOf(status.report)
       step.value = 'report'
@@ -312,6 +327,35 @@ async function generateResetTokens() {
     failure.value = failureOf(e)
   } finally {
     busy.value = false
+  }
+}
+
+// startOver resets the wizard to the connection step (the backend closes
+// the legacy session when a run finishes, so a fresh connect is required).
+function startOver() {
+  stopProgress()
+  connectInfo.value = null
+  inventory.value = null
+  plan.value = null
+  report.value = null
+  resetTokens.value = []
+  progress.value = {}
+  runError.value = ''
+  failure.value = null
+  confirmMapAll.value = false
+  step.value = 'connect'
+}
+
+const tokensCopied = ref(false)
+
+// copyTokens puts every username/token pair on the clipboard.
+async function copyTokens() {
+  const text = resetTokens.value.map((tok) => `${tok.username}\t${tok.token}`).join('\n')
+  try {
+    await navigator.clipboard.writeText(text)
+    tokensCopied.value = true
+  } catch {
+    // Clipboard unavailable (permissions/http): tokens stay visible.
   }
 }
 
@@ -387,7 +431,7 @@ const secondaryButtonClass = 'border border-border bg-surface px-6 py-1.5 text-x
             {{ t('migration.connect.password') }}
           </label>
           <input id="mig-pass" v-model="form.password" type="password" required
-            autocomplete="off" :class="inputClass" data-test="mig-pass" />
+            autocomplete="new-password" :class="inputClass" data-test="mig-pass" />
         </div>
         <div class="flex items-center gap-4">
           <span class="w-48 shrink-0 text-right text-sm font-medium after:content-[':']">
@@ -464,6 +508,10 @@ const secondaryButtonClass = 'border border-border bg-surface px-6 py-1.5 text-x
             <input v-model="selection.dns" type="checkbox" data-test="mig-sel-dns" />
             {{ t('migration.inventory.sel_dns') }}
           </label>
+          <label v-if="selection.dns" class="ml-6 flex items-center gap-2 text-xs">
+            <input v-model="orphansToAdmin" type="checkbox" data-test="mig-orphans" />
+            {{ t('migration.inventory.orphans_to_admin') }}
+          </label>
         </div>
 
         <div class="flex items-center gap-4 text-sm">
@@ -494,7 +542,7 @@ const secondaryButtonClass = 'border border-border bg-surface px-6 py-1.5 text-x
         <button type="button" :class="secondaryButtonClass" @click="step = 'connect'">
           {{ t('migration.back') }}
         </button>
-        <button type="button" :disabled="busy || (inventory.multi_server && !confirmMapAll)"
+        <button type="button" :disabled="busy || nothingSelected || (inventory.multi_server && !confirmMapAll)"
           :class="buttonClass" data-test="mig-to-dryrun" @click="runDryRun">
           {{ t('migration.next_dryrun') }}
         </button>
@@ -532,10 +580,13 @@ const secondaryButtonClass = 'border border-border bg-surface px-6 py-1.5 text-x
           <p class="font-bold">{{ t('migration.plan.conflicts_title', { n: plan.conflicts.length }) }}</p>
           <p class="text-xs">{{ t('migration.plan.conflicts_note') }}</p>
           <ul class="ml-4 mt-1 list-disc text-xs">
-            <li v-for="(c, i) in plan.conflicts" :key="i">
+            <li v-for="(c, i) in plan.conflicts.slice(0, conflictLimit)" :key="i">
               <span class="font-mono">{{ c.table }} {{ c.key }}</span>: {{ c.reason }}
             </li>
           </ul>
+          <p v-if="plan.conflicts.length > conflictLimit" class="mt-1 text-xs">
+            {{ t('migration.plan.conflicts_more', { n: plan.conflicts.length - conflictLimit }) }}
+          </p>
         </div>
 
         <ul v-if="plan.warnings.length" class="space-y-1 text-xs">
@@ -577,6 +628,11 @@ const secondaryButtonClass = 'border border-border bg-surface px-6 py-1.5 text-x
         class="mt-3 border border-danger-border bg-danger px-3 py-2 text-sm text-danger-text">
         {{ t('migration.execute.failed') }}: {{ runError }}
       </p>
+      <div v-if="runError" class="mt-3">
+        <button type="button" :class="secondaryButtonClass" data-test="mig-start-over" @click="startOver">
+          {{ t('migration.start_over') }}
+        </button>
+      </div>
     </div>
 
     <!-- Step 5: final report -->
@@ -610,6 +666,20 @@ const secondaryButtonClass = 'border border-border bg-surface px-6 py-1.5 text-x
           </li>
         </ul>
 
+        <div v-if="report.conflicts.length" data-test="mig-report-conflicts"
+          class="border border-danger-border bg-danger px-3 py-2 text-sm text-danger-text">
+          <p class="font-bold">{{ t('migration.plan.conflicts_title', { n: report.conflicts.length }) }}</p>
+          <p class="text-xs">{{ t('migration.plan.conflicts_note') }}</p>
+          <ul class="ml-4 mt-1 list-disc text-xs">
+            <li v-for="(c, i) in report.conflicts.slice(0, conflictLimit)" :key="i">
+              <span class="font-mono">{{ c.table }} {{ c.key }}</span>: {{ c.reason }}
+            </li>
+          </ul>
+          <p v-if="report.conflicts.length > conflictLimit" class="mt-1 text-xs">
+            {{ t('migration.plan.conflicts_more', { n: report.conflicts.length - conflictLimit }) }}
+          </p>
+        </div>
+
         <!-- Password reset (prominent) -->
         <div v-if="report.reset_required.length" data-test="mig-reset"
           class="space-y-2 border-2 border-danger-border bg-danger px-3 py-3 text-danger-text">
@@ -623,7 +693,12 @@ const secondaryButtonClass = 'border border-border bg-surface px-6 py-1.5 text-x
             {{ t('migration.report.reset_generate') }}
           </button>
           <div v-else data-test="mig-reset-tokens" class="border border-border bg-surface p-2 text-text">
-            <p class="mb-1 text-xs font-bold">{{ t('migration.report.reset_once') }}</p>
+            <div class="mb-1 flex items-center justify-between">
+              <p class="text-xs font-bold">{{ t('migration.report.reset_once') }}</p>
+              <button type="button" :class="secondaryButtonClass" data-test="mig-copy-tokens" @click="copyTokens">
+                {{ tokensCopied ? t('migration.report.copied') : t('migration.report.copy_tokens') }}
+              </button>
+            </div>
             <table class="w-full font-mono text-xs">
               <tbody>
                 <tr v-for="tok in resetTokens" :key="tok.username">
@@ -652,6 +727,12 @@ const secondaryButtonClass = 'border border-border bg-surface px-6 py-1.5 text-x
             class="max-h-64 overflow-auto border border-border bg-bg p-2 text-xs"
             data-test="mig-rsync">{{ report.rsync_suggestions.join('\n') }}</pre>
         </div>
+      </div>
+
+      <div class="flex justify-end border-t border-border bg-bg px-4 py-3">
+        <button type="button" :class="secondaryButtonClass" data-test="mig-new-migration" @click="startOver">
+          {{ t('migration.start_over') }}
+        </button>
       </div>
     </div>
   </div>
