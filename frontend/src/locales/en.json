@@ -779,5 +779,6 @@
   "error.not_allowed_server_id": "The selected server is not allowed for this account.",
   "database_client_differs_error": "The client of the database and of the database user do not match.",
   "database_user_missing_error": "Please select a database user.",
-  "database_server_invalid_error": "The selected server is not a database server."
+  "database_server_invalid_error": "The selected server is not a database server.",
+  "sites.no_ro_user": "No read-only user"
 }

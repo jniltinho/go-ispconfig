@@ -10,6 +10,7 @@ import WebDomainList from './views/sites/WebDomainList.vue'
 import WebFolderList from './views/sites/WebFolderList.vue'
 import WebFolderUserList from './views/sites/WebFolderUserList.vue'
 import DatabaseList from './views/sites/DatabaseList.vue'
+import DatabaseForm from './views/sites/DatabaseForm.vue'
 import DatabaseUserList from './views/sites/DatabaseUserList.vue'
 import EntityForm from './views/sites/EntityForm.vue'
 import MailList from './views/mail/MailList.vue'
@@ -410,25 +411,13 @@ export const router = createRouter({
         {
           path: 'sites/databases/new',
           name: 'sites-database-new',
-          component: EntityForm,
-          props: {
-            entity: 'databases',
-            apiBase: '/api/sites/databases',
-            backTo: '/sites/databases',
-          },
+          component: DatabaseForm,
         },
         {
           path: 'sites/databases/:id',
           name: 'sites-database-edit',
-          component: EntityForm,
-          props: (route) => ({
-            entity: 'databases',
-            apiBase: '/api/sites/databases',
-            backTo: '/sites/databases',
-            id: String(route.params.id),
-            // server and charset are immutable once created (API guards).
-            readonlyFields: ['server_id', 'database_charset', 'database_name_prefix'],
-          }),
+          component: DatabaseForm,
+          props: (route) => ({ id: String(route.params.id) }),
         },
         { path: 'sites/database-users', name: 'sites-database-users', component: DatabaseUserList },
         {

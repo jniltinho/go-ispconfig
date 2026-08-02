@@ -136,6 +136,10 @@ $AB screenshot "$PRINTS/database-e2e-db-form.png" >/dev/null
 evaljs "document.querySelector('[data-test=form-save]').click(); 'save'" >/dev/null
 wait_eval "database saved (back on list)" "location.pathname" '/sites/databases'
 wait_eval "database listed" "document.body.innerText.includes('dbe2edb')" 'true'
+wait_eval "list shows the website name (legacy parity)" \
+  "document.body.innerText.includes('dbe2e.example.com')" 'true'
+wait_eval "list shows the database user name (legacy parity)" \
+  "document.body.innerText.includes('dbe2eu')" 'true'
 $AB screenshot "$PRINTS/database-e2e-db-list.png" >/dev/null
 
 DB_ID=$(evaljs "fetch('/api/sites/databases?database_name=dbe2edb').then(r=>r.json()).then(d=>String(d.items[0].database_id))")

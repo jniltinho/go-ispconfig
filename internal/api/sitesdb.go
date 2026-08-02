@@ -10,6 +10,7 @@ import (
 	"context"
 	"fmt"
 	"net/netip"
+	"reflect"
 	"regexp"
 	"slices"
 	"strconv"
@@ -717,9 +718,71 @@ func sitesDatabaseUserBeforeDelete(_ context.Context, tx *gorm.DB, id *repositor
 	return nil
 }
 
+// nameLookup batch-resolves id → name for one table so list decoration
+// never runs N+1 queries.
+func nameLookup(ctx context.Context, db *gorm.DB, table, idCol, nameCol string, ids []any) map[string]string {
+	out := map[string]string{}
+	if len(ids) == 0 {
+		return out
+	}
+	var rows []struct {
+		ID   uint64 `gorm:"column:id"`
+		Name string `gorm:"column:name"`
+	}
+	err := db.WithContext(ctx).Table(table).
+		Select(fmt.Sprintf("`%s` AS id, `%s` AS name", idCol, nameCol)).
+		Where(fmt.Sprintf("`%s` IN ?", idCol), ids).Find(&rows).Error
+	if err != nil {
+		return out
+	}
+	for _, r := range rows {
+		out[strconv.FormatUint(r.ID, 10)] = r.Name
+	}
+	return out
+}
+
+// idString renders an id value for map keys, dereferencing the pointer
+// columns (nullable FKs) toMap leaves un-dereferenced. Nil and zero read
+// as "".
+func idString(v any) string {
+	if v == nil {
+		return ""
+	}
+	if rv := reflect.ValueOf(v); rv.Kind() == reflect.Pointer {
+		if rv.IsNil() {
+			return ""
+		}
+		v = rv.Elem().Interface()
+	}
+	s := fmt.Sprint(v)
+	if s == "0" {
+		return ""
+	}
+	return s
+}
+
+// collectIDs gathers the distinct non-empty values of key across items.
+func collectIDs(items []map[string]any, key string) []any {
+	seen := map[string]struct{}{}
+	var out []any
+	for _, item := range items {
+		s := idString(item[key])
+		if s == "" {
+			continue
+		}
+		if _, ok := seen[s]; !ok {
+			seen[s] = struct{}{}
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
 // sitesDatabaseDecorate combines the datalog state decoration with the
-// optional phpMyAdmin link (design D10 / task 6.4): when the getconf
-// sites phpmyadmin_url template is configured, every record gains a
+// legacy-panel display names (server, website and database user names
+// instead of raw ids — ISPConfig list datasource parity) and the
+// optional phpMyAdmin link (design D10): when the getconf sites
+// phpmyadmin_url template is configured, every record gains a
 // _phpmyadmin_url with [SERVERNAME] and [DATABASENAME] substituted. No
 // bundled installation — external link only.
 func sitesDatabaseDecorate() func(ctx context.Context, db *gorm.DB, items []map[string]any) error {
@@ -728,26 +791,27 @@ func sitesDatabaseDecorate() func(ctx context.Context, db *gorm.DB, items []map[
 		if err := state(ctx, db, items); err != nil {
 			return err
 		}
+		servers := nameLookup(ctx, db, "server", "server_id", "server_name",
+			collectIDs(items, "server_id"))
+		domains := nameLookup(ctx, db, "web_domain", "domain_id", "domain",
+			collectIDs(items, "parent_domain_id"))
+		userIDs := append(collectIDs(items, "database_user_id"),
+			collectIDs(items, "database_ro_user_id")...)
+		users := nameLookup(ctx, db, "web_database_user", "database_user_id", "database_user", userIDs)
+
 		tpl := sitesGlobalConfig(db)["phpmyadmin_url"]
-		if tpl == "" {
-			return nil
-		}
-		serverNames := map[string]string{}
 		for _, item := range items {
-			sid := fmt.Sprint(item["server_id"])
-			name, ok := serverNames[sid]
-			if !ok {
-				var server model.Server
-				if err := db.WithContext(ctx).Select("server_name").
-					Where("server_id = ?", item["server_id"]).Take(&server).Error; err == nil {
-					name = server.ServerName
-				}
-				serverNames[sid] = name
+			serverName := servers[idString(item["server_id"])]
+			item["_server_name"] = serverName
+			item["_parent_domain"] = domains[idString(item["parent_domain_id"])]
+			item["_database_user"] = users[idString(item["database_user_id"])]
+			item["_database_ro_user"] = users[idString(item["database_ro_user_id"])]
+			if tpl != "" {
+				item["_phpmyadmin_url"] = strings.NewReplacer(
+					"[SERVERNAME]", serverName,
+					"[DATABASENAME]", fmt.Sprint(item["database_name"]),
+				).Replace(tpl)
 			}
-			item["_phpmyadmin_url"] = strings.NewReplacer(
-				"[SERVERNAME]", name,
-				"[DATABASENAME]", fmt.Sprint(item["database_name"]),
-			).Replace(tpl)
 		}
 		return nil
 	}
