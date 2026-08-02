@@ -24,7 +24,16 @@ func (p *Plugin) soaDelete(ctx context.Context, _ string, data engine.Data) erro
 	if err := p.writeNamedConf(ctx, cfg); err != nil {
 		errs = append(errs, err)
 	}
-	if origin := row(data.Old).str("origin"); origin != "" {
+	// DNSSEC materials (keys, .signed, dsset) go first (PHP parity:
+	// soa_dnssec_delete with sql_update=false), then the zone files.
+	origin := row(data.New).str("origin")
+	if origin == "" {
+		origin = row(data.Old).str("origin")
+	}
+	if origin != "" {
+		if err := p.dnssecDelete(ctx, cfg, origin, 0, false); err != nil {
+			errs = append(errs, err)
+		}
 		p.cleanupZoneFiles(zoneFilePath(cfg, origin))
 	}
 	p.services.RestartServiceDelayed(BindService, engine.ActionReload)

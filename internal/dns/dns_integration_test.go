@@ -12,6 +12,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -23,6 +24,31 @@ import (
 	"go-ispconfig/internal/model"
 	"go-ispconfig/internal/repository"
 )
+
+// dnsToolsFake emulates dnssec-keygen and dnssec-signzone side effects
+// (key files, dsset, .signed) for the pipeline test.
+func dnsToolsFake(t *testing.T, keyDir string) func(name string, args ...string) ([]byte, error) {
+	t.Helper()
+	keygen := fakeKeygen(t, keyDir)
+	return func(name string, args ...string) ([]byte, error) {
+		switch name {
+		case "dnssec-keygen":
+			return keygen(name, args...)
+		case "dnssec-signzone":
+			var domain string
+			for i, a := range args {
+				if a == "-o" {
+					domain = args[i+1]
+				}
+			}
+			zonefile := args[len(args)-1]
+			require.NoError(t, os.WriteFile(filepath.Join(keyDir, "dsset-"+domain+"."),
+				[]byte(domain+". IN DS 12345 13 2 ABCDEF\n"), 0o644))
+			require.NoError(t, os.WriteFile(zonefile+".signed", []byte("signed zone\n"), 0o644))
+		}
+		return nil, nil
+	}
+}
 
 // dnsServerConfig builds a server.config INI with the [dns] section
 // pointing into the test's temp directory.
@@ -86,7 +112,7 @@ func TestDatalogToBindPipeline(t *testing.T) {
 	exec := &recordingExecutor{}
 	services := engine.NewServices(&BindExecutor{Inner: exec, UnitExists: func(string) bool { return true }}, nil)
 	RegisterServices(services)
-	runner := &fakeRunner{}
+	runner := &scriptRunner{handler: dnsToolsFake(t, base)}
 	plugin := NewPlugin(db, services, runner, "", 1, nil)
 	caa := true
 	plugin.caaProbed = &caa
@@ -221,12 +247,52 @@ func TestDatalogToBindPipeline(t *testing.T) {
 		exec.runs = nil
 	})
 
-	t.Run("zone delete removes file and named.conf entry", func(t *testing.T) {
+	t.Run("enabling dnssec generates keys, signs and publishes info", func(t *testing.T) {
+		var z model.DNSSoa
+		require.NoError(t, soaRepo.Get(ctx, admin, soa.ID, &z))
+		z.DNSSECWanted = "Y"
+		require.NoError(t, soaRepo.Update(ctx, admin, &z))
+		require.NoError(t, daemon.RunCycle(ctx))
+
+		keys, _ := filepath.Glob(base + "/Kexample.com.+013+*.key")
+		assert.Len(t, keys, 2, "ZSK+KSK generated")
+		assert.FileExists(t, zoneFile+".signed")
+		assert.Contains(t, readFile(t, zoneFile), "$INCLUDE "+keys[0])
+
+		require.NoError(t, db.Where("id = ?", soa.ID).First(&z).Error)
+		assert.Equal(t, "Y", z.DNSSECInitialized)
+		assert.Greater(t, z.DNSSECLastSigned, int64(0))
+		assert.True(t, strings.HasPrefix(z.DNSSECInfo, "DS-Records:\n"), "dnssec_info starts with the DS block")
+		assert.Contains(t, z.DNSSECInfo, "DNSKEY-Records:\n")
+
+		assert.Contains(t, readFile(t, namedConf), zoneFile+".signed", "named.conf points at the signed file")
+		exec.runs = nil
+	})
+
+	t.Run("disabling dnssec removes the signed file", func(t *testing.T) {
+		var z model.DNSSoa
+		require.NoError(t, soaRepo.Get(ctx, admin, soa.ID, &z))
+		z.DNSSECWanted = "N"
+		require.NoError(t, soaRepo.Update(ctx, admin, &z))
+		require.NoError(t, daemon.RunCycle(ctx))
+
+		assert.NoFileExists(t, zoneFile+".signed")
+		named := readFile(t, namedConf)
+		assert.Contains(t, named, `file "`+zoneFile+`";`, "named.conf back at the unsigned file")
+		keys, _ := filepath.Glob(base + "/Kexample.com.*")
+		assert.NotEmpty(t, keys, "keys stay until zone delete")
+		exec.runs = nil
+	})
+
+	t.Run("zone delete removes file, dnssec materials and named.conf entry", func(t *testing.T) {
 		require.NoError(t, soaRepo.Delete(ctx, admin, soa.ID))
 		require.NoError(t, daemon.RunCycle(ctx))
 		assert.NoFileExists(t, zoneFile)
 		assert.NoFileExists(t, zoneFile+".err")
 		assert.NotContains(t, readFile(t, namedConf), "example.com")
+		leftovers, _ := filepath.Glob(base + "/Kexample.com.*")
+		assert.Empty(t, leftovers, "key files removed on zone delete")
+		assert.NoFileExists(t, base+"/dsset-example.com.")
 		assert.Equal(t, [][2]string{{"bind9", "reload"}}, exec.runs)
 		exec.runs = nil
 	})

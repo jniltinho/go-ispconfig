@@ -10,6 +10,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"go-ispconfig/internal/engine"
 )
 
 // scriptRunner extends fakeRunner with per-command behavior so tests can
@@ -48,6 +50,53 @@ func fakeKeygen(t *testing.T, keyDir string) func(name string, args ...string) (
 		require.NoError(t, os.WriteFile(base+".private", []byte("Private-key-format: v1.3\n"), 0o600))
 		return []byte(base), nil
 	}
+}
+
+// TestDNSSECLifecycleDisableRemovesSigned covers "Disabling DNSSEC
+// removes the signed file" without touching keys.
+func TestDNSSECLifecycleDisableRemovesSigned(t *testing.T) {
+	base := t.TempDir()
+	cfg := testDNSConfig(base)
+	signed := zoneFilePath(cfg, "example.com.") + ".signed"
+	keyFile := filepath.Join(base, "Kexample.com.+013+11111.key")
+	require.NoError(t, os.WriteFile(signed, []byte("signed"), 0o644))
+	require.NoError(t, os.WriteFile(keyFile, []byte("key"), 0o644))
+	p := NewPlugin(nil, nil, &scriptRunner{}, "", 1, nil)
+
+	data := engine.Data{
+		Old: map[string]any{"origin": "example.com.", "dnssec_initialized": "Y", "dnssec_wanted": "Y", "dnssec_algo": "ECDSAP256SHA256"},
+		New: map[string]any{"origin": "example.com.", "dnssec_initialized": "Y", "dnssec_wanted": "N", "dnssec_algo": "ECDSAP256SHA256", "id": 1},
+	}
+	require.NoError(t, p.dnssecLifecycle(context.Background(), cfg, data))
+	assert.NoFileExists(t, signed)
+	assert.FileExists(t, keyFile, "keys stay until zone delete")
+}
+
+// TestDNSSECDeleteRemovesAllMaterials covers "Zone delete removes all
+// DNSSEC materials".
+func TestDNSSECDeleteRemovesAllMaterials(t *testing.T) {
+	base := t.TempDir()
+	cfg := testDNSConfig(base)
+	signed := zoneFilePath(cfg, "example.com.") + ".signed"
+	files := []string{
+		filepath.Join(base, "Kexample.com.+013+11111.key"),
+		filepath.Join(base, "Kexample.com.+013+11111.private"),
+		filepath.Join(base, "Kexample.com.+007+22222.key"),
+		signed,
+		dssetPath(cfg, "example.com"),
+	}
+	for _, f := range files {
+		require.NoError(t, os.WriteFile(f, []byte("x"), 0o644))
+	}
+	unrelated := filepath.Join(base, "Kother.example.+013+9.key")
+	require.NoError(t, os.WriteFile(unrelated, []byte("x"), 0o644))
+	p := NewPlugin(nil, nil, &scriptRunner{}, "", 1, nil)
+
+	require.NoError(t, p.dnssecDelete(context.Background(), cfg, "example.com.", 0, false))
+	for _, f := range files {
+		assert.NoFileExists(t, f)
+	}
+	assert.FileExists(t, unrelated, "other domains' keys untouched")
 }
 
 func TestDNSSECAlgos(t *testing.T) {

@@ -10,12 +10,14 @@ package dns
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
+	"go-ispconfig/internal/engine"
 	"go-ispconfig/internal/getconf"
 )
 
@@ -206,6 +208,71 @@ func (p *Plugin) dnssecSign(ctx context.Context, cfg *getconf.DNSConfig, newRow 
 		return fmt.Errorf("dns: storing dnssec info for %s: %w", domain, err)
 	}
 	p.log.Info("dns: zone signed", "domain", domain)
+	return nil
+}
+
+// dnssecLifecycle ports the DNSSEC decision tree of soa_update (design
+// D6): origin changed -> delete the old material then create when wanted;
+// algorithm changed or wanted freshly enabled -> create; wanted turned
+// off -> remove the signed file (keys stay until zone delete);
+// steady-state wanted -> update (re-sign).
+func (p *Plugin) dnssecLifecycle(ctx context.Context, cfg *getconf.DNSConfig, data engine.Data) error {
+	oldRow, newRow := row(data.Old), row(data.New)
+	switch {
+	case oldRow.str("origin") != newRow.str("origin"):
+		var errs []error
+		if oldRow.str("dnssec_initialized") == "Y" && len(oldRow.str("origin")) > 3 {
+			// Deviation from PHP (spec-mandated): the old origin's material
+			// is deleted; upstream resolved the domain from new.origin and
+			// leaked the old keys on a rename.
+			errs = append(errs, p.dnssecDelete(ctx, cfg, oldRow.str("origin"), newRow.num("id"), true))
+		}
+		if newRow.str("dnssec_wanted") == "Y" {
+			errs = append(errs, p.dnssecCreate(ctx, cfg, oldRow, newRow))
+		}
+		return errors.Join(errs...)
+	case oldRow.str("dnssec_algo") != newRow.str("dnssec_algo"):
+		p.log.Debug("dns: dnssec algorithm changed", "algorithm", newRow.str("dnssec_algo"))
+		if newRow.str("dnssec_wanted") == "Y" {
+			return p.dnssecCreate(ctx, cfg, oldRow, newRow)
+		}
+	case newRow.str("dnssec_wanted") == "Y" && oldRow.str("dnssec_initialized") == "N":
+		return p.dnssecCreate(ctx, cfg, oldRow, newRow)
+	case newRow.str("dnssec_wanted") == "N" && oldRow.str("dnssec_initialized") == "Y":
+		signed := zoneFilePath(cfg, oldRow.str("origin")) + ".signed"
+		if err := os.Remove(signed); err != nil && !os.IsNotExist(err) {
+			p.log.Warn("dns: could not remove signed zone file", "file", signed, "error", err)
+		}
+	case newRow.str("dnssec_wanted") == "Y":
+		return p.dnssecUpdate(ctx, cfg, oldRow, newRow, false)
+	}
+	return nil
+}
+
+// dnssecDelete removes all key material, the signed zone file and the
+// dsset file of a domain and optionally resets the DB flags (port of
+// soa_dnssec_delete; the origin is an explicit parameter, see
+// dnssecLifecycle).
+func (p *Plugin) dnssecDelete(ctx context.Context, cfg *getconf.DNSConfig, origin string, zoneID int64, sqlUpdate bool) error {
+	if origin == "" {
+		p.log.Warn("dns: dnssec delete without a domain")
+		return nil
+	}
+	domain := domainOf(origin)
+	files, _ := filepath.Glob(filepath.Join(cfg.BindKeyfilesDir, "K"+domain+".+*"))
+	files = append(files, zoneFilePath(cfg, origin)+".signed", dssetPath(cfg, domain))
+	for _, f := range files {
+		if err := os.Remove(f); err != nil && !os.IsNotExist(err) {
+			p.log.Warn("dns: could not remove dnssec file", "file", f, "error", err)
+		}
+	}
+	if sqlUpdate && zoneID != 0 {
+		err := p.db.WithContext(ctx).Exec(
+			"UPDATE dns_soa SET dnssec_info = '', dnssec_initialized = 'N' WHERE id = ?", zoneID).Error
+		if err != nil {
+			return fmt.Errorf("dns: resetting dnssec state of zone %d: %w", zoneID, err)
+		}
+	}
 	return nil
 }
 

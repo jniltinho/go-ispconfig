@@ -112,6 +112,13 @@ func (p *Plugin) soaApply(ctx context.Context, data engine.Data) error {
 		}
 	}
 
+	// DNSSEC lifecycle (design D6): runs after the zone write so signing
+	// sees the fresh render, before named.conf so the .signed reference is
+	// accurate.
+	if err := p.dnssecLifecycle(ctx, cfg, data); err != nil {
+		errs = append(errs, err)
+	}
+
 	if err := p.writeNamedConf(ctx, cfg); err != nil {
 		errs = append(errs, err)
 	}
