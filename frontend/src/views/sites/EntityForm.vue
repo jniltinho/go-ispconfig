@@ -71,7 +71,10 @@ function toFormMetadata(meta: ServerMeta): FormMetadata {
       label: t(tab.label),
       fields: tab.fields.map((field) => ({
         name: field.name,
-        type: field.type,
+        // SELECTs whose options come from a server datasource (not ported
+        // yet, e.g. server_id) arrive without options; render them as text
+        // inputs so the value stays editable.
+        type: field.type === 'select' && !field.options?.length ? 'text' : field.type,
         label: t(field.label),
         options: field.options?.map((o) => ({ value: o.value, label: t(o.label) })),
         default:
