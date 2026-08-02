@@ -4,7 +4,6 @@ package clientdb
 
 import (
 	"context"
-	"os/exec"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -59,15 +58,9 @@ func TestRenameDatabase(t *testing.T) {
 	}))
 }
 
-// TestRenameDatabaseWithView exercises the mysqldump/import path when
-// the host has the MariaDB client tools; skipped otherwise.
+// TestRenameDatabaseWithView exercises the SHOW CREATE VIEW rewrite
+// path (pure SQL — no client tools needed).
 func TestRenameDatabaseWithView(t *testing.T) {
-	if _, err := exec.LookPath("mysqldump"); err != nil {
-		t.Skip("mysqldump not installed on test host")
-	}
-	if _, err := exec.LookPath("mysql"); err != nil {
-		t.Skip("mysql client not installed on test host")
-	}
 	p, c, _ := startAdmin(t, "renv")
 	p.runner = engine.ExecRunner{}
 	ctx := context.Background()

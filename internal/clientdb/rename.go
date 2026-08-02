@@ -162,7 +162,7 @@ func (p *Plugin) renameDatabase(ctx context.Context, c *adminConn, data engine.D
 			}
 			// Rewrite CREATE VIEW to target the new schema name.
 			// SHOW CREATE VIEW returns "CREATE ... VIEW `name` AS ...".
-			rewritten := rewriteViewCreate(createSQL, oldName, newName)
+			rewritten := rewriteViewCreate(createSQL, oldName, newName, v)
 			if rewritten == "" {
 				p.log.Error("clientdb: unable to rewrite view definition, rename aborted",
 					"database", oldName, "view", v)
@@ -236,56 +236,26 @@ func (p *Plugin) renameDatabase(ctx context.Context, c *adminConn, data engine.D
 	return true
 }
 
-// rewriteViewCreate rewrites a SHOW CREATE VIEW statement so the view is
-// created in newSchema. The CREATE string typically looks like:
-//
-//	CREATE ALGORITHM=... DEFINER=`u`@`h` SQL SECURITY DEFINER VIEW `v` AS SELECT ...
-//
-// We strip DEFINER (privilege-sensitive across rename) and qualify the
-// view name with newSchema. References to oldSchema.`table` inside the
-// SELECT are left alone when tables have already been RENAME'd into
-// newSchema — SHOW CREATE usually uses unqualified table names within
-// the same database.
-func rewriteViewCreate(createSQL, oldSchema, newSchema string) string {
-	s := createSQL
-	// Drop DEFINER=`user`@`host` clause (MySQL allows omitting it).
-	if i := strings.Index(strings.ToUpper(s), " DEFINER="); i >= 0 {
-		rest := s[i+1:] // starts with DEFINER=
-		j := strings.Index(strings.ToUpper(rest), " SQL SECURITY")
-		if j < 0 {
-			j = strings.Index(strings.ToUpper(rest), " VIEW ")
-		}
-		if j > 0 {
-			s = s[:i] + rest[j:]
-		}
-	}
-	// Qualify VIEW name: " VIEW `name`" -> " VIEW `newSchema`.`name`"
-	up := strings.ToUpper(s)
+// rewriteViewCreate rebuilds a SHOW CREATE VIEW statement so the view is
+// created as newSchema.viewName. MariaDB/MySQL return the view name
+// either bare (VIEW `v`) or schema-qualified (VIEW `db`.`v`), so instead
+// of parsing that identifier the statement is reconstructed from its
+// body: everything after the first " AS " following the VIEW clause.
+// DEFINER and ALGORITHM are intentionally dropped (privilege-sensitive
+// across a rename; the server defaults apply). Backtick-qualified
+// references to oldSchema in the body are repointed at newSchema — the
+// base tables were already RENAME'd there.
+func rewriteViewCreate(createSQL, oldSchema, newSchema, viewName string) string {
+	up := strings.ToUpper(createSQL)
 	idx := strings.Index(up, " VIEW ")
 	if idx < 0 {
 		return ""
 	}
-	after := s[idx+len(" VIEW "):]
-	var viewIdent string
-	var rest string
-	if strings.HasPrefix(after, "`") {
-		end := strings.Index(after[1:], "`")
-		if end < 0 {
-			return ""
-		}
-		viewIdent = after[:end+2]
-		rest = after[end+2:]
-	} else {
-		parts := strings.Fields(after)
-		if len(parts) == 0 {
-			return ""
-		}
-		viewIdent = parts[0]
-		rest = after[len(viewIdent):]
+	asIdx := strings.Index(up[idx:], " AS ")
+	if asIdx < 0 {
+		return ""
 	}
-	// After RENAME TABLE the base tables live in newSchema; rewrite any
-	// qualified references to the old schema in the view body.
-	rest = strings.ReplaceAll(rest, "`"+oldSchema+"`.", "`"+newSchema+"`.")
-	rest = strings.ReplaceAll(rest, oldSchema+".", newSchema+".")
-	return s[:idx] + " VIEW " + quoteName(newSchema) + "." + viewIdent + rest
+	body := createSQL[idx+asIdx+len(" AS "):]
+	body = strings.ReplaceAll(body, "`"+oldSchema+"`.", "`"+newSchema+"`.")
+	return "CREATE VIEW " + quoteName(newSchema) + "." + quoteName(viewName) + " AS " + body
 }
