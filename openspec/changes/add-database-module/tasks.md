@@ -26,7 +26,7 @@
 
 - [x] 4.1 Implement MySQL native and sha2 password hash helpers (port of `getPasswordHash` / MYSQL + MYSQLSHA2) with unit tests (known vectors for native `*SHA1(SHA1())` form). Commit.
 - [x] 4.2 Implement name-prefix helpers for `dbname_prefix` / `dbuser_prefix` (placeholder expansion parity with sites tools) and full-name crop to 64; tests. Commit.
-- [ ] 4.3 Implement database validators on the foundation validation engine (regex, unique per server, charset set, remote_ips IP list, parent vhost required, immutable charset/server_id, non-admin rename guard, blacklist); tests. Commit.
+- [x] 4.3 Implement database validators on the foundation validation engine (regex, unique per server, charset set, remote_ips IP list, parent vhost required, immutable charset/server_id, non-admin rename guard, blacklist); tests. Commit.
 - [ ] 4.4 Implement database-user validators (regex, unique, password strength on create); tests. Commit.
 - [ ] 4.5 Implement client/reseller limit checks (`limit_database`, `limit_database_user`, `limit_database_quota`) and `db_servers` allow-list; permission tests (client/reseller/admin). Commit.
 - [ ] 4.6 Implement repositories / entity prepare hooks: riud scopes, datalog `{old,new}` writes, parent-site `sys_groupid` inheritance, remote_ips auto-merge when site server differs, user-delete nulling of FK refs, user-update datalog fan-out per distinct database `server_id`; redact password hashes on read. Commit.
