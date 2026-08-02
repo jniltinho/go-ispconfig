@@ -94,6 +94,9 @@ function toFormValues(meta: ServerMeta, record: Record<string, unknown>): Record
   const values: Record<string, unknown> = {}
   for (const tab of meta.tabs) {
     for (const field of tab.fields) {
+      // Stored password hashes never reach the form: the field starts
+      // empty and an empty value is omitted from the save payload.
+      if (field.type === 'password') continue
       const v = record[field.name]
       if (v == null) continue
       values[field.name] = field.type === 'checkbox' ? String(v) === truthyOption(field) : String(v)

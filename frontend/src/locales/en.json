@@ -206,6 +206,7 @@
   "jailkit_chroot_app_programs_error_regex": "The jailkit chrooted applications contain invalid characters.",
   "folder_error_empty": "Please select a folder.",
   "folder_error_domain_empty": "Please select a website.",
+  "parent_domain_id_error_invalid": "The parent must be a regular website (vhost).",
   "path_error_regex": "The folder path is invalid.",
   "username_error_empty": "The username is empty.",
   "username_error_regex": "The username contains invalid characters.",

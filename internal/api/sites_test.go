@@ -181,6 +181,14 @@ func TestSitesCustomValidators(t *testing.T) {
 		}
 	})
 
+	t.Run("folder path", func(t *testing.T) {
+		require.Empty(t, checkFolderPath(nil, "/"))
+		require.Empty(t, checkFolderPath(nil, "sub/protected"))
+		for _, bad := range []string{"../../etc", "a/./b", `a\b`, "with space"} {
+			require.Equal(t, "path_error_regex", checkFolderPath(nil, bad), "value %q", bad)
+		}
+	})
+
 	t.Run("backup_excludes", func(t *testing.T) {
 		require.Empty(t, checkBackupExcludes(nil, ""))
 		require.Empty(t, checkBackupExcludes(nil, "tmp/*, cache/"))

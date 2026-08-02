@@ -48,7 +48,12 @@ function open(row: Row) {
 
 async function remove(row: Row) {
   if (!confirm(t('sites.confirm_delete'))) return
-  await api.delete(`/api/sites/web-folder-users/${row.web_folder_user_id}`)
+  try {
+    await api.delete(`/api/sites/web-folder-users/${row.web_folder_user_id}`)
+  } catch (e) {
+    error.value = e instanceof ApiError ? e.key : 'error.request_failed'
+    return
+  }
   load()
 }
 </script>

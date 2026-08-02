@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -358,6 +359,23 @@ func checkBackupExcludes(_ *validator.Context, value string) string {
 	return ""
 }
 
+// folderPathRe is the allowed character set of a web_folder path.
+var folderPathRe = regexp.MustCompile(`^[\w./_-]{0,255}$`)
+
+// checkFolderPath validates a protected-folder path with the daemon's
+// traversal guards applied at save time: no '..', './' or backslashes
+// (the daemon's folderAuthPath remains as defense in depth).
+func checkFolderPath(_ *validator.Context, value string) string {
+	if value == "" {
+		return ""
+	}
+	if strings.Contains(value, "..") || strings.Contains(value, "./") ||
+		strings.Contains(value, `\`) || !folderPathRe.MatchString(value) {
+		return "path_error_regex"
+	}
+	return ""
+}
+
 // checkNginxDirectives rejects custom nginx directives matching the
 // embedded security blacklist at save time (spec sites-api). The returned
 // key carries the offending lines; the render-time strip in the daemon
@@ -435,6 +453,13 @@ func webDomainPrepare(c *echo.Context, d *Deps, id *repository.Identity, body ma
 			return err
 		}
 		if t, _ := body["type"].(string); t == "vhostsubdomain" || t == "vhostalias" {
+			// The parent of a vhost subdomain/alias must be a real vhost
+			// (PHP restricts the datasource to type = 'vhost').
+			if parent.Type != "vhost" {
+				return &ValidationError{Fields: map[string][]string{
+					"parent_domain_id": {"parent_domain_id_error_invalid"},
+				}}
+			}
 			body["server_id"] = float64(parent.ServerID)
 		}
 	}
@@ -463,7 +488,10 @@ func webDomainAfterInsert(ctx context.Context, tx *gorm.DB, id *repository.Ident
 	switch rec.Type {
 	case "vhost":
 		var group model.SysGroup
-		_ = tx.Where("groupid = ?", rec.SysGroupID).Take(&group).Error
+		err := tx.Where("groupid = ?", rec.SysGroupID).Take(&group).Error
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			return fmt.Errorf("api: loading sys_group %d: %w", rec.SysGroupID, err)
+		}
 		clientID := group.ClientID
 
 		path := defaultWebsitePath
@@ -513,7 +541,7 @@ func webFolderEntity() *Entity {
 					Default: "/",
 					Validators: []validator.Rule{
 						{Type: "NOTEMPTY", ErrKey: "folder_error_empty"},
-						regex(`^[\w./_-]{0,255}$`, "path_error_regex"),
+						{Type: "CUSTOM", ErrKey: "path_error_regex", Fn: checkFolderPath},
 					}},
 				checkbox("active", "active_txt", "y"),
 			},

@@ -6,7 +6,7 @@ import { useRouter } from 'vue-router'
 import { Pencil, Trash2 } from 'lucide-vue-next'
 import DataTable, { type Column, type Row } from '../../components/DataTable.vue'
 import { useSitesStore } from '../../stores/sites'
-import { api } from '../../api'
+import { api, ApiError } from '../../api'
 import { useI18n } from '../../i18n'
 
 const { t } = useI18n()
@@ -33,7 +33,12 @@ function open(row: Row) {
 
 async function remove(row: Row) {
   if (!confirm(t('sites.confirm_delete'))) return
-  await api.delete(`/api/sites/web-domains/${row.domain_id}`)
+  try {
+    await api.delete(`/api/sites/web-domains/${row.domain_id}`)
+  } catch (e) {
+    store.error = e instanceof ApiError ? e.key : 'error.request_failed'
+    return
+  }
   store.loadDomains()
 }
 </script>
