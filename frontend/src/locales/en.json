@@ -44,6 +44,8 @@
   "sites.add_folder": "Add new folder",
   "sites.add_folder_user": "Add new folder user",
   "sites.edit": "Edit",
+  "sites.delete": "Delete",
+  "sites.confirm_delete": "Really delete this record?",
   "sites.users": "Users",
   "sites.col.active": "Active",
   "sites.col.server": "Server",

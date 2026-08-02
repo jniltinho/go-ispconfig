@@ -3,10 +3,10 @@
 // (filtered by web_folder_id on the server side).
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { Pencil } from 'lucide-vue-next'
+import { Pencil, Trash2 } from 'lucide-vue-next'
 import DataTable, { type Column, type Row } from '../../components/DataTable.vue'
 import { useSitesStore } from '../../stores/sites'
-import { ApiError } from '../../api'
+import { api, ApiError } from '../../api'
 import { useI18n } from '../../i18n'
 
 const props = defineProps<{ folderId: string }>()
@@ -44,6 +44,12 @@ onMounted(() => load(1))
 
 function open(row: Row) {
   router.push(`/sites/folders/${props.folderId}/users/${row.web_folder_user_id}`)
+}
+
+async function remove(row: Row) {
+  if (!confirm(t('sites.confirm_delete'))) return
+  await api.delete(`/api/sites/web-folder-users/${row.web_folder_user_id}`)
+  load()
 }
 </script>
 
@@ -86,6 +92,15 @@ function open(row: Row) {
           @click="open(row)"
         >
           <Pencil :size="14" />
+        </button>
+        <button
+          type="button"
+          :title="t('sites.delete')"
+          data-test="delete"
+          class="ml-1 border border-danger-border bg-danger p-1 text-danger-text"
+          @click="remove(row)"
+        >
+          <Trash2 :size="14" />
         </button>
       </template>
     </DataTable>

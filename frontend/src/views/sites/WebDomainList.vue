@@ -3,9 +3,10 @@
 // pending/error indicators; row click (or the edit action) opens the form.
 import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { Pencil } from 'lucide-vue-next'
+import { Pencil, Trash2 } from 'lucide-vue-next'
 import DataTable, { type Column, type Row } from '../../components/DataTable.vue'
 import { useSitesStore } from '../../stores/sites'
+import { api } from '../../api'
 import { useI18n } from '../../i18n'
 
 const { t } = useI18n()
@@ -28,6 +29,12 @@ function onFilter(filters: Record<string, string>) {
 
 function open(row: Row) {
   router.push(`/sites/domains/${row.domain_id}`)
+}
+
+async function remove(row: Row) {
+  if (!confirm(t('sites.confirm_delete'))) return
+  await api.delete(`/api/sites/web-domains/${row.domain_id}`)
+  store.loadDomains()
 }
 </script>
 
@@ -92,6 +99,15 @@ function open(row: Row) {
           @click="open(row)"
         >
           <Pencil :size="14" />
+        </button>
+        <button
+          type="button"
+          :title="t('sites.delete')"
+          data-test="delete"
+          class="ml-1 border border-danger-border bg-danger p-1 text-danger-text"
+          @click="remove(row)"
+        >
+          <Trash2 :size="14" />
         </button>
       </template>
     </DataTable>

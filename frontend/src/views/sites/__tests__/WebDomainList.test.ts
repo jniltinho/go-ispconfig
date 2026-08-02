@@ -84,6 +84,20 @@ describe('WebDomainList', () => {
     expect(push).toHaveBeenCalledWith('/sites/domains/1')
   })
 
+  it('deletes a row after confirmation and reloads', async () => {
+    fetchMock.mockResolvedValue(res(200, page))
+    vi.stubGlobal('confirm', vi.fn().mockReturnValue(true))
+    const wrapper = mount(WebDomainList)
+    await flushPromises()
+
+    await wrapper.find('[data-test="delete"]').trigger('click')
+    await flushPromises()
+
+    const del = fetchMock.mock.calls.find(([, init]) => init?.method === 'DELETE')
+    expect(del?.[0]).toBe('/api/sites/web-domains/1')
+    expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(3) // list, delete, reload
+  })
+
   it('requests a filtered first page when a column filter is applied', async () => {
     fetchMock.mockResolvedValue(res(200, page))
     const wrapper = mount(WebDomainList)

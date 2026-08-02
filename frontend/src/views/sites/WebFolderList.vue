@@ -3,10 +3,10 @@
 // /api/sites/web-folders with edit and per-folder Users navigation.
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { Pencil, Users } from 'lucide-vue-next'
+import { Pencil, Trash2, Users } from 'lucide-vue-next'
 import DataTable, { type Column, type Row } from '../../components/DataTable.vue'
 import { useSitesStore } from '../../stores/sites'
-import { ApiError } from '../../api'
+import { api, ApiError } from '../../api'
 import { useI18n } from '../../i18n'
 
 const { t } = useI18n()
@@ -48,6 +48,12 @@ function onFilter(next: Record<string, string>) {
 
 function open(row: Row) {
   router.push(`/sites/folders/${row.web_folder_id}`)
+}
+
+async function remove(row: Row) {
+  if (!confirm(t('sites.confirm_delete'))) return
+  await api.delete(`/api/sites/web-folders/${row.web_folder_id}`)
+  load()
 }
 </script>
 
@@ -100,6 +106,15 @@ function open(row: Row) {
           @click="open(row)"
         >
           <Pencil :size="14" />
+        </button>
+        <button
+          type="button"
+          :title="t('sites.delete')"
+          data-test="delete"
+          class="ml-1 border border-danger-border bg-danger p-1 text-danger-text"
+          @click="remove(row)"
+        >
+          <Trash2 :size="14" />
         </button>
       </template>
     </DataTable>
