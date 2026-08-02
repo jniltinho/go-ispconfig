@@ -50,7 +50,7 @@
 
 - [x] 8.1 Mail module navigation in `modules.ts` + router + en.json keys; domain list (DataTable) and domain form with DKIM generate/suggested TXT. Commit.
 - [x] 8.2 Mailbox list + tabbed form (Mailbox / Autoresponder / Filters); password field create/update UX. Commit.
-- [ ] 8.3 Alias, forward, catchall, alias-domain lists/forms and transport list/form. Commit.
+- [x] 8.3 Alias, forward, catchall, alias-domain lists/forms and transport list/form. Commit.
 - [ ] 8.4 Spamfilter policy/users/wblist screens and mail access list/form. Commit.
 - [ ] 8.5 agent-browser E2E: domain+DKIM, mailbox, alias, transport, spamfilter policy+whitelist; screenshots to docs/prints. Commit.
 
