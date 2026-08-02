@@ -148,3 +148,67 @@ func TestMailDomainAPI(t *testing.T) {
 		assert.EqualValues(t, 1, n, "DKIM TXT published into the managed zone")
 	})
 }
+
+func TestMailboxAPI(t *testing.T) {
+	db, srv, cookie, csrf := newMailTestEnv(t)
+
+	// A primary mail domain the mailbox lives under.
+	status, data := call(t, srv, http.MethodPost, "/api/mail/domains", cookie, csrf,
+		map[string]any{"server_id": 1, "domain": "box.example", "active": "y", "dkim": "n"})
+	require.Equal(t, http.StatusCreated, status, "%s", data)
+
+	var mailuserID float64
+	t.Run("create derives maildir and hashes the password", func(t *testing.T) {
+		status, data := call(t, srv, http.MethodPost, "/api/mail/mailboxes", cookie, csrf,
+			map[string]any{"email": "User1@Box.Example", "password": "s3cr3t-pw", "quota": 1048576})
+		require.Equal(t, http.StatusCreated, status, "%s", data)
+		var rec map[string]any
+		require.NoError(t, json.Unmarshal(data, &rec))
+		mailuserID = rec["mailuser_id"].(float64)
+		assert.Equal(t, "user1@box.example", rec["email"], "lowercased")
+		assert.NotContains(t, rec, "password", "hash redacted")
+
+		var row model.MailUser
+		require.NoError(t, db.Take(&row, mailuserID).Error)
+		assert.Equal(t, "/var/vmail/box.example/user1", row.Maildir)
+		assert.Equal(t, "/var/vmail", row.Homedir)
+		assert.Equal(t, "user1@box.example", row.Login)
+		assert.EqualValues(t, 5000, row.UID)
+		assert.NotEqual(t, "s3cr3t-pw", row.Password)
+		assert.NotEmpty(t, row.Password, "password hashed and stored")
+	})
+
+	t.Run("create for unknown domain is rejected", func(t *testing.T) {
+		status, data := call(t, srv, http.MethodPost, "/api/mail/mailboxes", cookie, csrf,
+			map[string]any{"email": "who@no-such.example", "password": "x-pw-123"})
+		require.Equal(t, http.StatusUnprocessableEntity, status, "%s", data)
+		require.Contains(t, string(data), "mail_domain_does_not_exist")
+	})
+
+	t.Run("duplicate email rejected", func(t *testing.T) {
+		status, data := call(t, srv, http.MethodPost, "/api/mail/mailboxes", cookie, csrf,
+			map[string]any{"email": "user1@box.example", "password": "again-pw-1"})
+		require.Equal(t, http.StatusUnprocessableEntity, status, "%s", data)
+	})
+
+	t.Run("list and by-client omit the password", func(t *testing.T) {
+		status, data := call(t, srv, http.MethodGet, "/api/mail/mailboxes?limit=100", cookie, "", nil)
+		require.Equal(t, http.StatusOK, status)
+		assert.NotContains(t, string(data), `"password"`)
+		assert.Contains(t, string(data), "user1@box.example")
+	})
+
+	t.Run("update with empty password keeps the hash", func(t *testing.T) {
+		var before model.MailUser
+		require.NoError(t, db.Take(&before, mailuserID).Error)
+		status, data := call(t, srv, http.MethodPut,
+			fmt.Sprintf("/api/mail/mailboxes/%d", int(mailuserID)), cookie, csrf,
+			map[string]any{"name": "User One", "quota": 2097152})
+		require.Equal(t, http.StatusOK, status, "%s", data)
+		var after model.MailUser
+		require.NoError(t, db.Take(&after, mailuserID).Error)
+		assert.Equal(t, before.Password, after.Password, "empty password leaves the hash")
+		assert.Equal(t, "User One", after.Name)
+		assert.EqualValues(t, 2097152, after.Quota)
+	})
+}

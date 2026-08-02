@@ -132,3 +132,102 @@ func mailDomainSetStatusDoc() {}
 //	@Security		CookieAuth
 //	@Security		BearerAuth
 func mailDomainGenerateDKIMDoc() {}
+
+// Swaggo annotations for the mailbox endpoints.
+var _ = []any{
+	mailboxListDoc, mailboxGetDoc, mailboxCreateDoc, mailboxUpdateDoc,
+	mailboxDeleteDoc, mailboxByClientDoc,
+}
+
+// mailboxListDoc documents GET /api/mail/mailboxes.
+//
+//	@Summary		List mailboxes
+//	@Description	Paginated, permission-scoped. The password hash is never returned.
+//	@Tags			mailboxes
+//	@Produce		json
+//	@Param			page	query		int		false	"1-based page number"	default(1)
+//	@Param			limit	query		int		false	"Page size (max 100)"	default(25)
+//	@Param			email	query		string	false	"Substring filter on email"
+//	@Success		200		{object}	ListResponse
+//	@Failure		401		{object}	ErrorResponse
+//	@Router			/mail/mailboxes [get]
+//	@Security		CookieAuth
+//	@Security		BearerAuth
+func mailboxListDoc() {}
+
+// mailboxGetDoc documents GET /api/mail/mailboxes/{id}.
+//
+//	@Summary	Get a mailbox
+//	@Tags		mailboxes
+//	@Produce	json
+//	@Param		id	path		int	true	"mailuser_id"
+//	@Success	200	{object}	model.MailUser
+//	@Failure	401	{object}	ErrorResponse
+//	@Failure	403	{object}	ErrorResponse
+//	@Router		/mail/mailboxes/{id} [get]
+//	@Security	CookieAuth
+//	@Security	BearerAuth
+func mailboxGetDoc() {}
+
+// mailboxCreateDoc documents POST /api/mail/mailboxes.
+//
+//	@Summary		Create a mailbox
+//	@Description	The email domain must exist as a primary mail_domain (not only an aliasdomain). Password is CRYPTMAIL-hashed; maildir/homedir/uid/gid are derived from the domain's server mail config. Subject to the client's limit_mailbox quota.
+//	@Tags			mailboxes
+//	@Accept			json
+//	@Produce		json
+//	@Param			record	body		model.MailUser	true	"Mailbox fields (password is plaintext, hashed server-side)"
+//	@Success		201		{object}	model.MailUser
+//	@Failure		401		{object}	ErrorResponse
+//	@Failure		403		{object}	ErrorResponse	"Permission denied or limit reached"
+//	@Failure		422		{object}	ErrorResponse	"Validation failed (email empty/duplicate, domain missing, ...)"
+//	@Router			/mail/mailboxes [post]
+//	@Security		CookieAuth
+//	@Security		BearerAuth
+func mailboxCreateDoc() {}
+
+// mailboxUpdateDoc documents PUT /api/mail/mailboxes/{id}.
+//
+//	@Summary		Update a mailbox
+//	@Description	Empty password leaves the stored hash. Server-derived columns (maildir, homedir, uid, gid, server_id) cannot be set by the client.
+//	@Tags			mailboxes
+//	@Accept			json
+//	@Produce		json
+//	@Param			id		path		int				true	"mailuser_id"
+//	@Param			record	body		model.MailUser	true	"Changed fields"
+//	@Success		200		{object}	model.MailUser
+//	@Failure		401		{object}	ErrorResponse
+//	@Failure		403		{object}	ErrorResponse
+//	@Failure		422		{object}	ErrorResponse
+//	@Router			/mail/mailboxes/{id} [put]
+//	@Security		CookieAuth
+//	@Security		BearerAuth
+func mailboxUpdateDoc() {}
+
+// mailboxDeleteDoc documents DELETE /api/mail/mailboxes/{id}.
+//
+//	@Summary		Delete a mailbox
+//	@Description	Journals the delete; the daemon removes (or soft-deletes) the maildir.
+//	@Tags			mailboxes
+//	@Param			id	path	int	true	"mailuser_id"
+//	@Success		204
+//	@Failure		401	{object}	ErrorResponse
+//	@Failure		403	{object}	ErrorResponse
+//	@Router			/mail/mailboxes/{id} [delete]
+//	@Security		CookieAuth
+//	@Security		BearerAuth
+func mailboxDeleteDoc() {}
+
+// mailboxByClientDoc documents GET /api/mail/mailboxes/by-client/{client_id}.
+//
+//	@Summary		List a client's mailboxes
+//	@Description	remote mail_user_get_all_by_client: mailboxes owned by the client's group, password-redacted.
+//	@Tags			mailboxes
+//	@Produce		json
+//	@Param			client_id	path		int	true	"client_id"
+//	@Success		200			{array}		map[string]any
+//	@Failure		401			{object}	ErrorResponse
+//	@Router			/mail/mailboxes/by-client/{client_id} [get]
+//	@Security		CookieAuth
+//	@Security		BearerAuth
+func mailboxByClientDoc() {}

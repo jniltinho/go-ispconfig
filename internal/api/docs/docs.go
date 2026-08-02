@@ -3312,6 +3312,321 @@ const docTemplate = `{
                 }
             }
         },
+        "/mail/mailboxes": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Paginated, permission-scoped. The password hash is never returned.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "mailboxes"
+                ],
+                "summary": "List mailboxes",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "1-based page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 25,
+                        "description": "Page size (max 100)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Substring filter on email",
+                        "name": "email",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.ListResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "The email domain must exist as a primary mail_domain (not only an aliasdomain). Password is CRYPTMAIL-hashed; maildir/homedir/uid/gid are derived from the domain's server mail config. Subject to the client's limit_mailbox quota.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "mailboxes"
+                ],
+                "summary": "Create a mailbox",
+                "parameters": [
+                    {
+                        "description": "Mailbox fields (password is plaintext, hashed server-side)",
+                        "name": "record",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.MailUser"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/model.MailUser"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied or limit reached",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Validation failed (email empty/duplicate, domain missing, ...)",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/mail/mailboxes/by-client/{client_id}": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "remote mail_user_get_all_by_client: mailboxes owned by the client's group, password-redacted.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "mailboxes"
+                ],
+                "summary": "List a client's mailboxes",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "client_id",
+                        "name": "client_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "additionalProperties": true
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/mail/mailboxes/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "mailboxes"
+                ],
+                "summary": "Get a mailbox",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "mailuser_id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.MailUser"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Empty password leaves the stored hash. Server-derived columns (maildir, homedir, uid, gid, server_id) cannot be set by the client.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "mailboxes"
+                ],
+                "summary": "Update a mailbox",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "mailuser_id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Changed fields",
+                        "name": "record",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.MailUser"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.MailUser"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Journals the delete; the daemon removes (or soft-deletes) the maildir.",
+                "tags": [
+                    "mailboxes"
+                ],
+                "summary": "Delete a mailbox",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "mailuser_id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/meta/forms/{entity}": {
             "get": {
                 "security": [
@@ -6988,6 +7303,158 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "sysUserID": {
+                    "type": "integer"
+                }
+            }
+        },
+        "model.MailUser": {
+            "type": "object",
+            "properties": {
+                "access": {
+                    "type": "string"
+                },
+                "autoresponder": {
+                    "type": "string"
+                },
+                "autoresponderEndDate": {
+                    "type": "string"
+                },
+                "autoresponderStartDate": {
+                    "type": "string"
+                },
+                "autoresponderSubject": {
+                    "type": "string"
+                },
+                "autoresponderText": {
+                    "type": "string"
+                },
+                "backupCopies": {
+                    "type": "integer"
+                },
+                "backupInterval": {
+                    "type": "string"
+                },
+                "cc": {
+                    "type": "string"
+                },
+                "customMailfilter": {
+                    "type": "string"
+                },
+                "disableDeliver": {
+                    "type": "string"
+                },
+                "disableDoveadm": {
+                    "type": "string"
+                },
+                "disableIMAP": {
+                    "type": "string"
+                },
+                "disableIndexerWorker": {
+                    "type": "string"
+                },
+                "disableLda": {
+                    "type": "string"
+                },
+                "disableLmtp": {
+                    "type": "string"
+                },
+                "disablePOP3": {
+                    "type": "string"
+                },
+                "disableQuotaStatus": {
+                    "type": "string"
+                },
+                "disableReplicator": {
+                    "type": "string"
+                },
+                "disableSMTP": {
+                    "type": "string"
+                },
+                "disableSieve": {
+                    "type": "string"
+                },
+                "disableSieveFilter": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "forwardInLda": {
+                    "type": "string"
+                },
+                "gid": {
+                    "type": "integer"
+                },
+                "greylisting": {
+                    "type": "string"
+                },
+                "homedir": {
+                    "type": "string"
+                },
+                "imapprefix": {
+                    "type": "string"
+                },
+                "lastAccess": {
+                    "type": "integer"
+                },
+                "lastQuotaNotification": {
+                    "type": "string"
+                },
+                "login": {
+                    "type": "string"
+                },
+                "maildir": {
+                    "type": "string"
+                },
+                "maildirFormat": {
+                    "type": "string"
+                },
+                "mailuserID": {
+                    "type": "integer"
+                },
+                "moveJunk": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                },
+                "postfix": {
+                    "type": "string"
+                },
+                "purgeJunkDays": {
+                    "type": "integer"
+                },
+                "purgeTrashDays": {
+                    "type": "integer"
+                },
+                "quota": {
+                    "type": "integer"
+                },
+                "senderCC": {
+                    "type": "string"
+                },
+                "serverID": {
+                    "type": "integer"
+                },
+                "sysGroupID": {
+                    "type": "integer"
+                },
+                "sysPermGroup": {
+                    "type": "string"
+                },
+                "sysPermOther": {
+                    "type": "string"
+                },
+                "sysPermUser": {
+                    "type": "string"
+                },
+                "sysUserID": {
+                    "type": "integer"
+                },
+                "uid": {
                     "type": "integer"
                 }
             }
