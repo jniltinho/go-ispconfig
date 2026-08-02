@@ -74,7 +74,9 @@ var daemonCmd = &cobra.Command{
 		// server.mail_server = 1).
 		if srv.MailServer == 1 && !cfg.Daemon.DisableMailModule {
 			modules = append(modules, mail.NewModule())
-			plugins = append(plugins, mail.NewPlugin(db, services, runner, srv.ServerID, logger))
+			mailPlugin := mail.NewPlugin(db, services, runner, srv.ServerID, logger)
+			plugins = append(plugins, mailPlugin,
+				mail.NewMaildeliverPlugin(mailPlugin, cfg.Templates.CustomDir))
 			mail.RegisterServices(services)
 		}
 		var dnsPlugin *dns.Plugin

@@ -54,6 +54,9 @@ func sieveAddressStr(addresses []string) string {
 //nolint:unused // wired by the sieve write handler (task 4.3).
 func (p *Plugin) collectSieveAddresses(ctx context.Context, email string) []string {
 	addresses := []string{email}
+	if p.db == nil { // unit tests without a database
+		return addresses
+	}
 	var aliasSources []string
 	err := p.db.WithContext(ctx).Table("mail_forwarding").
 		Where("type = 'alias' AND destination = ?", email).
