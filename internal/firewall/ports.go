@@ -94,3 +94,29 @@ func cleanToken(p string) (string, bool) {
 	}
 	return strconv.Itoa(n), true
 }
+
+// EffectivePorts is the pure lock-out helper (design D6): it cleans tcp
+// and udp with CleanPorts, then unions every valid protected TCP port
+// into the TCP result (deduped, order: cleaned tokens first, then
+// protected not already present). UDP is cleaned only. Empty protected
+// entries and invalid tokens are ignored.
+//
+// The API never rewrites stored tcp_port; this runs only at daemon apply
+// time so panel/SSH stay reachable while UFW ends enabled.
+func EffectivePorts(tcp, udp string, protected []string) (tcpOut, udpOut string) {
+	tcpParts := splitPorts(CleanPorts(tcp, ","))
+	udpOut = CleanPorts(udp, ",")
+	seen := portSet(tcpParts)
+	for _, p := range protected {
+		cleaned, ok := cleanToken(strings.TrimSpace(p))
+		if !ok {
+			continue
+		}
+		if _, exists := seen[cleaned]; exists {
+			continue
+		}
+		tcpParts = append(tcpParts, cleaned)
+		seen[cleaned] = struct{}{}
+	}
+	return strings.Join(tcpParts, ","), udpOut
+}

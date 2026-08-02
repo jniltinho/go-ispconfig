@@ -3,6 +3,7 @@ package firewall
 import (
 	"context"
 	"log/slog"
+	"strconv"
 
 	"go-ispconfig/internal/engine"
 )
@@ -108,4 +109,27 @@ func payloadServerID(data engine.Data) uint32 {
 func (p *Plugin) isLocal(data engine.Data) bool {
 	sid := payloadServerID(data)
 	return sid == 0 || sid == p.serverID
+}
+
+// protectedTCPPorts returns the TCP ports that must stay open while UFW
+// is/will be enabled: panel listen port and SSH port (design D6).
+func (p *Plugin) protectedTCPPorts(ctx context.Context) []string {
+	return []string{
+		strconv.Itoa(p.panelPort),
+		strconv.Itoa(p.resolveSSHPort(ctx)),
+	}
+}
+
+// resolveSSHPort returns the configured SSH port: explicit test override,
+// LoadSSHPort hook (getconf), or DefaultSSHPort.
+func (p *Plugin) resolveSSHPort(ctx context.Context) int {
+	if p.sshPort > 0 {
+		return p.sshPort
+	}
+	if p.LoadSSHPort != nil {
+		if n := p.LoadSSHPort(ctx); n > 0 {
+			return n
+		}
+	}
+	return DefaultSSHPort
 }

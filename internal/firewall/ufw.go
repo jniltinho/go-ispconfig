@@ -16,14 +16,13 @@ const minUFWVersion = "0.30"
 // firewall_plugin::ufw_update). event is "firewall_insert" or
 // "firewall_update".
 //
-// Pipeline (design D5):
+// Pipeline (design D5 + D6 lock-out guard):
 //  1. Probe ufw install + version ≥ 0.30; else warn and return.
 //  2. On insert only: force disable, force reset, default deny in / allow out.
-//  3. Diff cleaned tcp/udp old vs new; allow added, delete removed.
+//  3. Diff cleaned tcp/udp old vs new; when the resulting state leaves
+//     UFW enabled, the effective new TCP set is CleanPorts ∪ protected
+//     (panel + SSH) so protected ports are never deleted or omitted.
 //  4. active=y → enable (fresh) or reload (already y); else disable.
-//
-// Lock-out guard (task 2.4) extends the effective TCP set; until then
-// this path applies the cleaned record ports only.
 func (p *Plugin) ufwUpdate(ctx context.Context, event string, data engine.Data) error {
 	if !p.isLocal(data) {
 		p.log.Debug("firewall: skipping non-local server_id",
@@ -36,6 +35,7 @@ func (p *Plugin) ufwUpdate(ctx context.Context, event string, data engine.Data) 
 	}
 
 	newRow, oldRow := row(data.New), row(data.Old)
+	willEnable := newRow.str("active") == "y"
 
 	if event == "firewall_insert" {
 		if err := p.insertBaseline(ctx); err != nil {
@@ -43,10 +43,21 @@ func (p *Plugin) ufwUpdate(ctx context.Context, event string, data engine.Data) 
 		}
 	}
 
-	tcpNew := splitPorts(CleanPorts(newRow.str("tcp_port"), ","))
-	tcpOld := splitPorts(CleanPorts(oldRow.str("tcp_port"), ","))
-	udpNew := splitPorts(CleanPorts(newRow.str("udp_port"), ","))
-	udpOld := splitPorts(CleanPorts(oldRow.str("udp_port"), ","))
+	tcpNewStr := CleanPorts(newRow.str("tcp_port"), ",")
+	tcpOldStr := CleanPorts(oldRow.str("tcp_port"), ",")
+	udpNewStr := CleanPorts(newRow.str("udp_port"), ",")
+	udpOldStr := CleanPorts(oldRow.str("udp_port"), ",")
+
+	// Lock-out: while UFW will end enabled, force protected TCP ports
+	// into the effective new set so they are allowed and never deleted.
+	if willEnable {
+		tcpNewStr, _ = EffectivePorts(tcpNewStr, udpNewStr, p.protectedTCPPorts(ctx))
+	}
+
+	tcpNew := splitPorts(tcpNewStr)
+	tcpOld := splitPorts(tcpOldStr)
+	udpNew := splitPorts(udpNewStr)
+	udpOld := splitPorts(udpOldStr)
 
 	if err := p.diffAllowDelete(ctx, "tcp", tcpNew, tcpOld); err != nil {
 		return err
