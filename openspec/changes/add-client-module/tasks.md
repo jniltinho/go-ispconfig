@@ -9,7 +9,7 @@
 ## 2. Limit templates and enforcement
 
 - [x] 2.1 Implement template assignment store (`client_template_assigned`) and legacy `template_additional` slash-list migration on save. Tests. Commit.
-- [ ] 2.2 Port `apply_client_templates` merge rules (numeric add / -1 promote, cron frequency min, y/n less-restrictive, CHECKBOXARRAY and `*_servers` union, no `limit_client` on non-resellers, skip when `template_master = 0`). Pure function + DB apply; fixture tests from known master+additional pairs. Commit.
+- [x] 2.2 Port `apply_client_templates` merge rules (numeric add / -1 promote, cron frequency min, y/n less-restrictive, CHECKBOXARRAY and `*_servers` union, no `limit_client` on non-resellers, skip when `template_master = 0`). Pure function + DB apply; fixture tests from known master+additional pairs. Commit.
 - [ ] 2.3 Implement parent limit cap (child cannot exceed parent `limit_*` / flags). Tests. Commit.
 - [ ] 2.4 Implement and register `api.RegisterLimitHook`: resolve owning client, map entity names to `limit_*` + count queries by `sys_groupid`, admin bypass, `LimitError` keys. Integration tests: `dns_soa` / `web_domain` / child `client` at limit, unlimited, zero. Commit.
 

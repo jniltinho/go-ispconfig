@@ -89,3 +89,44 @@ func TestTemplateAssignmentStore(t *testing.T) {
 	require.Len(t, tpls, 1)
 	require.Equal(t, "A", tpls[0].TemplateName)
 }
+
+func TestApplyTemplatesDB(t *testing.T) {
+	db := setupDB(t)
+	ctx := context.Background()
+
+	master := insertTemplate(t, db, "Master", "m", map[string]any{
+		"limit_web_domain": 5, "limit_dns_zone": 10, "limit_ssl": "y",
+		"web_php_options": "php-fpm",
+	})
+	add := insertTemplate(t, db, "Addon", "a", map[string]any{
+		"limit_web_domain": 3, "limit_dns_zone": -1,
+		"web_php_options": "fast-cgi",
+	})
+
+	c := insertClient(t, db, "applyclient", 0, 0)
+	require.NoError(t, db.Model(&model.Client{}).Where("client_id = ?", c.ClientID).
+		Update("template_master", master).Error)
+	require.NoError(t, db.Transaction(func(tx *gorm.DB) error {
+		return SetAssignedTemplates(ctx, tx, int64(c.ClientID), []int32{int32(add)})
+	}))
+
+	require.NoError(t, db.Take(c, c.ClientID).Error)
+	require.NoError(t, db.Transaction(func(tx *gorm.DB) error {
+		return ApplyTemplates(ctx, tx, c)
+	}))
+
+	require.Equal(t, int32(8), c.LimitWebDomain, "5 + 3 materialized")
+	require.Equal(t, int32(-1), c.LimitDNSZone, "additional -1 promotes")
+	require.Equal(t, "y", c.LimitSSL)
+	require.Equal(t, "php-fpm,fast-cgi", c.WebPHPOptions)
+	require.Equal(t, int32(0), c.LimitClient, "non-reseller keeps limit_client 0")
+
+	// Custom master (0) never re-materializes.
+	require.NoError(t, db.Model(&model.Client{}).Where("client_id = ?", c.ClientID).
+		Updates(map[string]any{"template_master": 0, "limit_web_domain": 99}).Error)
+	require.NoError(t, db.Take(c, c.ClientID).Error)
+	require.NoError(t, db.Transaction(func(tx *gorm.DB) error {
+		return ApplyTemplates(ctx, tx, c)
+	}))
+	require.Equal(t, int32(99), c.LimitWebDomain, "custom limits untouched")
+}
