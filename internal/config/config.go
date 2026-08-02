@@ -80,6 +80,9 @@ type DaemonConfig struct {
 	// DatalogRetentionDays is how long processed sys_datalog rows are kept
 	// before the daily pruning job removes them.
 	DatalogRetentionDays int `toml:"datalog_retention_days" mapstructure:"datalog_retention_days"`
+	// DisableClientEvents turns off the daemon client module (emergency
+	// rollback only; client_delete teardown stops firing while set).
+	DisableClientEvents bool `toml:"disable_client_events" mapstructure:"disable_client_events"`
 }
 
 // AuthConfig holds authentication behavior toggles.
@@ -103,6 +106,7 @@ func setDefaults() {
 	viper.SetDefault("database.dsn", "root:@tcp(127.0.0.1:3306)/dbispconfig?charset=utf8mb4&parseTime=True&loc=Local")
 	viper.SetDefault("daemon.tick_seconds", 10)
 	viper.SetDefault("daemon.datalog_retention_days", 30)
+	viper.SetDefault("daemon.disable_client_events", false)
 	viper.SetDefault("auth.rehash_legacy", false)
 	viper.SetDefault("queue.addr", "localhost:6379")
 	viper.SetDefault("queue.db", 0)
