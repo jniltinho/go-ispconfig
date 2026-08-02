@@ -261,18 +261,71 @@ func (p *Plugin) dbDelete(ctx context.Context, data engine.Data) error {
 func (p *Plugin) dbUserUpdate(ctx context.Context, data engine.Data) error {
 	// Nothing to do when username and password are unchanged (empty new
 	// password means "leave unchanged", design D6).
-	if row(data.Old).str("database_user") == row(data.New).str("database_user") &&
-		(row(data.Old).str("database_password") == row(data.New).str("database_password") ||
-			row(data.New).str("database_password") == "") {
+	oldRow, newRow := row(data.Old), row(data.New)
+	if oldRow.str("database_user") == newRow.str("database_user") &&
+		(oldRow.str("database_password") == newRow.str("database_password") ||
+			newRow.str("database_password") == "") {
 		return nil
 	}
+	// Stricter than PHP (design D8): protected accounts are never
+	// renamed or re-passworded.
+	if deniedUser(oldRow.str("database_user")) || deniedUser(newRow.str("database_user")) {
+		p.log.Warn("clientdb: refuse to update user",
+			"from", oldRow.str("database_user"), "to", newRow.str("database_user"))
+		return nil
+	}
+
+	// All databases this user is active for on the panel side.
+	var records []struct {
+		RemoteAccess string
+		RemoteIps    string
+	}
+	userID := oldRow.num("database_user_id")
+	err := p.db.WithContext(ctx).Table("web_database").
+		Select("remote_access, remote_ips").
+		Where("database_user_id = ? OR database_ro_user_id = ?", userID, userID).
+		Find(&records).Error
+	if err != nil {
+		return err
+	}
+	// Nothing to do on this server for this db user.
+	if len(records) == 0 {
+		return nil
+	}
+	rows := make([]row, 0, len(records))
+	for _, r := range records {
+		rows = append(rows, row{"remote_access": r.RemoteAccess, "remote_ips": r.RemoteIps})
+	}
+
 	c := p.connectOr(ctx)
 	if c == nil {
 		return nil
 	}
 	defer func() { _ = c.Close() }()
 
-	// Provisioning body lands with task 3.8.
+	did := false
+	for _, host := range unionHostLists(rows) {
+		if newRow.str("database_user") != oldRow.str("database_user") {
+			account := quoteStr(oldRow.str("database_user")) + "@" + quoteStr(host)
+			newAccount := quoteStr(newRow.str("database_user")) + "@" + quoteStr(host)
+			if _, err := c.ExecContext(ctx, "RENAME USER "+account+" TO "+newAccount); err != nil {
+				p.log.Warn("clientdb: renaming user failed",
+					"from", oldRow.str("database_user"), "to", newRow.str("database_user"),
+					"host", host, "error", err)
+			} else {
+				p.log.Debug("clientdb: renamed MySQL user",
+					"from", oldRow.str("database_user"), "to", newRow.str("database_user"), "host", host)
+			}
+		}
+		if newRow.str("database_password") != oldRow.str("database_password") &&
+			newRow.str("database_password") != "" {
+			p.setPassword(ctx, c, newRow, host)
+			did = true
+		}
+	}
+	if did {
+		p.flushPrivileges(ctx, c)
+	}
 	return nil
 }
 
@@ -289,6 +342,26 @@ func (p *Plugin) dbUserDelete(ctx context.Context, data engine.Data) error {
 	}
 	defer func() { _ = c.Close() }()
 
-	// Provisioning body lands with task 3.8.
+	// All hosts of this username in mysql.user; Create_user_priv = 'N'
+	// is the basic protection against deleting system accounts.
+	name := row(data.Old).str("database_user")
+	hosts, err := c.stringColumn(ctx,
+		"SELECT Host FROM mysql.user WHERE User = ? AND Create_user_priv = 'N'", name)
+	if err != nil {
+		p.log.Warn("clientdb: reading mysql.user failed", "user", name, "error", err)
+		return nil
+	}
+	did := false
+	for _, host := range hosts {
+		if _, err := c.ExecContext(ctx, "DROP USER "+quoteStr(name)+"@"+quoteStr(host)); err != nil {
+			p.log.Warn("clientdb: dropping user failed", "user", name, "host", host, "error", err)
+			continue
+		}
+		p.log.Debug("clientdb: dropped MySQL user", "user", name, "host", host)
+		did = true
+	}
+	if did {
+		p.flushPrivileges(ctx, c)
+	}
 	return nil
 }

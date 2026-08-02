@@ -20,7 +20,7 @@
 - [x] 3.5 Implement `grant` / `revokeAndDrop` with modes `rw` / `rd` / `r`, `CREATE USER IF NOT EXISTS`, `FLUSH PRIVILEGES`; integration tests for ALL vs SELECT vs quota-restricted grants. Commit.
 - [x] 3.6 Implement `dbInsert` / `dbUpdate` / `dbDelete` handlers (inactive early-out, missing-DB recreate, host/user reconcile, deactivate revoke); integration test datalog-shaped payloads. Commit.
 - [x] 3.7 Implement `renameDatabase` (empty path + tables/views/triggers path with mysqldump temp files mode 0600); integration test rename with a base table. Commit.
-- [ ] 3.8 Implement `dbUserUpdate` / `dbUserDelete` (rename user, set password across hosts, drop via `mysql.user` with `Create_user_priv='N'` guard); do **not** register `database_user_insert`; tests. Commit.
+- [x] 3.8 Implement `dbUserUpdate` / `dbUserDelete` (rename user, set password across hosts, drop via `mysql.user` with `Create_user_priv='N'` guard); do **not** register `database_user_insert`; tests. Commit.
 
 ## 4. Domain logic (API-side)
 
