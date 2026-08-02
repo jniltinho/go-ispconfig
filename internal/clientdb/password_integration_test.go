@@ -41,7 +41,7 @@ func TestSetPasswordIntegration(t *testing.T) {
 	// The plaintext now authenticates over TCP.
 	udb, err := sql.Open("mysql", "pwtest:secret@tcp("+dsnAddr(t, dsnPrefix)+")/")
 	require.NoError(t, err)
-	defer udb.Close()
+	defer func() { _ = udb.Close() }()
 	require.NoError(t, udb.PingContext(ctx))
 
 	// Denylisted account refused.

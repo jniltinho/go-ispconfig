@@ -80,7 +80,7 @@ func TestDatabaseEndToEndFlow(t *testing.T) {
 	// Direct admin connection for physical-state assertions.
 	adminDB, err := sql.Open("mysql", dsnPrefix+"/")
 	require.NoError(t, err)
-	defer adminDB.Close()
+	defer func() { _ = adminDB.Close() }()
 	schemaExists := func(name string) bool {
 		var s string
 		err := adminDB.QueryRowContext(ctx,
@@ -90,7 +90,7 @@ func TestDatabaseEndToEndFlow(t *testing.T) {
 	userHosts := func(user string) []string {
 		rows, err := adminDB.QueryContext(ctx, "SELECT Host FROM mysql.user WHERE User = ?", user)
 		require.NoError(t, err)
-		defer rows.Close()
+		defer func() { _ = rows.Close() }()
 		var hosts []string
 		for rows.Next() {
 			var h string
@@ -105,7 +105,7 @@ func TestDatabaseEndToEndFlow(t *testing.T) {
 		if err != nil {
 			return ""
 		}
-		defer rows.Close()
+		defer func() { _ = rows.Close() }()
 		var out []string
 		for rows.Next() {
 			var g string

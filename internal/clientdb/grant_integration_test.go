@@ -19,7 +19,7 @@ func showGrants(t *testing.T, c *adminConn, user, host string) string {
 	if err != nil {
 		return ""
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var out []string
 	for rows.Next() {
 		var g string

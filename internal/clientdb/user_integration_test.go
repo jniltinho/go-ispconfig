@@ -34,7 +34,7 @@ func TestDatabaseUserEvents(t *testing.T) {
 	}
 	c, err := p.connect(context.Background())
 	require.NoError(t, err)
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 	ctx := context.Background()
 
 	// Panel user + one database referencing it (remote 10.0.0.9).
@@ -85,7 +85,7 @@ func TestDatabaseUserEvents(t *testing.T) {
 	}))
 	udb, err := sql.Open("mysql", "c2_renamed:newpass@tcp("+dsnAddr(t, dsnPrefix)+")/")
 	require.NoError(t, err)
-	defer udb.Close()
+	defer func() { _ = udb.Close() }()
 	require.NoError(t, udb.PingContext(ctx))
 
 	// Delete: both hosts dropped via the mysql.user scan; root untouched.

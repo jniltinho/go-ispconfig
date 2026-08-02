@@ -35,7 +35,7 @@ func TestDatabaseEventPipeline(t *testing.T) {
 	}
 	c, err := p.connect(context.Background())
 	require.NoError(t, err)
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 	ctx := context.Background()
 
 	// Panel rows: rw user, ro user, the database and one other active

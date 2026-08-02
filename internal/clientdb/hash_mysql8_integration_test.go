@@ -49,6 +49,6 @@ func TestHashesAcceptedByMySQL8(t *testing.T) {
 
 	db, err := sql.Open("mysql", "sha2u:s3cret-pw@tcp("+addr+")/")
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	require.NoError(t, db.Ping(), "sha2 user must authenticate with its plaintext")
 }
