@@ -1,8 +1,11 @@
 package client
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"sort"
 )
 
 // DefaultPageSize is the #LIMIT# used by paged getters when
@@ -149,14 +152,8 @@ func (c *Client) pagedGet(ctx context.Context, method string, filter Filter) ([]
 		if pages >= maxPages {
 			return nil, fmt.Errorf("legacy: %s: pagination did not terminate after %d pages; the panel seems to ignore #OFFSET#", method, maxPages)
 		}
-		primaryID := make(map[string]any, len(filter)+2)
-		for key, val := range filter {
-			primaryID[key] = val
-		}
-		primaryID["#OFFSET#"] = offset
-		primaryID["#LIMIT#"] = limit
-
 		var page []Record
+		primaryID := pagedFilter{filter: filter, offset: offset, limit: limit}
 		if err := c.call(ctx, method, map[string]any{"primary_id": primaryID}, &page); err != nil {
 			return nil, err
 		}
@@ -165,4 +162,45 @@ func (c *Client) pagedGet(ctx context.Context, method string, filter Filter) ([]
 			return all, nil
 		}
 	}
+}
+
+// pagedFilter marshals a filter plus #OFFSET#/#LIMIT# as a JSON object
+// whose filter keys come FIRST. The order is load-bearing: the legacy
+// remoting_lib getDataRecord appends every key/value — including
+// #OFFSET#/#LIMIT# — to the SQL parameter list, so any key seen before a
+// filter key shifts the WHERE placeholders onto the wrong values and the
+// query silently matches nothing. Go maps marshal keys alphabetically,
+// which put "#LIMIT#" first and broke every filtered fetch against real
+// panels (found against the ISPConfig 3.3.1p1 lab VMs).
+type pagedFilter struct {
+	filter Filter
+	offset int
+	limit  int
+}
+
+// MarshalJSON implements json.Marshaler with the ordering contract above.
+func (p pagedFilter) MarshalJSON() ([]byte, error) {
+	keys := make([]string, 0, len(p.filter))
+	for k := range p.filter {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	var b bytes.Buffer
+	b.WriteByte('{')
+	for _, k := range keys {
+		kb, err := json.Marshal(k)
+		if err != nil {
+			return nil, err
+		}
+		vb, err := json.Marshal(p.filter[k])
+		if err != nil {
+			return nil, err
+		}
+		b.Write(kb)
+		b.WriteByte(':')
+		b.Write(vb)
+		b.WriteByte(',')
+	}
+	fmt.Fprintf(&b, `"#OFFSET#":%d,"#LIMIT#":%d}`, p.offset, p.limit)
+	return b.Bytes(), nil
 }

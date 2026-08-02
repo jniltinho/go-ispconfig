@@ -263,3 +263,13 @@ func TestRecordNormalization(t *testing.T) {
 	require.Equal(t, 0, rec.Int("s"))
 	require.Equal(t, 0, rec.Int("missing"))
 }
+
+// TestPagedFilterKeyOrder pins the JSON key order of paged filters:
+// filter keys first, #OFFSET#/#LIMIT# last. The legacy remoting_lib is
+// order-sensitive (see pagedFilter) — a regression here silently empties
+// every filtered fetch against real panels.
+func TestPagedFilterKeyOrder(t *testing.T) {
+	b, err := json.Marshal(pagedFilter{filter: Filter{"type": "vhost", "active": "y"}, offset: 40, limit: 20})
+	require.NoError(t, err)
+	require.Equal(t, `{"active":"y","type":"vhost","#OFFSET#":40,"#LIMIT#":20}`, string(b))
+}
