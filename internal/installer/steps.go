@@ -8,5 +8,7 @@ func InstallSteps() []Step {
 		packagesStep{},
 		mariadbStep{},
 		serverIPStep{},
+		userStep{},
+		configTomlStep{},
 	}
 }
