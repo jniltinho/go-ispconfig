@@ -56,6 +56,6 @@
 
 ## 9. Integration, soft-delete job, docs
 
-- [ ] 9.1 End-to-end integration test against MariaDB: API domain+mailbox+alias create → datalog → daemon run → maildir + sieve + (optional) DKIM files exist; transport update queues postfix reload. Commit.
+- [x] 9.1 End-to-end integration test against MariaDB: API domain+mailbox+alias create → datalog → daemon run → maildir + sieve + (optional) DKIM files exist; transport update queues postfix reload. Commit.
 - [ ] 9.2 Optional daily scheduler job `mail_soft_delete_purge` removing soft-deleted trees older than `mailbox_soft_delete` days under `homedir_path` with the same path guards; tests. Commit.
 - [ ] 9.3 Module docs in `docs/mail-module.md`: getconf keys, SQL map responsibility, maildir layout, DKIM+DNSPublisher, Rspamd files, migration/self-healing notes, non-goals. Commit.
