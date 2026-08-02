@@ -10,6 +10,7 @@ package client
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -49,6 +50,9 @@ type Options struct {
 	// Password is the legacy remote_user password. It is kept only in
 	// memory and never appears in errors or logs.
 	Password string
+	// Insecure disables TLS certificate verification. The client keeps an
+	// insecure marker for the migration report; TLS is verified by default.
+	Insecure bool
 }
 
 // Client is a read-only client for one legacy ISPConfig3 panel.
@@ -59,6 +63,8 @@ type Client struct {
 	username  string
 	password  string
 	sessionID string
+	insecure  bool
+	plainHTTP bool
 	hc        *http.Client
 }
 
@@ -72,13 +78,30 @@ func New(opts Options) (*Client, error) {
 	if (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
 		return nil, fmt.Errorf("legacy: panel URL must be http(s)://host[:port], got %q", opts.URL)
 	}
+	hc := &http.Client{}
+	if opts.Insecure {
+		hc.Transport = &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec // explicit operator opt-in, surfaced via Insecure()
+		}
+	}
 	return &Client{
-		endpoint: strings.TrimRight(opts.URL, "/") + "/remote/json.php",
-		username: opts.Username,
-		password: opts.Password,
-		hc:       &http.Client{},
+		endpoint:  strings.TrimRight(opts.URL, "/") + "/remote/json.php",
+		username:  opts.Username,
+		password:  opts.Password,
+		insecure:  opts.Insecure,
+		plainHTTP: u.Scheme == "http",
+		hc:        hc,
 	}, nil
 }
+
+// Insecure reports whether TLS certificate verification was explicitly
+// disabled; the migration report must warn when it returns true.
+func (c *Client) Insecure() bool { return c.insecure }
+
+// PlainHTTP reports whether the panel URL uses unencrypted http://
+// (credentials travel in the request body); the migration report must
+// warn when it returns true.
+func (c *Client) PlainHTTP() bool { return c.plainHTTP }
 
 // Login authenticates against the legacy panel with the remote_user
 // credentials and stores the returned remote_session id; every subsequent
