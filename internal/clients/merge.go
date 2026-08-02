@@ -243,6 +243,51 @@ func ApplyTemplates(ctx context.Context, tx *gorm.DB, c *model.Client) error {
 	return tx.WithContext(ctx).Take(c, c.ClientID).Error
 }
 
+// MaterializeInto merges the master + assigned templates into the client
+// struct WITHOUT writing (the entity update transaction persists the row
+// and its datalog diff). Legacy template_additional is migrated first;
+// template_master = 0 leaves the limits untouched.
+func MaterializeInto(ctx context.Context, tx *gorm.DB, c *model.Client) error {
+	if _, err := MigrateLegacyAdditional(ctx, tx, c); err != nil {
+		return err
+	}
+	if c.TemplateMaster == 0 {
+		return nil
+	}
+	var master model.ClientTemplate
+	err := tx.WithContext(ctx).Where("template_id = ?", c.TemplateMaster).Take(&master).Error
+	if err != nil {
+		return fmt.Errorf("clients: loading master template %d: %w", c.TemplateMaster, err)
+	}
+	assigned, err := AssignedTemplates(ctx, tx, int64(c.ClientID))
+	if err != nil {
+		return err
+	}
+	additionals := make([]*model.ClientTemplate, len(assigned))
+	for i := range assigned {
+		additionals[i] = &assigned[i]
+	}
+	limits, err := MergeTemplates(&master, additionals, IsReseller(c))
+	if err != nil {
+		return err
+	}
+	s, err := schema.Parse(&model.Client{}, mergeSchemaCache, schema.NamingStrategy{})
+	if err != nil {
+		return fmt.Errorf("clients: parsing client schema: %w", err)
+	}
+	rv := reflect.ValueOf(c).Elem()
+	for col, v := range limits {
+		f := s.LookUpField(col)
+		if f == nil {
+			continue // template-only column absent on client (none today)
+		}
+		if err := f.Set(ctx, rv, v); err != nil {
+			return fmt.Errorf("clients: materializing %s: %w", col, err)
+		}
+	}
+	return nil
+}
+
 // unionCSV merges two comma-separated sets preserving first-seen order.
 func unionCSV(a, b string) string {
 	seen := map[string]bool{}

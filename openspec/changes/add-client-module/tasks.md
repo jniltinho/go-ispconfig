@@ -20,8 +20,8 @@
 
 ## 4. REST API
 
-- [ ] 4.1 Client endpoints: create/get/list/update/delete/delete-everything, get-by-username, get-by-customer-no, get-by-groupid, id helpers, change-password, locked/canceled; redacted password fields; swaggo annotations; handler tests (403 cross-tenant, 422 validation). Commit.
-- [ ] 4.2 Reseller endpoints (dedicated or filtered surface documented in swagger) with nesting guard and `limit_client` rules; tests. Commit.
+- [x] 4.1 Client endpoints: create/get/list/update/delete/delete-everything, get-by-username, get-by-customer-no, get-by-groupid, id helpers, change-password, locked/canceled; redacted password fields; swaggo annotations; handler tests (403 cross-tenant, 422 validation). Commit.
+- [x] 4.2 Reseller endpoints (dedicated or filtered surface documented in swagger) with nesting guard and `limit_client` rules; tests. Commit.
 - [ ] 4.3 Template CRUD + additional-template assign/list/remove with materialization; countries list; tests. Commit.
 - [ ] 4.4 Message-template CRUD + send-message endpoint; optional SMTP transport behind config; welcome-on-create hook; tests with fake transport (no network). Commit.
 - [ ] 4.5 Regenerate swagger (`make swagger` / `swag init`), verify Swagger UI lists all client endpoints, CI staleness check green. Commit.

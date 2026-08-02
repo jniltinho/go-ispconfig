@@ -93,7 +93,7 @@ var serveCmd = &cobra.Command{
 		}
 		// Client limit_* enforcement behind the foundation create hook
 		// (add-client-module D5); registered before the routes mount.
-		clients.RegisterLimits(db)
+		api.RegisterLimitHook(clients.LimitHook(db))
 		if err := api.Register(e, deps); err != nil {
 			return fmt.Errorf("registering API: %w", err)
 		}

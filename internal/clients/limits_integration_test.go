@@ -26,7 +26,7 @@ import (
 // bootAPI starts the API server with the client limit hook registered.
 func bootAPI(t *testing.T, db *gorm.DB) *httptest.Server {
 	t.Helper()
-	RegisterLimits(db)
+	api.RegisterLimitHook(LimitHook(db))
 	t.Cleanup(func() {
 		api.RegisterLimitHook(func(context.Context, string, *repository.Identity, map[string]any) error { return nil })
 	})
@@ -163,7 +163,7 @@ func TestLimitHookEnforcement(t *testing.T) {
 		rid := &repository.Identity{UserID: ru.UserID, Username: ru.Username, Typ: "user"}
 
 		err := hook(ctx, "clients", rid, map[string]any{})
-		var limErr *api.LimitError
+		var limErr *LimitError
 		require.ErrorAs(t, err, &limErr, "third child at limit_client=2 must veto")
 		require.Equal(t, "error.limit_client", limErr.Key)
 

@@ -92,9 +92,13 @@ type Entity struct {
 	// row exists (primary key assigned) and before the datalog insert row
 	// is written, so derived defaults land in both the row and the journal.
 	AfterInsert func(ctx context.Context, tx *gorm.DB, id *repository.Identity, rec any) error `json:"-"`
-	// Decorate, when set, may add computed keys (e.g. datalog pending/error
-	// state) to the JSON objects returned by list and get.
+	// Decorate, when set, may add or remove keys (e.g. datalog state,
+	// password redaction) on the JSON objects returned by list and get.
 	Decorate func(ctx context.Context, db *gorm.DB, items []map[string]any) error `json:"-"`
+	// ListScope, when set, constrains the generic list query — role
+	// discriminators on shared tables (e.g. clients vs resellers on the
+	// client table via limit_client).
+	ListScope func(tx *gorm.DB) *gorm.DB `json:"-"`
 	// BeforeUpdate, when set, runs inside the update transaction after the
 	// stored row has been loaded (SELECT ... FOR UPDATE) and before the
 	// change detection: derived values computed from the locked stored
@@ -253,6 +257,9 @@ func (h *entityHandlers[T]) list(c *echo.Context) error {
 	// declared field names, so no request input reaches SQL identifiers.
 	q := h.deps.DB.WithContext(c.Request().Context()).Model(new(T)).
 		Scopes(repository.WithPerm(id, repository.PermRead))
+	if h.ent.ListScope != nil {
+		q = h.ent.ListScope(q)
+	}
 	for f := range h.ent.fields {
 		if v := c.QueryParam(f.Name); v != "" {
 			q = q.Where(fmt.Sprintf("`%s` LIKE ?", f.Name), "%"+v+"%")
@@ -342,7 +349,11 @@ func (h *entityHandlers[T]) create(c *echo.Context) error {
 	if err := h.repo.InsertFn(ctx, id, rec, fixup); err != nil {
 		return err
 	}
-	return c.JSON(http.StatusCreated, h.toMap(ctx, rec))
+	item := h.toMap(ctx, rec)
+	if err := h.decorate(ctx, []map[string]any{item}); err != nil {
+		return err
+	}
+	return c.JSON(http.StatusCreated, item)
 }
 
 // update serves PUT /<entity>/:id: the stored record is loaded under the
@@ -380,7 +391,11 @@ func (h *entityHandlers[T]) update(c *echo.Context) error {
 	if err := h.repo.UpdateFn(ctx, id, &rec, fixup); err != nil {
 		return err
 	}
-	return c.JSON(http.StatusOK, h.toMap(ctx, &rec))
+	item := h.toMap(ctx, &rec)
+	if err := h.decorate(ctx, []map[string]any{item}); err != nil {
+		return err
+	}
+	return c.JSON(http.StatusOK, item)
 }
 
 // delete serves DELETE /<entity>/:id.

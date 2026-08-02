@@ -47,6 +47,9 @@ type LimitError struct {
 // Error implements the error interface.
 func (e *LimitError) Error() string { return "api: limit exceeded: " + e.Key }
 
+// LimitKey satisfies the error handler's limit-veto interface.
+func (e *LimitError) LimitKey() string { return e.Key }
+
 // statusKeys maps HTTP statuses raised via echo.HTTPError (middlewares,
 // route misses) to their i18n keys.
 var statusKeys = map[int]string{
@@ -72,7 +75,7 @@ func ErrorHandler() echo.HTTPErrorHandler {
 
 		var (
 			valErr   *ValidationError
-			limErr   *LimitError
+			limErr   interface{ LimitKey() string }
 			httpErr  *echo.HTTPError
 			bindErr  *echo.BindingError
 			validate = errors.As(err, &valErr)
@@ -83,7 +86,7 @@ func ErrorHandler() echo.HTTPErrorHandler {
 			info = ErrorInfo{Key: "error.validation_failed", Fields: valErr.Fields}
 		case errors.As(err, &limErr):
 			status = http.StatusForbidden
-			info = ErrorInfo{Key: limErr.Key}
+			info = ErrorInfo{Key: limErr.LimitKey()}
 		case errors.Is(err, repository.ErrPermissionDenied):
 			status = http.StatusForbidden
 			info = ErrorInfo{Key: "error.permission_denied"}

@@ -15,6 +15,587 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/clients": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Paginated, permission-scoped list of client rows with limit_client = 0 (non-resellers). Any declared field name may be passed as a query parameter for substring filtering (e.g. ?contact_name=smith). Password and key fields are never returned.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "clients"
+                ],
+                "summary": "List clients",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "1-based page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 25,
+                        "description": "Page size (max 100)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Substring filter on username",
+                        "name": "username",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.ListResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Creates the client plus its linked sys_group and sys_user login (bcrypt-hashed password), applies limit templates (template_master/additional) and journals to sys_datalog. A non-admin (reseller) creator always becomes parent_client_id; admins may set parent_client_id to a reseller. locked/canceled are folded into this entity (locked=y disables the login). Subject to the reseller's limit_client quota (403 error.limit_client).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "clients"
+                ],
+                "summary": "Create a client",
+                "parameters": [
+                    {
+                        "description": "Client fields (client.tform.php set); password is plaintext and hashed server-side",
+                        "name": "record",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.Client"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/model.Client"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied or limit_client reached",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Validation failed (username empty/duplicate/malformed, bad parent, ...)",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/clients/by-customer-no/{no}": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "clients"
+                ],
+                "summary": "Get a client by customer number",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "customer_no",
+                        "name": "no",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.Client"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/clients/by-groupid/{groupid}": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Resolves the owning client of a sys_group (remote client_get_by_groupid).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "clients"
+                ],
+                "summary": "Get a client by sys_group id",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "sys_group groupid",
+                        "name": "groupid",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.Client"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/clients/by-username/{username}": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Permission-scoped lookup (remote client_get_by_username). Missing and inaccessible rows are both 404. Secrets redacted.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "clients"
+                ],
+                "summary": "Get a client by username",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Login username",
+                        "name": "username",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.Client"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/clients/id-by-sysuser/{userid}": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "remote client_get_id: maps sys_user.userid to its client_id. 404 when the login is not tied to a client.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "clients"
+                ],
+                "summary": "Get the client id of an interface login",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "sys_user userid",
+                        "name": "userid",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{client_id}",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/clients/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Password and key fields are redacted.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "clients"
+                ],
+                "summary": "Get a client",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "client_id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.Client"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied or record not accessible",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Re-materializes limit templates, caps limits to the parent reseller, and syncs the login identity (username rename, password re-hash when non-empty, locked toggles sys_user.active, parent change re-owns the row). An empty password means unchanged.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "clients"
+                ],
+                "summary": "Update a client",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "client_id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Changed field values",
+                        "name": "record",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.Client"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.Client"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Removes the client, its sys_user/sys_group, group memberships and template assignments; journals a datalog delete. A reseller that still has child clients is refused (422 error.client_has_children). Owned resources are kept — use delete-everything to purge them.",
+                "tags": [
+                    "clients"
+                ],
+                "summary": "Delete a client",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "client_id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Reseller still has child clients",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/clients/{id}/change-password": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "remote client_change_password: bcrypt-hashes the new password onto client.password and sys_user.passwort and stamps last_password_change. Update-scoped: only the admin or the owning reseller may call it. Minimum length 8.",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "clients"
+                ],
+                "summary": "Change a client's login password",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "client_id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "New plaintext password",
+                        "name": "record",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.changePasswordBody"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Password below policy",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/clients/{id}/everything": {
+            "delete": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Admin only (remote client_delete_everything): purges every resource owned by the client's group (web domains, folders, folder users, dns zones, records, slave zones) with one datalog delete per row so the daemons tear them down, then deprovisions the login and deletes the client.",
+                "tags": [
+                    "clients"
+                ],
+                "summary": "Delete a client and everything it owns",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "client_id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Not an admin session",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/dns/record-types": {
             "get": {
                 "security": [
@@ -1476,6 +2057,280 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Unknown entity",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/resellers": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Admin only. Client rows with limit_client != 0. This is the single documented reseller surface; /api/clients never returns resellers.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "resellers"
+                ],
+                "summary": "List resellers",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "1-based page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 25,
+                        "description": "Page size (max 100)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.ListResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Not an admin session",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Admin only. Like client create, but limit_client defaults to 100 and must stay non-zero (the reseller role discriminator); the provisioned sys_user carries the client module. A reseller can never have a parent (nesting is rejected with 422).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "resellers"
+                ],
+                "summary": "Create a reseller",
+                "parameters": [
+                    {
+                        "description": "Reseller fields (reseller.tform.php set)",
+                        "name": "record",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.Client"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/model.Client"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Validation failed (limit_client = 0, parent set, ...)",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/resellers/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "resellers"
+                ],
+                "summary": "Get a reseller",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "client_id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.Client"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Admin only. Setting limit_client to 0 is rejected (a reseller cannot be demoted here); the client module token on the login follows limit_client.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "resellers"
+                ],
+                "summary": "Update a reseller",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "client_id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Changed field values",
+                        "name": "record",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.Client"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.Client"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Admin only. Refused while child clients exist (422 error.client_has_children).",
+                "tags": [
+                    "resellers"
+                ],
+                "summary": "Delete a reseller",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "client_id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
                         "schema": {
                             "$ref": "#/definitions/api.ErrorResponse"
                         }
@@ -3607,6 +4462,14 @@ const docTemplate = `{
                 }
             }
         },
+        "api.changePasswordBody": {
+            "type": "object",
+            "properties": {
+                "password": {
+                    "type": "string"
+                }
+            }
+        },
         "client.Record": {
             "type": "object",
             "additionalProperties": {
@@ -3799,6 +4662,405 @@ const docTemplate = `{
                 },
                 "username": {
                     "description": "Username is the panel login the token belongs to.",
+                    "type": "string"
+                }
+            }
+        },
+        "model.Client": {
+            "type": "object",
+            "properties": {
+                "activationCode": {
+                    "type": "string"
+                },
+                "addedBy": {
+                    "type": "string"
+                },
+                "addedDate": {
+                    "type": "string"
+                },
+                "bankAccountIban": {
+                    "type": "string"
+                },
+                "bankAccountNumber": {
+                    "type": "string"
+                },
+                "bankAccountOwner": {
+                    "type": "string"
+                },
+                "bankAccountSwift": {
+                    "type": "string"
+                },
+                "bankCode": {
+                    "type": "string"
+                },
+                "bankName": {
+                    "type": "string"
+                },
+                "canUseAPI": {
+                    "type": "string"
+                },
+                "canceled": {
+                    "type": "string"
+                },
+                "city": {
+                    "type": "string"
+                },
+                "clientID": {
+                    "type": "integer"
+                },
+                "companyID": {
+                    "type": "string"
+                },
+                "companyName": {
+                    "type": "string"
+                },
+                "contactFirstname": {
+                    "type": "string"
+                },
+                "contactName": {
+                    "type": "string"
+                },
+                "country": {
+                    "type": "string"
+                },
+                "createdAt": {
+                    "description": "autoCreateTime:false: the column is a unix-seconds bigint (DEFAULT\nNULL in the DDL); gorm's CreatedAt name convention would try to\nwrite a time.Time into it on insert.",
+                    "type": "integer"
+                },
+                "customerNo": {
+                    "type": "string"
+                },
+                "customerNoCounter": {
+                    "type": "integer"
+                },
+                "customerNoStart": {
+                    "type": "integer"
+                },
+                "customerNoTemplate": {
+                    "type": "string"
+                },
+                "dbservers": {
+                    "type": "string"
+                },
+                "defaultDBServer": {
+                    "type": "integer"
+                },
+                "defaultDNSServer": {
+                    "type": "integer"
+                },
+                "defaultMailserver": {
+                    "type": "integer"
+                },
+                "defaultSlaveDNSServer": {
+                    "type": "integer"
+                },
+                "defaultWebserver": {
+                    "type": "integer"
+                },
+                "defaultXMPPServer": {
+                    "type": "integer"
+                },
+                "dnsservers": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "fax": {
+                    "type": "string"
+                },
+                "forceSuexec": {
+                    "type": "string"
+                },
+                "gender": {
+                    "type": "string"
+                },
+                "icq": {
+                    "type": "string"
+                },
+                "idrsa": {
+                    "type": "string"
+                },
+                "internet": {
+                    "type": "string"
+                },
+                "language": {
+                    "type": "string"
+                },
+                "limitAps": {
+                    "type": "integer"
+                },
+                "limitBackup": {
+                    "type": "string"
+                },
+                "limitCGI": {
+                    "type": "string"
+                },
+                "limitClient": {
+                    "type": "integer"
+                },
+                "limitCron": {
+                    "type": "integer"
+                },
+                "limitCronFrequency": {
+                    "type": "integer"
+                },
+                "limitCronType": {
+                    "type": "string"
+                },
+                "limitDNSRecord": {
+                    "type": "integer"
+                },
+                "limitDNSSlaveZone": {
+                    "type": "integer"
+                },
+                "limitDNSZone": {
+                    "type": "integer"
+                },
+                "limitDatabase": {
+                    "type": "integer"
+                },
+                "limitDatabasePostgresql": {
+                    "type": "integer"
+                },
+                "limitDatabaseQuota": {
+                    "type": "integer"
+                },
+                "limitDatabaseUser": {
+                    "type": "integer"
+                },
+                "limitDirectiveSnippets": {
+                    "type": "string"
+                },
+                "limitDomainmodule": {
+                    "type": "integer"
+                },
+                "limitFTPUser": {
+                    "type": "integer"
+                },
+                "limitFetchmail": {
+                    "type": "integer"
+                },
+                "limitHterror": {
+                    "type": "string"
+                },
+                "limitMailBackup": {
+                    "type": "string"
+                },
+                "limitMailWblist": {
+                    "type": "integer"
+                },
+                "limitMailalias": {
+                    "type": "integer"
+                },
+                "limitMailaliasdomain": {
+                    "type": "integer"
+                },
+                "limitMailbox": {
+                    "type": "integer"
+                },
+                "limitMailcatchall": {
+                    "type": "integer"
+                },
+                "limitMaildomain": {
+                    "type": "integer"
+                },
+                "limitMailfilter": {
+                    "type": "integer"
+                },
+                "limitMailforward": {
+                    "type": "integer"
+                },
+                "limitMailmailinglist": {
+                    "type": "integer"
+                },
+                "limitMailquota": {
+                    "type": "integer"
+                },
+                "limitMailrouting": {
+                    "type": "integer"
+                },
+                "limitOpenvzVM": {
+                    "type": "integer"
+                },
+                "limitOpenvzVMTemplateID": {
+                    "type": "integer"
+                },
+                "limitPerl": {
+                    "type": "string"
+                },
+                "limitPython": {
+                    "type": "string"
+                },
+                "limitRelayhost": {
+                    "type": "string"
+                },
+                "limitRuby": {
+                    "type": "string"
+                },
+                "limitSSI": {
+                    "type": "string"
+                },
+                "limitSSL": {
+                    "type": "string"
+                },
+                "limitSSLLetsencrypt": {
+                    "type": "string"
+                },
+                "limitShellUser": {
+                    "type": "integer"
+                },
+                "limitSpamfilterPolicy": {
+                    "type": "integer"
+                },
+                "limitSpamfilterUser": {
+                    "type": "integer"
+                },
+                "limitSpamfilterWblist": {
+                    "type": "integer"
+                },
+                "limitTrafficQuota": {
+                    "type": "integer"
+                },
+                "limitWebAliasdomain": {
+                    "type": "integer"
+                },
+                "limitWebDomain": {
+                    "type": "integer"
+                },
+                "limitWebIP": {
+                    "type": "string"
+                },
+                "limitWebQuota": {
+                    "type": "integer"
+                },
+                "limitWebSubdomain": {
+                    "type": "integer"
+                },
+                "limitWebdavUser": {
+                    "type": "integer"
+                },
+                "limitWildcard": {
+                    "type": "string"
+                },
+                "limitXMPPAnon": {
+                    "type": "string"
+                },
+                "limitXMPPAuthOptions": {
+                    "type": "string"
+                },
+                "limitXMPPDomain": {
+                    "type": "integer"
+                },
+                "limitXMPPHttparchive": {
+                    "type": "string"
+                },
+                "limitXMPPMuc": {
+                    "type": "string"
+                },
+                "limitXMPPPastebin": {
+                    "type": "string"
+                },
+                "limitXMPPProxy": {
+                    "type": "string"
+                },
+                "limitXMPPStatus": {
+                    "type": "string"
+                },
+                "limitXMPPUser": {
+                    "type": "integer"
+                },
+                "limitXMPPVjud": {
+                    "type": "string"
+                },
+                "locked": {
+                    "type": "string"
+                },
+                "mailServers": {
+                    "type": "string"
+                },
+                "mobile": {
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "parentClientID": {
+                    "type": "integer"
+                },
+                "password": {
+                    "type": "string"
+                },
+                "paypalEmail": {
+                    "type": "string"
+                },
+                "riskScore": {
+                    "type": "integer"
+                },
+                "sshchroot": {
+                    "type": "string"
+                },
+                "sshrsa": {
+                    "type": "string"
+                },
+                "state": {
+                    "type": "string"
+                },
+                "street": {
+                    "type": "string"
+                },
+                "sysGroupID": {
+                    "type": "integer"
+                },
+                "sysPermGroup": {
+                    "type": "string"
+                },
+                "sysPermOther": {
+                    "type": "string"
+                },
+                "sysPermUser": {
+                    "type": "string"
+                },
+                "sysUserID": {
+                    "type": "integer"
+                },
+                "telephone": {
+                    "type": "string"
+                },
+                "templateAdditional": {
+                    "type": "string"
+                },
+                "templateMaster": {
+                    "type": "integer"
+                },
+                "tmpData": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "username": {
+                    "type": "string"
+                },
+                "usertheme": {
+                    "type": "string"
+                },
+                "validationStatus": {
+                    "type": "string"
+                },
+                "vatID": {
+                    "type": "string"
+                },
+                "webPHPOptions": {
+                    "type": "string"
+                },
+                "webServers": {
+                    "type": "string"
+                },
+                "xmppservers": {
+                    "type": "string"
+                },
+                "zip": {
                     "type": "string"
                 }
             }

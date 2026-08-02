@@ -7,25 +7,27 @@ import (
 
 	"gorm.io/gorm"
 
-	"go-ispconfig/internal/api"
 	"go-ispconfig/internal/model"
 	"go-ispconfig/internal/repository"
 )
 
-// RegisterLimits plugs the client limit enforcement into the foundation
-// create hook (api.RegisterLimitHook). Call once at startup before
-// api.Register.
-func RegisterLimits(db *gorm.DB) {
-	api.RegisterLimitHook(LimitHook(db))
-}
+// LimitError is a limit veto; the API error handler maps any error with
+// a LimitKey() method to HTTP 403 with the i18n key.
+type LimitError struct{ Key string }
+
+func (e *LimitError) Error() string { return "clients: limit exceeded: " + e.Key }
+
+// LimitKey satisfies the API error handler's limit-veto interface.
+func (e *LimitError) LimitKey() string { return e.Key }
 
 // LimitHook returns the enforcement function: it resolves the owning
 // client of the requesting identity and vetoes creates that would exceed
 // the matching limit_* column. Semantics: limit < 0 allow, == 0 veto,
 // > 0 veto when the existing count is already >= limit. Admin identities
 // bypass all count limits; unknown entity names allow (no-op) so
-// unrelated entities keep working.
-func LimitHook(db *gorm.DB) api.LimitHook {
+// unrelated entities keep working. The returned func matches
+// api.LimitHook; wire it with api.RegisterLimitHook at startup.
+func LimitHook(db *gorm.DB) func(context.Context, string, *repository.Identity, map[string]any) error {
 	return func(ctx context.Context, entity string, id *repository.Identity, body map[string]any) error {
 		if id == nil || id.IsAdmin() {
 			return nil
@@ -46,14 +48,14 @@ func LimitHook(db *gorm.DB) api.LimitHook {
 			return nil
 		}
 		if limit == 0 {
-			return &api.LimitError{Key: rule.key}
+			return &LimitError{Key: rule.key}
 		}
 		count, err := rule.count(ctx, db, client)
 		if err != nil {
 			return err
 		}
 		if count >= int64(limit) {
-			return &api.LimitError{Key: rule.key}
+			return &LimitError{Key: rule.key}
 		}
 		return nil
 	}
