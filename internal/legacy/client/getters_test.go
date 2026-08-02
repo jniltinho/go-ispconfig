@@ -273,3 +273,43 @@ func TestPagedFilterKeyOrder(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, `{"active":"y","type":"vhost","#OFFSET#":40,"#LIMIT#":20}`, string(b))
 }
+
+// TestClientGetID covers the mapping, the tolerated not-found fault and
+// the propagation of every other fault (e.g. permission_denied).
+func TestClientGetID(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.RawQuery == "login" {
+			fmt.Fprint(w, `{"code":"ok","message":"","response":"sess1"}`)
+			return
+		}
+		var body struct {
+			SysUserID int `json:"sys_userid"`
+		}
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+		switch body.SysUserID {
+		case 3:
+			fmt.Fprint(w, `{"code":"ok","message":"","response":2}`)
+		case 99:
+			fmt.Fprint(w, `{"code":"remote_fault","message":"There is no sys_user account with this userid.","response":false}`)
+		default:
+			fmt.Fprint(w, `{"code":"remote_fault","message":"You do not have the permissions to access this function.","response":false}`)
+		}
+	}))
+	defer srv.Close()
+	c, err := New(Options{URL: srv.URL, Username: "u", Password: "p"})
+	require.NoError(t, err)
+	require.NoError(t, c.Login(context.Background()))
+
+	id, err := c.ClientGetID(context.Background(), 3)
+	require.NoError(t, err)
+	require.Equal(t, 2, id)
+
+	id, err = c.ClientGetID(context.Background(), 99)
+	require.NoError(t, err)
+	require.Zero(t, id)
+
+	_, err = c.ClientGetID(context.Background(), 7)
+	require.Error(t, err)
+	var f *Fault
+	require.ErrorAs(t, err, &f)
+}

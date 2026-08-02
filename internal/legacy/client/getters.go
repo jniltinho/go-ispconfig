@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 )
 
 // DefaultPageSize is the #LIMIT# used by paged getters when
@@ -41,15 +42,16 @@ func (c *Client) ClientGet(ctx context.Context, clientID int) (Record, error) {
 }
 
 // ClientGetID maps a legacy sys_user userid to its client_id
-// (client_get_id). A legacy fault (no sys_user for that id, or a
-// userid without a client) resolves to 0 — the caller treats 0 as
-// "not owned by any client".
+// (client_get_id). The panel's not-found fault ("There is no sys_user
+// account with this userid.") resolves to 0 — "not owned by any
+// client"; every other fault (permission_denied, session errors)
+// propagates.
 func (c *Client) ClientGetID(ctx context.Context, sysUserID int) (int, error) {
 	var id flexInt
 	err := c.call(ctx, "client_get_id", map[string]any{"sys_userid": sysUserID}, &id)
 	if err != nil {
 		var f *Fault
-		if errors.As(err, &f) {
+		if errors.As(err, &f) && strings.Contains(f.Message, "no sys_user account") {
 			return 0, nil
 		}
 		return 0, err

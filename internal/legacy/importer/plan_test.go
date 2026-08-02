@@ -358,6 +358,9 @@ func TestPlanModernAdminOwnedClientsResolveViaUserClient(t *testing.T) {
 		TargetServerID: 1,
 	})
 	require.NoError(t, err)
+	// The entity owner group (4) must have been mapped to client 2
+	// through UserClient, not through the (admin-owned) client rows.
+	require.Equal(t, 2, plan.groupOwner[4])
 	for _, it := range plan.Items {
 		require.NotEqual(t, ActionConflict, it.Action, "%s %s: %s", it.Table, it.Key, it.Reason)
 	}
