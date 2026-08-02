@@ -80,6 +80,9 @@ type Entity struct {
 	// Policy is an optional security policy flag (auth.RequirePolicy)
 	// enforced on every route of the entity.
 	Policy string `json:"-"`
+	// AdminOnly restricts every route of the entity to admin sessions
+	// (entities that are panel-wide configuration, e.g. DNS templates).
+	AdminOnly bool `json:"-"`
 	// Prepare, when set, runs after JSON bind and before defaults and
 	// validation on create and update. It may mutate the body (derive
 	// fields, hash passwords, verify referenced parent records) or veto
@@ -193,6 +196,9 @@ func RegisterEntity[T any](g *echo.Group, d *Deps, ent *Entity) error {
 	var mw []echo.MiddlewareFunc
 	if ent.Policy != "" {
 		mw = append(mw, auth.RequirePolicy(d.DB, ent.Policy))
+	}
+	if ent.AdminOnly {
+		mw = append(mw, requireAdmin)
 	}
 	grp := g.Group("/"+ent.Name, mw...)
 	grp.GET("", h.list)

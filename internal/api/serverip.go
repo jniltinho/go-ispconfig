@@ -81,7 +81,10 @@ func registerEntities(g *echo.Group, d *Deps) error {
 	if err := RegisterEntity[model.ServerIP](g, d, serverIPEntity()); err != nil {
 		return err
 	}
-	return registerSitesEntities(g.Group("/sites"), d)
+	if err := registerSitesEntities(g.Group("/sites"), d); err != nil {
+		return err
+	}
+	return registerDNSEntities(g.Group("/dns"), d)
 }
 
 // The CRUD routes are registered generically by RegisterEntity; the
