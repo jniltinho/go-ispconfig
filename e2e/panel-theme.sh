@@ -170,4 +170,16 @@ sleep 1
 expect "toggle back to light" \
   "$(evaljs "document.documentElement.classList.contains('dark')")" 'false'
 
+# --------------------------------------- zero external requests (6.3)
+# Every request recorded during the whole suite must target the panel
+# origin (fonts, icons, CSS, JS bundled or same-origin).
+EXTERNAL=$($AB network requests | awk '{print $3}' | grep -E '^https?://' | grep -v "^$PANEL_URL" || true)
+if [ -n "$EXTERNAL" ]; then
+  fail "requests left the panel origin:
+$EXTERNAL"
+fi
+TOTAL_REQS=$($AB network requests | grep -cE '^\[' || true)
+[ "$TOTAL_REQS" -gt 0 ] || fail "network log is empty — the origin check asserted nothing"
+ok "all $TOTAL_REQS recorded requests target $PANEL_URL"
+
 echo "PASS: ${PASS} checks"
