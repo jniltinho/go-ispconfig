@@ -12,6 +12,7 @@ func InstallSteps() []Step {
 		configTomlStep{},
 		tlsCertStep{},
 		nginxBaseStep{},
+		bindBaseStep{},
 		summaryStep{},
 	}
 }
