@@ -275,10 +275,31 @@ func databaseCreateChecks(ctx context.Context, db *gorm.DB, client *model.Client
 		}
 	}
 
+	return checkDatabaseQuota(ctx, db, client, bodyNum(body, "database_quota"), 0)
+}
+
+// CheckDatabaseQuotaUpdate re-runs the limit_database_quota enforcement
+// for an update request (the create limit hook does not fire there):
+// excludeID keeps the record's own current quota out of the sums (PHP
+// database_edit onSubmit update path). Admin identities bypass.
+func CheckDatabaseQuotaUpdate(ctx context.Context, db *gorm.DB, id *repository.Identity, newQuota, excludeID int64) error {
+	if id == nil || id.IsAdmin() {
+		return nil
+	}
+	client, err := owningClient(ctx, db, id)
+	if err != nil || client == nil {
+		return err
+	}
+	return checkDatabaseQuota(ctx, db, client, newQuota, excludeID)
+}
+
+// checkDatabaseQuota enforces limit_database_quota at client and
+// reseller level: -1 on the DB is rejected under a finite limit, 0 under
+// a positive limit, and the summed quotas may never exceed the limit.
+func checkDatabaseQuota(ctx context.Context, db *gorm.DB, client *model.Client, newQuota, excludeID int64) error {
 	if client.LimitDatabaseQuota < 0 {
 		return nil
 	}
-	newQuota := bodyNum(body, "database_quota")
 	if newQuota < 0 || (client.LimitDatabaseQuota > 0 && newQuota == 0) {
 		return &LimitError{Key: "error.limit_database_quota"}
 	}
@@ -288,7 +309,7 @@ func databaseCreateChecks(ctx context.Context, db *gorm.DB, client *model.Client
 	}
 	var used int64
 	err = db.WithContext(ctx).Table("web_database").
-		Where("sys_groupid = ?", group).
+		Where("sys_groupid = ? AND database_id != ?", group, excludeID).
 		Select("COALESCE(SUM(database_quota), 0)").Scan(&used).Error
 	if err != nil {
 		return fmt.Errorf("clients: summing database quota: %w", err)
@@ -316,7 +337,8 @@ func databaseCreateChecks(ctx context.Context, db *gorm.DB, client *model.Client
 	err = db.WithContext(ctx).Table("web_database t").
 		Joins("JOIN sys_group g ON g.groupid = t.sys_groupid").
 		Joins("JOIN client c ON c.client_id = g.client_id").
-		Where("c.parent_client_id = ? OR c.client_id = ?", reseller.ClientID, reseller.ClientID).
+		Where("(c.parent_client_id = ? OR c.client_id = ?) AND t.database_id != ?",
+			reseller.ClientID, reseller.ClientID, excludeID).
 		Select("COALESCE(SUM(t.database_quota), 0)").Scan(&resellerUsed).Error
 	if err != nil {
 		return fmt.Errorf("clients: summing reseller database quota: %w", err)

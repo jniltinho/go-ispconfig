@@ -35,7 +35,10 @@ func registerSitesEntities(g *echo.Group, d *Deps) error {
 	if err := RegisterEntity[model.WebFolder](g, d, webFolderEntity()); err != nil {
 		return err
 	}
-	return RegisterEntity[model.WebFolderUser](g, d, webFolderUserEntity())
+	if err := RegisterEntity[model.WebFolderUser](g, d, webFolderUserEntity()); err != nil {
+		return err
+	}
+	return registerSitesDatabaseEntities(g, d)
 }
 
 // --- field helpers (trim the tform port boilerplate) ---
