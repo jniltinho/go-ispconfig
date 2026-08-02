@@ -15,7 +15,7 @@ const sieveTemplate = "sieve_filter.master"
 // sieveRelevantFields are the mail_user fields whose change triggers a
 // sieve re-render (maildeliver_plugin::update condition list).
 var sieveRelevantFields = []string{
-	"custom_mailfilter", "move_junk",
+	"custom_mailfilter", "move_junk", "imap_prefix",
 	"autoresponder_subject", "autoresponder_text", "autoresponder",
 	"email", "autoresponder_start_date", "autoresponder_end_date",
 	"cc", "forward_in_lda",

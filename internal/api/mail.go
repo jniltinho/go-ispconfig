@@ -2,13 +2,16 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/labstack/echo/v5"
 	"golang.org/x/net/idna"
 	"gorm.io/gorm"
 
+	"go-ispconfig/internal/getconf"
 	"go-ispconfig/internal/mail"
 	"go-ispconfig/internal/model"
 	"go-ispconfig/internal/repository"
@@ -74,6 +77,7 @@ func mailDomainEntity(d *Deps) *Entity {
 		Prepare:      mailDomainPrepare,
 		AfterInsert:  mailDomainAfterInsert(d),
 		BeforeUpdate: mailDomainBeforeUpdate(d),
+		BeforeDelete: mailDomainBeforeDelete(d),
 		Decorate:     mailDomainDecorate(),
 	}
 }
@@ -84,8 +88,35 @@ func mailDomainEntity(d *Deps) *Entity {
 func mailDomainDecorate() func(ctx context.Context, db *gorm.DB, items []map[string]any) error {
 	state := datalogStateDecorator("mail_domain", "domain_id")
 	return func(ctx context.Context, db *gorm.DB, items []map[string]any) error {
+		names := make([]string, 0, len(items))
 		for _, it := range items {
 			delete(it, "dkim_private")
+			if it["dkim"] == "y" {
+				name := mail.DKIMRecordName(fmt.Sprint(it["dkim_selector"]), fmt.Sprint(it["domain"]))
+				data := mail.DKIMTXTValue(fmt.Sprint(it["dkim_public"]))
+				it["suggested_record"] = name + " 3600 IN TXT " + data
+				it["dns_published"] = false
+				names = append(names, name)
+			}
+		}
+		if len(names) > 0 {
+			var published []string
+			if err := db.WithContext(ctx).Model(&model.DNSRr{}).
+				Where("type = 'TXT' AND name IN ?", names).Pluck("name", &published).Error; err != nil {
+				return err
+			}
+			set := make(map[string]struct{}, len(published))
+			for _, n := range published {
+				set[n] = struct{}{}
+			}
+			for _, it := range items {
+				if it["dkim"] == "y" {
+					name := mail.DKIMRecordName(fmt.Sprint(it["dkim_selector"]), fmt.Sprint(it["domain"]))
+					if _, ok := set[name]; ok {
+						it["dns_published"] = true
+					}
+				}
+			}
 		}
 		return state(ctx, db, items)
 	}
@@ -159,14 +190,27 @@ func mailDomainPrepare(c *echo.Context, d *Deps, _ *repository.Identity, body ma
 		}
 		return nil
 	}
-	// DKIM enabled without a key: generate one.
-	privPEM, pubPEM, err := mail.GenerateDKIMKey(2048)
+	// DKIM enabled without a key: generate one at the configured strength.
+	privPEM, pubPEM, err := mail.GenerateDKIMKey(dkimStrength(c, d))
 	if err != nil {
 		return err
 	}
 	body["dkim_private"] = privPEM
 	body["dkim_public"] = pubPEM
 	return nil
+}
+
+// dkimStrength reads dkim_strength from the domain's server mail config
+// (default 2048).
+func dkimStrength(c *echo.Context, d *Deps) int {
+	cfg := getconf.DefaultMailConfig()
+	if sc, err := getconf.GetServerConfig(d.DB, 1); err == nil {
+		cfg = sc.Mail
+	}
+	if n, err := strconv.Atoi(cfg.DKIMStrength); err == nil && n >= 1024 {
+		return n
+	}
+	return 2048
 }
 
 // dkimStateFor builds the publisher input from a domain record.
@@ -179,8 +223,17 @@ func dkimStateFor(m *model.MailDomain) *DKIMDomain {
 
 // mailDomainAfterInsert reconciles DKIM DNS after an insert (old=nil).
 func mailDomainAfterInsert(d *Deps) func(context.Context, *gorm.DB, *repository.Identity, any, map[string]any) error {
-	return func(ctx context.Context, _ *gorm.DB, _ *repository.Identity, rec any, _ map[string]any) error {
-		SyncDKIMDNS(ctx, d.publisher(), nil, dkimStateFor(rec.(*model.MailDomain)))
+	return func(ctx context.Context, tx *gorm.DB, _ *repository.Identity, rec any, _ map[string]any) error {
+		SyncDKIMDNS(ctx, tx, d.publisher(), nil, dkimStateFor(rec.(*model.MailDomain)))
+		return nil
+	}
+}
+
+// mailDomainBeforeDelete withdraws the DKIM TXT inside the delete
+// transaction (the daemon removes the maildomain tree from the datalog).
+func mailDomainBeforeDelete(d *Deps) func(context.Context, *gorm.DB, *repository.Identity, any) error {
+	return func(ctx context.Context, tx *gorm.DB, _ *repository.Identity, rec any) error {
+		SyncDKIMDNS(ctx, tx, d.publisher(), dkimStateFor(rec.(*model.MailDomain)), nil)
 		return nil
 	}
 }
@@ -188,8 +241,8 @@ func mailDomainAfterInsert(d *Deps) func(context.Context, *gorm.DB, *repository.
 // mailDomainBeforeUpdate reconciles DKIM DNS after an update using the
 // old and new records.
 func mailDomainBeforeUpdate(d *Deps) func(context.Context, *gorm.DB, *repository.Identity, map[string]any, any, any) error {
-	return func(ctx context.Context, _ *gorm.DB, _ *repository.Identity, _ map[string]any, old, rec any) error {
-		SyncDKIMDNS(ctx, d.publisher(),
+	return func(ctx context.Context, tx *gorm.DB, _ *repository.Identity, _ map[string]any, old, rec any) error {
+		SyncDKIMDNS(ctx, tx, d.publisher(),
 			dkimStateFor(old.(*model.MailDomain)), dkimStateFor(rec.(*model.MailDomain)))
 		return nil
 	}
@@ -247,8 +300,8 @@ func mailDomainSetStatus(c *echo.Context, d *Deps, active string) error {
 	}
 	old := rec
 	rec.Active = active
-	err = repo.UpdateFn(ctx, id, &rec, func(_ *gorm.DB, _ *model.MailDomain) error {
-		SyncDKIMDNS(ctx, d.publisher(), dkimStateFor(&old), dkimStateFor(&rec))
+	err = repo.UpdateFn(ctx, id, &rec, func(tx *gorm.DB, _ *model.MailDomain) error {
+		SyncDKIMDNS(ctx, tx, d.publisher(), dkimStateFor(&old), dkimStateFor(&rec))
 		return nil
 	})
 	if err != nil {

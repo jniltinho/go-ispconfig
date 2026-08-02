@@ -36,7 +36,7 @@ func TestDNSPublisher(t *testing.T) {
 	data := "v=DKIM1; t=s; p=AAAA"
 
 	t.Run("upsert publishes into the parent zone", func(t *testing.T) {
-		published, err := pub.UpsertTXT(ctx, name, data, 3600)
+		published, err := pub.UpsertTXT(ctx, db, name, data, 3600)
 		require.NoError(t, err)
 		assert.True(t, published)
 
@@ -58,7 +58,7 @@ func TestDNSPublisher(t *testing.T) {
 	})
 
 	t.Run("upsert replaces the previous record", func(t *testing.T) {
-		published, err := pub.UpsertTXT(ctx, name, "v=DKIM1; t=s; p=BBBB", 3600)
+		published, err := pub.UpsertTXT(ctx, db, name, "v=DKIM1; t=s; p=BBBB", 3600)
 		require.NoError(t, err)
 		assert.True(t, published)
 		var rows []model.DNSRr
@@ -68,7 +68,7 @@ func TestDNSPublisher(t *testing.T) {
 	})
 
 	t.Run("delete withdraws and journals", func(t *testing.T) {
-		require.NoError(t, pub.DeleteTXT(ctx, name, "v=DKIM1"))
+		require.NoError(t, pub.DeleteTXT(ctx, db, name, "v=DKIM1"))
 		var n int64
 		require.NoError(t, db.Model(&model.DNSRr{}).Where("name = ?", name).Count(&n).Error)
 		assert.Zero(t, n)
@@ -78,7 +78,7 @@ func TestDNSPublisher(t *testing.T) {
 	})
 
 	t.Run("no matching zone is unpublished success", func(t *testing.T) {
-		published, err := pub.UpsertTXT(ctx, "default._domainkey.nozone.test.", data, 3600)
+		published, err := pub.UpsertTXT(ctx, db, "default._domainkey.nozone.test.", data, 3600)
 		require.NoError(t, err)
 		assert.False(t, published)
 		var n int64

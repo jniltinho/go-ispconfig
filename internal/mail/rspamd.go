@@ -3,6 +3,7 @@ package mail
 import (
 	"context"
 	"os"
+	"os/user"
 	"strconv"
 	"strings"
 
@@ -462,10 +463,17 @@ func (r *RspamdPlugin) serverUpdate(ctx context.Context, _ string, _ engine.Data
 		}
 	}
 
-	// Protect password-bearing files (PHP chgrp _rspamd + chmod 640).
+	// Protect password-bearing files (PHP chgrp _rspamd + chmod 640;
+	// probe the real rspamd group like the dkim plugin does).
+	rspamdGroup := "_rspamd"
+	if _, err := user.LookupGroup(rspamdGroup); err != nil {
+		if _, err := user.LookupGroup("rspamd"); err == nil {
+			rspamdGroup = "rspamd"
+		}
+	}
 	protect := []string{r.localD() + "/redis.conf", r.localD() + "/classifier-bayes.conf"}
 	for _, f := range protect {
-		if _, err := r.base.runner.Run(ctx, "chgrp", "_rspamd", f); err != nil {
+		if _, err := r.base.runner.Run(ctx, "chgrp", rspamdGroup, f); err != nil {
 			r.base.log.Warn("mail: chgrp rspamd config failed", "file", f, "error", err)
 		}
 		if err := os.Chmod(f, 0o640); err != nil {

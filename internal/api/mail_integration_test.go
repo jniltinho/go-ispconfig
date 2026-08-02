@@ -61,6 +61,8 @@ func TestMailDomainAPI(t *testing.T) {
 		assert.NotContains(t, rec, "dkim_private", "private key redacted in responses")
 		assert.NotEmpty(t, rec["dkim_public"], "public key generated")
 		assert.Equal(t, "default", rec["dkim_selector"])
+		assert.Equal(t, false, rec["dns_published"], "no managed zone for example.com")
+		assert.Contains(t, rec["suggested_record"], "default._domainkey.example.com.")
 
 		var row model.MailDomain
 		require.NoError(t, db.Take(&row, domainID).Error)
@@ -142,10 +144,23 @@ func TestMailDomainAPI(t *testing.T) {
 			map[string]any{"server_id": 1, "domain": "dkimzone.test", "active": "y", "dkim": "y"})
 		require.Equal(t, http.StatusCreated, status, "%s", data)
 
+		var rec map[string]any
+		require.NoError(t, json.Unmarshal(data, &rec))
+		assert.Equal(t, true, rec["dns_published"], "response reports the managed-zone publication")
+		assert.Contains(t, rec["suggested_record"], "v=DKIM1", "suggested record present")
+
 		var n int64
 		require.NoError(t, db.Model(&model.DNSRr{}).
 			Where("name = ? AND type = 'TXT'", "default._domainkey.dkimzone.test.").Count(&n).Error)
 		assert.EqualValues(t, 1, n, "DKIM TXT published into the managed zone")
+
+		// Delete withdraws the TXT.
+		status, _ = call(t, srv, http.MethodDelete,
+			fmt.Sprintf("/api/mail/domains/%d", int(rec["domain_id"].(float64))), cookie, csrf, nil)
+		require.Equal(t, http.StatusNoContent, status)
+		require.NoError(t, db.Model(&model.DNSRr{}).
+			Where("name = ? AND type = 'TXT'", "default._domainkey.dkimzone.test.").Count(&n).Error)
+		assert.Zero(t, n, "DKIM TXT withdrawn on domain delete")
 	})
 }
 

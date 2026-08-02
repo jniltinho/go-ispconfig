@@ -80,6 +80,10 @@ func (d *DkimPlugin) checkSystem(ctx context.Context, cfg getconf.MailConfig) bo
 			d.base.log.Error("mail: dkim_path is a symlink, refusing", "path", path)
 			return false
 		}
+		if !fi.IsDir() {
+			d.base.log.Error("mail: dkim_path exists but is not a directory", "path", path)
+			return false
+		}
 		return true
 	}
 	owner := d.rspamdOwner()

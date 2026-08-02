@@ -22,31 +22,34 @@ import (
 // The design sketch carried an Owner parameter; it is dropped here
 // because ownership always derives from the SOA row (the design's own
 // upsert rule), so there is nothing for the caller to supply.
+//
+// Both methods run on the caller's transaction (tx) so DKIM DNS changes
+// commit atomically with the mail_domain save that triggered them and
+// the datalog notifier fires on that single outer commit.
 type DNSPublisher interface {
 	// UpsertTXT replaces any TXT with the same name and data prefix in
 	// the covering zone and inserts the new record.
-	UpsertTXT(ctx context.Context, name, data string, ttl uint32) (published bool, err error)
+	UpsertTXT(ctx context.Context, tx *gorm.DB, name, data string, ttl uint32) (published bool, err error)
 	// DeleteTXT removes TXT records with the exact name whose data
 	// starts with dataPrefix (e.g. "v=DKIM1").
-	DeleteTXT(ctx context.Context, name, dataPrefix string) error
+	DeleteTXT(ctx context.Context, tx *gorm.DB, name, dataPrefix string) error
 }
 
-// dbDNSPublisher is the DNS-module implementation over the panel DB.
-type dbDNSPublisher struct {
-	db *gorm.DB
-}
+// dbDNSPublisher is the DNS-module implementation; all reads/writes go
+// through the transaction handed to each call.
+type dbDNSPublisher struct{}
 
 // NewDNSPublisher returns the database-backed publisher.
-func NewDNSPublisher(db *gorm.DB) DNSPublisher { return &dbDNSPublisher{db: db} }
+func NewDNSPublisher(_ *gorm.DB) DNSPublisher { return dbDNSPublisher{} }
 
 // findSOA walks the name's parent labels until an active managed zone
 // matches (port of mail_domain_edit find_soa_domain, generalized to any
 // record name).
-func (p *dbDNSPublisher) findSOA(ctx context.Context, name string) (*model.DNSSoa, error) {
+func (dbDNSPublisher) findSOA(ctx context.Context, tx *gorm.DB, name string) (*model.DNSSoa, error) {
 	candidate := strings.TrimSuffix(name, ".") + "."
 	for strings.Count(candidate, ".") > 1 {
 		var soa model.DNSSoa
-		err := p.db.WithContext(ctx).
+		err := tx.WithContext(ctx).
 			Where("active = 'Y' AND origin = ?", candidate).Take(&soa).Error
 		if err == nil {
 			return &soa, nil
@@ -60,9 +63,9 @@ func (p *dbDNSPublisher) findSOA(ctx context.Context, name string) (*model.DNSSo
 	return nil, nil
 }
 
-// UpsertTXT implements DNSPublisher.
-func (p *dbDNSPublisher) UpsertTXT(ctx context.Context, name, data string, ttl uint32) (bool, error) {
-	soa, err := p.findSOA(ctx, name)
+// UpsertTXT implements DNSPublisher on the caller's transaction.
+func (p dbDNSPublisher) UpsertTXT(ctx context.Context, tx *gorm.DB, name, data string, ttl uint32) (bool, error) {
+	soa, err := p.findSOA(ctx, tx, name)
 	if err != nil || soa == nil {
 		return false, err
 	}
@@ -70,53 +73,40 @@ func (p *dbDNSPublisher) UpsertTXT(ctx context.Context, name, data string, ttl u
 	if i := strings.Index(data, ";"); i > 0 {
 		prefix = data[:i]
 	}
-	ctx, flush := datalog.NotifyAfterCommit(ctx)
-	err = p.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := p.deleteInTx(ctx, tx, name, prefix); err != nil {
-			return err
-		}
-		serial := NextSerial(0, time.Now())
-		now := time.Now()
-		rr := &model.DNSRr{
-			SysUserID: soa.SysUserID, SysGroupID: soa.SysGroupID,
-			SysPermUser: soa.SysPermUser, SysPermGroup: soa.SysPermGroup,
-			SysPermOther: soa.SysPermOther,
-			ServerID:     soa.ServerID, Zone: soa.ID,
-			Name: name, Type: "TXT", Data: data,
-			Aux: 0, TTL: ttl, Active: "Y",
-			Stamp: &now, Serial: &serial,
-		}
-		if err := tx.Create(rr).Error; err != nil {
-			return err
-		}
-		if err := datalog.LogInsert(tx, rr, "admin"); err != nil {
-			return err
-		}
-		return bumpZoneSerial(tx, soa.ID, "admin")
-	})
-	if err != nil {
+	if err := p.deleteInTx(ctx, tx, name, prefix); err != nil {
 		return false, err
 	}
-	flush()
+	serial := NextSerial(0, time.Now())
+	now := time.Now()
+	rr := &model.DNSRr{
+		SysUserID: soa.SysUserID, SysGroupID: soa.SysGroupID,
+		SysPermUser: soa.SysPermUser, SysPermGroup: soa.SysPermGroup,
+		SysPermOther: soa.SysPermOther,
+		ServerID:     soa.ServerID, Zone: soa.ID,
+		Name: name, Type: "TXT", Data: data,
+		Aux: 0, TTL: ttl, Active: "Y",
+		Stamp: &now, Serial: &serial,
+	}
+	if err := tx.WithContext(ctx).Create(rr).Error; err != nil {
+		return false, err
+	}
+	if err := datalog.LogInsert(tx, rr, "admin"); err != nil {
+		return false, err
+	}
+	if err := bumpZoneSerial(tx, soa.ID, "admin"); err != nil {
+		return false, err
+	}
 	return true, nil
 }
 
-// DeleteTXT implements DNSPublisher.
-func (p *dbDNSPublisher) DeleteTXT(ctx context.Context, name, dataPrefix string) error {
-	ctx, flush := datalog.NotifyAfterCommit(ctx)
-	err := p.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		return p.deleteInTx(ctx, tx, name, dataPrefix)
-	})
-	if err != nil {
-		return err
-	}
-	flush()
-	return nil
+// DeleteTXT implements DNSPublisher on the caller's transaction.
+func (p dbDNSPublisher) DeleteTXT(ctx context.Context, tx *gorm.DB, name, dataPrefix string) error {
+	return p.deleteInTx(ctx, tx, name, dataPrefix)
 }
 
 // deleteInTx removes matching TXT rows with datalog journaling and one
 // serial bump per touched zone.
-func (p *dbDNSPublisher) deleteInTx(ctx context.Context, tx *gorm.DB, name, dataPrefix string) error {
+func (dbDNSPublisher) deleteInTx(ctx context.Context, tx *gorm.DB, name, dataPrefix string) error {
 	var rows []model.DNSRr
 	err := tx.WithContext(ctx).
 		Where("name = ? AND type = 'TXT' AND data LIKE ?", name, dataPrefix+"%").
@@ -147,9 +137,9 @@ func (p *dbDNSPublisher) deleteInTx(ctx context.Context, tx *gorm.DB, name, data
 type NoopDNSPublisher struct{}
 
 // UpsertTXT implements DNSPublisher (always unpublished).
-func (NoopDNSPublisher) UpsertTXT(context.Context, string, string, uint32) (bool, error) {
+func (NoopDNSPublisher) UpsertTXT(context.Context, *gorm.DB, string, string, uint32) (bool, error) {
 	return false, nil
 }
 
 // DeleteTXT implements DNSPublisher (nothing to withdraw).
-func (NoopDNSPublisher) DeleteTXT(context.Context, string, string) error { return nil }
+func (NoopDNSPublisher) DeleteTXT(context.Context, *gorm.DB, string, string) error { return nil }

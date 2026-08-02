@@ -4,6 +4,8 @@ import (
 	"context"
 	"log/slog"
 
+	"gorm.io/gorm"
+
 	"go-ispconfig/internal/mail"
 )
 
@@ -34,7 +36,7 @@ type DKIMDomain struct {
 // while the domain is active with DKIM on, and everything is withdrawn
 // on disable/deactivate/delete. Publisher failures degrade to
 // dns_published=false — the domain save itself never fails on DNS.
-func SyncDKIMDNS(ctx context.Context, pub DNSPublisher, old, current *DKIMDomain) DKIMPublishState {
+func SyncDKIMDNS(ctx context.Context, tx *gorm.DB, pub DNSPublisher, old, current *DKIMDomain) DKIMPublishState {
 	state := DKIMPublishState{}
 	if pub == nil {
 		pub = NoopDNSPublisher{}
@@ -47,7 +49,7 @@ func SyncDKIMDNS(ctx context.Context, pub DNSPublisher, old, current *DKIMDomain
 		stops := current == nil || !current.Active || !current.DKIM
 		moved := current != nil && mail.DKIMRecordName(current.Selector, current.Domain) != oldName
 		if stops || moved {
-			if err := pub.DeleteTXT(ctx, oldName, "v=DKIM1"); err != nil {
+			if err := pub.DeleteTXT(ctx, tx, oldName, "v=DKIM1"); err != nil {
 				slog.Warn("api: could not withdraw DKIM TXT", "name", oldName, "error", err)
 			}
 		}
@@ -62,7 +64,7 @@ func SyncDKIMDNS(ctx context.Context, pub DNSPublisher, old, current *DKIMDomain
 	if !current.Active {
 		return state
 	}
-	published, err := pub.UpsertTXT(ctx, name, data, 3600)
+	published, err := pub.UpsertTXT(ctx, tx, name, data, 3600)
 	if err != nil {
 		slog.Warn("api: DKIM TXT publication failed", "name", name, "error", err)
 		return state
