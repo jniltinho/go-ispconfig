@@ -43,16 +43,15 @@ func TestSha2PasswordHash(t *testing.T) {
 	assert.Regexp(t, sha2Re, long)
 }
 
-// TestGenSalt: 20 bytes, printable 7-bit, never '$'.
+// TestGenSalt: 20 bytes from the SHA-crypt alphabet.
 func TestGenSalt(t *testing.T) {
+	const alphabet = "./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 	for range 50 {
 		salt, err := genSalt(20)
 		require.NoError(t, err)
 		require.Len(t, salt, 20)
 		for _, b := range salt {
-			assert.GreaterOrEqual(t, b, byte(32))
-			assert.Less(t, b, byte(128))
-			assert.NotEqual(t, byte('$'), b)
+			assert.Contains(t, alphabet, string(b))
 		}
 	}
 }

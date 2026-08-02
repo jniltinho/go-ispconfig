@@ -45,11 +45,24 @@ func StartMariaDB(t *testing.T, suffix string) (dsnPrefix, container string) {
 }
 
 // MariaDBExec runs a SQL statement inside the test container with the
-// stock mariadb client.
+// stock mariadb client. Retries briefly: right after StartMariaDB the
+// server may still bounce the next connection (CI flake with socket
+// "Can't connect ... mysqld.sock").
 func MariaDBExec(t *testing.T, container, sql string) {
 	t.Helper()
-	out, err := exec.Command("docker", "exec", container, "mariadb", "-uroot", "-proot", "-e", sql).CombinedOutput()
-	if err != nil {
-		t.Fatalf("mariadb -e %q: %v: %s", sql, err, out)
+	var out []byte
+	var err error
+	for attempt := 0; attempt < 30; attempt++ {
+		out, err = exec.Command("docker", "exec", container, "mariadb", "-uroot", "-proot", "-e", sql).CombinedOutput()
+		if err == nil {
+			return
+		}
+		msg := string(out) + err.Error()
+		if !strings.Contains(msg, "Can't connect") && !strings.Contains(msg, "Connection refused") &&
+			!strings.Contains(msg, "is not allowed to connect") && !strings.Contains(msg, "server has gone away") {
+			break
+		}
+		time.Sleep(time.Second)
 	}
+	t.Fatalf("mariadb -e %q: %v: %s", sql, err, out)
 }

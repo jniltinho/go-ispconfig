@@ -29,23 +29,19 @@ func Sha2PasswordHash(password string) (string, error) {
 	return mysqlSha256Crypt([]byte(password), salt, 5000), nil
 }
 
-// genSalt returns size random bytes constrained to MySQL's salt alphabet:
-// 7-bit, no control chars, never '$' or "'" (port of db_mysql genSalt;
-// quote is also excluded so authentication strings embed cleanly in SQL).
+// genSalt returns size random bytes from MySQL's caching_sha2 / SHA-crypt
+// alphabet (./0-9A-Za-z). PHP genSalt allows a wider 7-bit set; MySQL 8
+// rejects hashes whose salt falls outside this alphabet ("password hash
+// doesn't have the expected format").
 func genSalt(size int) ([]byte, error) {
-	salt := make([]byte, size)
-	if _, err := rand.Read(salt); err != nil {
+	const alphabet = "./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+	raw := make([]byte, size)
+	if _, err := rand.Read(raw); err != nil {
 		return nil, fmt.Errorf("clientdb: generating salt: %w", err)
 	}
+	salt := make([]byte, size)
 	for i := range salt {
-		b := salt[i] & 0x7f
-		if b < 32 {
-			b += 32
-		}
-		if b == '$' || b == '\'' {
-			b++
-		}
-		salt[i] = b
+		salt[i] = alphabet[int(raw[i])%len(alphabet)]
 	}
 	return salt, nil
 }
