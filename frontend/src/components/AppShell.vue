@@ -39,14 +39,14 @@ async function logout() {
           {{ t('app.title') }}
         </RouterLink>
 
-        <!-- Module tabs: 32px icon over bold title -->
+        <!-- Module tabs: 32px icon over bold title (original top-nav) -->
         <nav class="flex flex-1 justify-center">
           <RouterLink
             v-for="mod in modules"
             :key="mod.id"
             :to="mod.path"
-            class="flex w-24 flex-col items-center gap-1 py-2 text-text no-underline hover:text-brand"
-            :class="{ 'border-b-2 border-brand text-brand': activeModule.id === mod.id }"
+            class="flex w-24 flex-col items-center gap-1 border-b-2 border-transparent py-2 text-text no-underline transition-colors duration-150 hover:bg-bg hover:text-brand"
+            :class="{ 'border-brand! bg-bg text-brand': activeModule.id === mod.id }"
           >
             <component :is="moduleIcons[mod.id]" :size="32" :stroke-width="1.5" />
             <span class="text-xs font-bold">{{ t(`module.${mod.id}`) }}</span>
@@ -55,12 +55,12 @@ async function logout() {
 
         <!-- Global search + logout -->
         <div class="flex items-center gap-3">
-          <div class="flex items-center border border-border bg-surface">
+          <div class="flex items-center border border-border bg-surface focus-within:border-link">
             <input
               v-model="search"
               type="search"
               :placeholder="t('topbar.search_placeholder')"
-              class="w-40 px-2 py-1.5 text-sm outline-none"
+              class="w-40 bg-surface px-2 py-1.5 text-sm text-text outline-none"
             />
             <component :is="utilityIcons.search" :size="16" class="mx-2 text-text" />
           </div>
