@@ -19,7 +19,7 @@
 ## 3. Applications
 
 - [x] 3.1 WordPress: install 4 total (2 per VM) into fixture sites using the fixture DBs/FTP users — wp-cli unattended install; verify front page HTTP 200 with rendered content and wp-admin login; screenshots. Commit.
-- [ ] 3.2 Roundcube: verify webmail login with a fixture mailbox on both VMs, send a mail from Roundcube to the other lab mailbox and see it arrive; screenshots. Commit.
+- [x] 3.2 Roundcube: verify webmail login with a fixture mailbox on both VMs, send a mail from Roundcube to the other lab mailbox and see it arrive; screenshots. Commit.
 
 ## 4. Lab contract and integration
 
