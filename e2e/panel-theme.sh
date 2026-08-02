@@ -130,4 +130,44 @@ sleep 2
 SAVE_ERR=$(evaljs "document.querySelector('[data-test=alert-danger]') !== null")
 expect "form save produces no error alert" "$SAVE_ERR" 'false'
 
+# ------------------------------------------------- theme traits (6.2)
+$AB open "$PANEL_URL/dns" >/dev/null
+$AB wait --load networkidle >/dev/null
+sleep 1
+
+# Square corners: sampled elements must compute border-radius 0.
+RADII=$(evaljs "
+  (() => {
+    const values = ['button', 'thead', 'input', 'aside', 'header a', '.btn']
+      .map(sel => document.querySelector(sel))
+      .filter(Boolean)
+      .map(el => getComputedStyle(el).borderRadius)
+    return values.length >= 5 && values.every(v => v === '0px')
+  })()
+")
+expect "sampled elements have border-radius 0" "$RADII" 'true'
+
+# Signature flat dark thead #3E474E.
+THEAD_BG=$(evaljs "getComputedStyle(document.querySelector('thead')).backgroundColor")
+expect "thead background is #3E474E" "$THEAD_BG" '"rgb(62, 71, 78)"'
+
+# Dark-mode toggle switches the scheme and persists across reload.
+evaljs "document.querySelector('[data-test=theme-toggle]').click(); 'dark'" >/dev/null
+sleep 1
+expect "toggle enables the dark scheme" \
+  "$(evaljs "document.documentElement.classList.contains('dark')")" 'true'
+expect "preference stored" "$(evaljs "localStorage.getItem('theme')")" '"dark"'
+DARK_BG=$(evaljs "getComputedStyle(document.body).backgroundColor")
+expect "dark body background applied" "$DARK_BG" '"rgb(16, 26, 34)"'
+
+$AB open "$PANEL_URL/dns" >/dev/null
+$AB wait --load networkidle >/dev/null
+sleep 1
+expect "dark scheme survives a reload" \
+  "$(evaljs "document.documentElement.classList.contains('dark')")" 'true'
+evaljs "document.querySelector('[data-test=theme-toggle]').click(); 'light'" >/dev/null
+sleep 1
+expect "toggle back to light" \
+  "$(evaljs "document.documentElement.classList.contains('dark')")" 'false'
+
 echo "PASS: ${PASS} checks"
