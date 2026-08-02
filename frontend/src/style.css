@@ -55,6 +55,29 @@
   --radius-*: initial;
 }
 
+/* Dark scheme (add-panel-ui-theme D2): semantic variable re-assignment
+   under .dark on <html>, values guided by the original compiled dark
+   scheme (themes/dark/colors.sass: bg rgb(16,26,34), text rgb(223,...),
+   thead gradient end rgb(28,57,78), info rgb(0,49,61)/rgb(249,241,201)).
+   Every text/background pair below is WCAG AA >= 4.5:1 (checked; the
+   original's light-on-light danger alert was corrected to a dark pair). */
+.dark {
+  --color-bg: #101a22;
+  --color-surface: #16222d;
+  --color-text: #dfdfdf;
+  --color-link: #6fa8e8;
+  --color-border: #33414d;
+  --color-info: #00313d;
+  --color-info-border: #1c5063;
+  --color-info-text: #f9f1c9;
+  --color-danger: #3a1518;
+  --color-danger-border: #7a3b40;
+  --color-danger-text: #f0b9bc;
+  --color-thead: #1c394e;
+  --color-dashlet: #1b2836;
+  color-scheme: dark;
+}
+
 html,
 body,
 #app {
