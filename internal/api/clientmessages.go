@@ -83,11 +83,14 @@ func clientSendMessage(c *echo.Context, d *Deps) error {
 	}
 	subject, message := body.Subject, body.Message
 	if body.TemplateID != 0 {
+		// riud-scoped like the template CRUD: a reseller can only send
+		// from templates it can read (no cross-tenant content leak).
 		var tpl model.ClientMessageTemplate
 		err := d.DB.WithContext(ctx).
+			Scopes(repository.WithPerm(id, repository.PermRead)).
 			Where("client_message_template_id = ?", body.TemplateID).Take(&tpl).Error
 		if err != nil {
-			return err // 404 on unknown template
+			return err // 404 on unknown/inaccessible template
 		}
 		subject, message = tpl.Subject, tpl.Message
 	}

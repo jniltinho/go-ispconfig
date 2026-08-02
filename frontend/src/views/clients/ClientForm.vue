@@ -51,31 +51,35 @@ onMounted(async () => {
   } catch {
     // Countries stay a free text field when the list cannot be loaded.
   }
-  if (auth.typ === 'admin') {
+  if (auth.typ === 'admin' && !props.reseller) {
     try {
-      if (!props.reseller) {
-        const resellers = await listAll('/api/resellers')
-        o.parent_client_id = [
-          { value: '0', label: t('client.no_parent') },
-          ...resellers.map((r) => ({
-            value: String(r.client_id),
-            label: `${r.contact_name ?? ''} (${r.username})`,
-          })),
-        ]
-      }
-      const templates = await listAll('/api/client-templates')
-      o.template_master = [
-        { value: '0', label: t('client.template_custom') },
-        ...templates
-          .filter((tp) => tp.template_type === 'm')
-          .map((tp) => ({ value: String(tp.template_id), label: String(tp.template_name) })),
+      const resellers = await listAll('/api/resellers')
+      o.parent_client_id = [
+        { value: '0', label: t('client.no_parent') },
+        ...resellers.map((r) => ({
+          value: String(r.client_id),
+          label: `${r.contact_name ?? ''} (${r.username})`,
+        })),
       ]
-      additionalOptions.value = templates
-        .filter((tp) => tp.template_type === 'a')
-        .map((tp) => ({ value: String(tp.template_id), label: String(tp.template_name) }))
     } catch {
-      // Non-fatal: template/parent selects fall back to plain inputs.
+      // Non-fatal: the parent select falls back to a plain input.
     }
+  }
+  try {
+    // Catalog management is admin-only; consumption (id/name options)
+    // is open to resellers via the options endpoint.
+    const templates = await api.get<Record<string, unknown>[]>('/api/clients/template-options')
+    o.template_master = [
+      { value: '0', label: t('client.template_custom') },
+      ...templates
+        .filter((tp) => tp.template_type === 'm')
+        .map((tp) => ({ value: String(tp.template_id), label: String(tp.template_name) })),
+    ]
+    additionalOptions.value = templates
+      .filter((tp) => tp.template_type === 'a')
+      .map((tp) => ({ value: String(tp.template_id), label: String(tp.template_name) }))
+  } catch {
+    // Non-fatal: template selects fall back to plain inputs.
   }
   overrides.value = o
   if (props.id) await loadAssigned()

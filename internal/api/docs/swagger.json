@@ -896,6 +896,44 @@
                 }
             }
         },
+        "/clients/template-options": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "id/name/type of every limit template, for the client form selects. Open to any authenticated session (catalog CRUD stays admin-only) — PHP client form datasource parity.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "client-templates"
+                ],
+                "summary": "List limit template options",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "additionalProperties": true
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/clients/{id}": {
             "get": {
                 "security": [
@@ -1230,7 +1268,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "remote client_template_additional_get: the client_template_assigned rows in assignment order.",
+                "description": "remote client_template_additional_get: the client_template_assigned rows in assignment order. Lookups by-username/customer-no/groupid intentionally serve both roles (remote API parity); only the CRUD surfaces are role-disjoint.",
                 "produces": [
                     "application/json"
                 ],

@@ -668,8 +668,9 @@ func clientDeleteEverything(c *echo.Context, d *Deps) error {
 				return err
 			}
 		}
-		// Child clients cascade first (client_del.php purges the whole
-		// group; children cannot themselves be resellers, so one level).
+		// Child clients cascade too (client_del.php purges the whole
+		// group); children cannot themselves be resellers, so one level.
+		// (The parent's own resources were purged above.)
 		var children []model.Client
 		if err := tx.Where("parent_client_id = ?", row.ClientID).Find(&children).Error; err != nil {
 			return err
@@ -880,6 +881,27 @@ func registerClientTemplateRoutes(g *echo.Group, d *Deps) {
 		}
 		flush()
 		return c.NoContent(http.StatusNoContent)
+	})
+
+	// The template CATALOG (CRUD) is admin-only, but resellers consume
+	// templates when creating clients: expose id/name/type options to any
+	// authenticated session (PHP client form datasource parity).
+	g.GET("/clients/template-options", func(c *echo.Context) error {
+		var rows []model.ClientTemplate
+		err := d.DB.WithContext(c.Request().Context()).
+			Select("template_id", "template_name", "template_type").
+			Order("template_name").Find(&rows).Error
+		if err != nil {
+			return err
+		}
+		out := make([]map[string]any, 0, len(rows))
+		for _, r := range rows {
+			out = append(out, map[string]any{
+				"template_id": r.TemplateID, "template_name": r.TemplateName,
+				"template_type": r.TemplateType,
+			})
+		}
+		return c.JSON(http.StatusOK, out)
 	})
 
 	g.GET("/countries", func(c *echo.Context) error {

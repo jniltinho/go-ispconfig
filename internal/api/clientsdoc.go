@@ -14,7 +14,7 @@ var _ = []any{
 	countriesDoc,
 	clientMessageTemplateListDoc, clientMessageTemplateGetDoc, clientMessageTemplateCreateDoc,
 	clientMessageTemplateUpdateDoc, clientMessageTemplateDeleteDoc, clientSendMessageDoc,
-	clientResourceCountsDoc,
+	clientResourceCountsDoc, clientTemplateOptionsDoc,
 }
 
 // clientListDoc documents GET /api/clients.
@@ -351,7 +351,7 @@ func clientTemplateDeleteDoc() {}
 // clientTemplatesAssignedListDoc documents GET /api/clients/{id}/templates.
 //
 //	@Summary		List a client's additional templates
-//	@Description	remote client_template_additional_get: the client_template_assigned rows in assignment order.
+//	@Description	remote client_template_additional_get: the client_template_assigned rows in assignment order. Lookups by-username/customer-no/groupid intentionally serve both roles (remote API parity); only the CRUD surfaces are role-disjoint.
 //	@Tags			client-templates
 //	@Produce		json
 //	@Param			id	path		int	true	"client_id"
@@ -516,3 +516,16 @@ func clientSendMessageDoc() {}
 //	@Security		CookieAuth
 //	@Security		BearerAuth
 func clientResourceCountsDoc() {}
+
+// clientTemplateOptionsDoc documents GET /api/clients/template-options.
+//
+//	@Summary		List limit template options
+//	@Description	id/name/type of every limit template, for the client form selects. Open to any authenticated session (catalog CRUD stays admin-only) — PHP client form datasource parity.
+//	@Tags			client-templates
+//	@Produce		json
+//	@Success		200	{array}		map[string]any
+//	@Failure		401	{object}	ErrorResponse
+//	@Router			/clients/template-options [get]
+//	@Security		CookieAuth
+//	@Security		BearerAuth
+func clientTemplateOptionsDoc() {}

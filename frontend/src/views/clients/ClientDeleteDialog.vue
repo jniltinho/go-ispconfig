@@ -21,6 +21,7 @@ const { t } = useI18n()
 const auth = useAuthStore()
 
 const counts = ref<Record<string, number>>({})
+const countsFailed = ref(false)
 const error = ref('')
 const busy = ref(false)
 
@@ -39,7 +40,9 @@ onMounted(async () => {
       `/api/clients/${props.clientId}/resource-counts`,
     )
   } catch {
-    counts.value = {}
+    // Never present a failed lookup as "owns nothing": deletion stays
+    // blocked until the counts are known.
+    countsFailed.value = true
   }
 })
 
@@ -69,6 +72,13 @@ async function doDelete(everything: boolean) {
       </h2>
 
       <UiAlert v-if="error" variant="danger" class="mb-3" :messages="[t(error)]" />
+      <UiAlert
+        v-if="countsFailed"
+        variant="danger"
+        class="mb-3"
+        :messages="[t('client.counts_failed')]"
+        data-test="counts-failed"
+      />
 
       <p class="mb-2 text-sm">{{ t('client.delete_owned_intro') }}</p>
       <ul class="mb-3 text-sm">
@@ -87,7 +97,7 @@ async function doDelete(everything: boolean) {
           type="button"
           class="border border-danger-border bg-danger px-3 py-1.5 text-danger-text"
           data-test="delete-simple"
-          :disabled="busy"
+          :disabled="busy || countsFailed"
           @click="doDelete(false)"
         >
           {{ t('client.delete_simple') }}
@@ -97,7 +107,7 @@ async function doDelete(everything: boolean) {
           type="button"
           class="border border-danger-border bg-danger px-3 py-1.5 font-bold text-danger-text"
           data-test="delete-everything"
-          :disabled="busy"
+          :disabled="busy || countsFailed"
           @click="doDelete(true)"
         >
           {{ t('client.delete_everything') }}

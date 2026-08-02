@@ -36,7 +36,7 @@ export const modules: ModuleDef[] = [
       { labelKey: 'sidebar.client.clients', path: '/clients' },
       { labelKey: 'sidebar.client.resellers', path: '/clients/resellers', adminOnly: true },
       { labelKey: 'sidebar.client.limit_templates', path: '/clients/limit-templates', adminOnly: true },
-      { labelKey: 'sidebar.client.message_templates', path: '/clients/message-templates', adminOnly: true },
+      { labelKey: 'sidebar.client.message_templates', path: '/clients/message-templates' },
       { labelKey: 'sidebar.client.send_message', path: '/clients/send-message' },
     ],
   },

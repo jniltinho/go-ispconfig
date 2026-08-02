@@ -91,6 +91,14 @@ Merge rules (PHP `client_templates.inc.php` parity):
   none, zero values are ignored;
 - `limit_client` from templates only applies to resellers.
 
+The template catalog (`/api/client-templates` CRUD) is admin-only —
+unlike PHP, where resellers manage their own templates; resellers
+consume the catalog through `GET /api/clients/template-options` (form
+selects) and the assignment endpoints. `template_master` sits on the
+form's first tab (PHP shows it on the limits tab). The lookup helpers
+(`by-username`, `by-customer-no`, `by-groupid`) serve both roles;
+only the CRUD surfaces are role-disjoint.
+
 A legacy `client.template_additional` slash-list (e.g. `2/5/2`) is
 migrated to `client_template_assigned` rows on first touch and the
 column cleared, exactly like PHP. Editing a template row does **not**
