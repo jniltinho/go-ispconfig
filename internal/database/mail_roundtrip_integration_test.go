@@ -100,4 +100,44 @@ func TestMailModelsRoundTrip(t *testing.T) {
 	require.NoError(t, db.Take(&gotAcc, acc.AccessID).Error)
 	assert.Equal(t, "REJECT", gotAcc.Access)
 	assert.Equal(t, "sender", gotAcc.Type)
+
+	// Spamfilter tables (task 1.2).
+	kill := 15.0
+	tag := 6.5
+	pol := model.SpamfilterPolicy{
+		SysUserID: 1, SysGroupID: 1, SysPermUser: "riud", SysPermGroup: "riud",
+		PolicyName:          "Normal",
+		RspamdGreylisting:   "y",
+		RspamdSpamTagLevel:  &tag,
+		RspamdSpamKillLevel: &kill,
+		RspamdSpamTagMethod: "rewrite_subject",
+	}
+	require.NoError(t, db.Create(&pol).Error)
+	var gotPol model.SpamfilterPolicy
+	require.NoError(t, db.Take(&gotPol, pol.ID).Error)
+	assert.Equal(t, "Normal", gotPol.PolicyName)
+	require.NotNil(t, gotPol.RspamdSpamKillLevel)
+	assert.InDelta(t, 15.0, *gotPol.RspamdSpamKillLevel, 0.001)
+	assert.Nil(t, gotPol.SpamTagLevel, "NULL decimal survives")
+
+	sfu := model.SpamfilterUser{
+		SysUserID: 1, SysGroupID: 1, SysPermUser: "riud", SysPermGroup: "riud",
+		ServerID: 1, Priority: 7, PolicyID: pol.ID,
+		Email: "user1@example.com", Fullname: "User One", Local: "Y",
+	}
+	require.NoError(t, db.Create(&sfu).Error)
+	var gotSfu model.SpamfilterUser
+	require.NoError(t, db.Take(&gotSfu, sfu.ID).Error)
+	assert.Equal(t, pol.ID, gotSfu.PolicyID)
+
+	wbl := model.SpamfilterWblist{
+		SysUserID: 1, SysGroupID: 1, SysPermUser: "riud", SysPermGroup: "riud",
+		ServerID: 1, WB: "W", RID: sfu.ID, Email: "friend@good.example",
+		Priority: 5, Active: "y",
+	}
+	require.NoError(t, db.Create(&wbl).Error)
+	var gotWbl model.SpamfilterWblist
+	require.NoError(t, db.Take(&gotWbl, wbl.WblistID).Error)
+	assert.Equal(t, "W", gotWbl.WB)
+	assert.Equal(t, sfu.ID, gotWbl.RID)
 }

@@ -70,6 +70,7 @@ var allModels = []any{
 	DNSSoa{}, DNSRr{}, DNSSlave{}, DNSTemplate{},
 	ClientTemplate{}, ClientTemplateAssigned{}, ClientMessageTemplate{}, Country{},
 	MailDomain{}, MailUser{}, MailForwarding{}, MailTransport{}, MailAccess{},
+	SpamfilterPolicy{}, SpamfilterUser{}, SpamfilterWblist{},
 }
 
 // TestModelsMatchDDL asserts that every GORM model maps exactly the columns
