@@ -2825,6 +2825,292 @@ const docTemplate = `{
                 }
             }
         },
+        "/firewall": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Paginated list of per-server UFW firewall rows. Admin-only, gated by admin_allow_firewall_config (superadmin by default). Any declared field may filter (e.g. ?server_id=1).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "firewall"
+                ],
+                "summary": "List firewall records",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "1-based page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 25,
+                        "description": "Page size (max 100)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filter by server_id",
+                        "name": "server_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.ListResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Not admin or blocked by admin_allow_firewall_config",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "One row per server: server_id is UNIQUE (firewall_error_unique). tcp_port/udp_port are comma-separated port lists (single ports or lower:higher ranges); when omitted the tform defaults are applied. The daemon always unions the panel and SSH ports into the applied TCP allow-list so the record can never lock the operator out.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "firewall"
+                ],
+                "summary": "Create a firewall record",
+                "parameters": [
+                    {
+                        "description": "Firewall fields",
+                        "name": "record",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.Firewall"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/model.Firewall"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Not admin or blocked by admin_allow_firewall_config",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Validation failed (server_id empty/duplicate, malformed port list)",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/firewall/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "firewall"
+                ],
+                "summary": "Get a firewall record",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "firewall_id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.Firewall"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "server_id is immutable (firewall_error_server_immutable); a full-object PUT that re-sends the unchanged server_id is accepted, a real change is rejected.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "firewall"
+                ],
+                "summary": "Update a firewall record",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "firewall_id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Changed fields",
+                        "name": "record",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.Firewall"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.Firewall"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Validation failed (server_id changed, malformed port list)",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Journals a firewall_delete the daemon consumes to reset and disable UFW on the target server.",
+                "tags": [
+                    "firewall"
+                ],
+                "summary": "Delete a firewall record",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "firewall_id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/login": {
             "post": {
                 "description": "Verifies sys_user credentials (bcrypt or legacy ISPConfig3 crypt hashes) with brute-force lockout, creates a sys_session and returns the CSRF token and session id. The session id is also set as an HTTP-only cookie; non-browser clients may present it as a bearer token instead. With stay_logged_in the session lives 30 days (sliding) instead of the 1-hour idle TTL.",
@@ -7794,6 +8080,41 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "visible": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.Firewall": {
+            "type": "object",
+            "properties": {
+                "active": {
+                    "type": "string"
+                },
+                "firewallID": {
+                    "type": "integer"
+                },
+                "serverID": {
+                    "type": "integer"
+                },
+                "sysGroupID": {
+                    "type": "integer"
+                },
+                "sysPermGroup": {
+                    "type": "string"
+                },
+                "sysPermOther": {
+                    "type": "string"
+                },
+                "sysPermUser": {
+                    "type": "string"
+                },
+                "sysUserID": {
+                    "type": "integer"
+                },
+                "tcpport": {
+                    "type": "string"
+                },
+                "udpport": {
                     "type": "string"
                 }
             }
