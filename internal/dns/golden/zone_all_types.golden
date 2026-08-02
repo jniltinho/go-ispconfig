@@ -1,0 +1,29 @@
+$TTL        3600
+@       IN      SOA     ns1.example.com. admin.example.com. (
+                        2026080105       ; serial, todays date + todays serial #
+                        7200              ; refresh, seconds
+                        540              ; retry, seconds
+                        604800              ; expire, seconds
+                        3600 )            ; minimum, seconds
+;
+
+@ 3600      NS         ns1.example.com.
+@ 3600      NS         ns2.example.com.
+@       A          192.0.2.10
+www 3600      A          192.0.2.10
+@ 3600      AAAA       2001:db8::10
+ftp 3600      CNAME      www.example.com.
+@ 3600      CAA        0 issue "letsencrypt.org"
+mail 3600      CNAME      www.example.com.
+legacy 3600      DNAME      example.net.
+sub 3600      DS         12345 13 2 49FD46E6C4B45C55D4AC69CBD3CD34AC1AFE51DE
+host 3600      HINFO      "Intel" "Linux"
+@ 3600      LOC        52 22 23.000 N 4 53 32.000 E -2.00m 0.00m 10000m 10m
+@ 3600      MX     10  mail.example.com.
+@ 3600      NAPTR  10 100 "s" "SIP+D2U" "" _sip._udp.example.com.
+10.2.0.192.in-addr.arpa. 3600      PTR        www.example.com.
+@ 3600      RP         admin.example.com. txt.example.com.
+_sip._tcp 3600      SRV    10 0 5060 sip.example.com.
+host 3600      SSHFP   2 1 123456789ABCDEF67890123456789ABCDEF67890
+_443._tcp.www 3600      TLSA       3 1 1 0D6FCE3E9B0B7CDBDF9C7BD0E7A5B3A1B0E1C2D3E4F5061728394A5B6C7D8E9F
+@ 3600      TXT        "v=spf1 mx a -all"
