@@ -194,3 +194,72 @@
     text-decoration: underline;
   }
 }
+
+/* Soft route navigation loader (module tabs / sidebar sections).
+   Brand bar + content overlay spinner; square corners via global --radius. */
+.route-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  height: 3px;
+  pointer-events: none;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--color-brand) 25%, transparent);
+}
+
+.route-progress::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  background: var(--color-brand);
+  animation: route-progress-shimmer 1s ease-in-out infinite;
+}
+
+.route-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Semi-transparent surface so prior content softens without hiding shell */
+  background: color-mix(in srgb, var(--color-bg) 55%, transparent);
+  pointer-events: none;
+}
+
+.route-spinner {
+  width: 2rem;
+  height: 2rem;
+  border: 2px solid var(--color-border);
+  border-top-color: var(--color-brand);
+  animation: route-spin 0.7s linear infinite;
+}
+
+/* Light enter/leave for RouterView content (≤250ms). */
+.route-fade-enter-active,
+.route-fade-leave-active {
+  transition: opacity 200ms ease;
+}
+
+.route-fade-enter-from,
+.route-fade-leave-to {
+  opacity: 0;
+}
+
+@keyframes route-progress-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(350%);
+  }
+}
+
+@keyframes route-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

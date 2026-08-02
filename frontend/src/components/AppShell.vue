@@ -62,6 +62,16 @@ async function logout() {
 
 <template>
   <div class="flex min-h-full flex-col">
+    <!-- Indeterminate top progress bar (nprogress-style). pointer-events
+         none so it never steals clicks from the topbar. -->
+    <div
+      v-show="ui.routeLoading"
+      class="route-progress"
+      role="progressbar"
+      aria-valuemin="0"
+      aria-valuemax="100"
+      :aria-label="t('nav.loading')"
+    />
     <header class="border-b border-border bg-surface">
       <div class="flex items-center gap-6 px-5">
         <button
@@ -157,9 +167,23 @@ async function logout() {
         </ul>
       </aside>
 
-      <!-- Fluid content area with consistent gutters (no fixed 950px) -->
-      <main class="min-w-0 flex-1 p-5">
-        <RouterView />
+      <!-- Fluid content area with consistent gutters (no fixed 950px).
+           Soft route loader overlays only <main> so topbar/sidebar stay
+           clickable; aria-busy announces navigation to assistive tech. -->
+      <main class="relative min-w-0 flex-1 p-5" :aria-busy="ui.routeLoading">
+        <div
+          v-if="ui.routeLoading"
+          class="route-overlay"
+          aria-live="polite"
+          :aria-label="t('nav.loading')"
+        >
+          <div class="route-spinner" aria-hidden="true" />
+        </div>
+        <RouterView v-slot="{ Component }">
+          <Transition name="route-fade" mode="out-in">
+            <component :is="Component" :key="route.path" />
+          </Transition>
+        </RouterView>
       </main>
     </div>
   </div>

@@ -1,7 +1,9 @@
 // Router: /login is public; every module route renders inside AppShell and
-// requires an authenticated session.
+// requires an authenticated session. Soft route-loading indicator is driven
+// by Pinia useUiStore (progress bar + content spinner in AppShell).
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from './stores/auth'
+import { useUiStore } from './stores/ui'
 import AppShell from './components/AppShell.vue'
 import LoginView from './views/LoginView.vue'
 import DashboardView from './views/DashboardView.vue'
@@ -542,11 +544,26 @@ export const router = createRouter({
   ],
 })
 
-router.beforeEach((to) => {
+router.beforeEach((to, from) => {
   const auth = useAuthStore()
   if (to.name !== 'login' && !auth.isAuthenticated) return { name: 'login' }
   if (to.name === 'login' && auth.isAuthenticated) return { name: 'dashboard' }
   // Admin-only routes (the API enforces this too; the guard avoids
   // rendering a view that can only 403).
   if (to.meta.adminOnly && auth.typ !== 'admin') return { name: 'dashboard' }
+
+  // Soft loader: skip initial mount (no matched from) and same-route
+  // trivial navigations (identical fullPath). Auth redirects above return
+  // early so they never start the loader for the aborted hop.
+  if (from.matched.length > 0 && to.fullPath !== from.fullPath) {
+    useUiStore().startRouteLoading()
+  }
+})
+
+router.afterEach(() => {
+  useUiStore().stopRouteLoading()
+})
+
+router.onError(() => {
+  useUiStore().stopRouteLoading()
 })

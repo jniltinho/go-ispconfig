@@ -10,6 +10,7 @@
   "error.request_failed": "The request failed. Please try again.",
   "topbar.search_placeholder": "Search",
   "topbar.logout": "Logout {username}",
+  "nav.loading": "Loading",
   "module.dashboard": "Dashboard",
   "module.sites": "Sites",
   "module.dns": "DNS",
