@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 )
 
 // Fault is a legacy API fault: any response whose envelope code is not
@@ -35,16 +36,30 @@ func (f *Fault) Error() string {
 	return "legacy fault " + f.Code + ": " + f.Message
 }
 
+// ErrNotLoggedIn is returned when a method requiring a session is called
+// before a successful Login.
+var ErrNotLoggedIn = errors.New("legacy: not logged in")
+
 // Options configures a Client.
 type Options struct {
 	// URL is the base URL of the legacy panel, e.g. "https://panel.example.com:8080".
 	URL string
+	// Username is the legacy remote_user name.
+	Username string
+	// Password is the legacy remote_user password. It is kept only in
+	// memory and never appears in errors or logs.
+	Password string
 }
 
 // Client is a read-only client for one legacy ISPConfig3 panel.
+// Credentials and the session id live only in memory and are never
+// included in error messages or logs.
 type Client struct {
-	endpoint string
-	hc       *http.Client
+	endpoint  string
+	username  string
+	password  string
+	sessionID string
+	hc        *http.Client
 }
 
 // New validates the panel base URL and returns a Client for its JSON
@@ -59,8 +74,48 @@ func New(opts Options) (*Client, error) {
 	}
 	return &Client{
 		endpoint: strings.TrimRight(opts.URL, "/") + "/remote/json.php",
+		username: opts.Username,
+		password: opts.Password,
 		hc:       &http.Client{},
 	}, nil
+}
+
+// Login authenticates against the legacy panel with the remote_user
+// credentials and stores the returned remote_session id; every subsequent
+// call sends it as session_id. Login failures return the legacy fault
+// without retrying, and never include the password.
+func (c *Client) Login(ctx context.Context) error {
+	var sessionID string
+	err := c.call(ctx, "login", map[string]any{
+		"username": c.username,
+		"password": c.password,
+	}, &sessionID)
+	if err != nil {
+		return err
+	}
+	if sessionID == "" {
+		return errors.New("legacy: login returned an empty session id")
+	}
+	c.sessionID = sessionID
+	return nil
+}
+
+// Logout ends the remote session on the legacy panel and forgets the
+// stored session id. It is a no-op when not logged in.
+func (c *Client) Logout(ctx context.Context) error {
+	if c.sessionID == "" {
+		return nil
+	}
+	err := c.call(ctx, "logout", nil, nil)
+	c.sessionID = ""
+	return err
+}
+
+// Close implements io.Closer by logging out the stored session, if any.
+func (c *Client) Close() error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	return c.Logout(ctx)
 }
 
 // envelope is the wire shape of every JSON handler response.
@@ -72,11 +127,19 @@ type envelope struct {
 
 // call invokes one legacy method: POST <endpoint>?<method> with params as
 // the JSON body, decoding the response envelope into out (skipped when out
-// is nil or the legacy panel returned false/null). A non-"ok" envelope
-// code is returned as *Fault; everything else is a transport error.
+// is nil or the legacy panel returned false/null). Every method except
+// login gets the stored session id injected as session_id. A non-"ok"
+// envelope code is returned as *Fault; everything else is a transport
+// error.
 func (c *Client) call(ctx context.Context, method string, params map[string]any, out any) error {
 	if params == nil {
 		params = map[string]any{}
+	}
+	if method != "login" {
+		if c.sessionID == "" {
+			return ErrNotLoggedIn
+		}
+		params["session_id"] = c.sessionID
 	}
 	body, err := json.Marshal(params)
 	if err != nil {

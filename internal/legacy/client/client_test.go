@@ -68,6 +68,7 @@ func TestCallTransport(t *testing.T) {
 
 		c, err := New(Options{URL: srv.URL})
 		require.NoError(t, err)
+		c.sessionID = "stestsession"
 		require.NoError(t, c.call(context.Background(), "dns_zone_get", map[string]any{"primary_id": -1}, nil))
 
 		require.Equal(t, http.MethodPost, req.Method)
@@ -84,7 +85,7 @@ func TestCallTransport(t *testing.T) {
 		srv := jsonHandler(t, http.StatusOK, `{"code":"ok","message":"","response":true}`, nil, &body)
 		c, err := New(Options{URL: srv.URL})
 		require.NoError(t, err)
-		require.NoError(t, c.call(context.Background(), "logout", nil, nil))
+		require.NoError(t, c.call(context.Background(), "login", nil, nil))
 		require.JSONEq(t, `{}`, string(body))
 	})
 
@@ -92,6 +93,7 @@ func TestCallTransport(t *testing.T) {
 		srv := jsonHandler(t, http.StatusOK, `{"code":"ok","message":"","response":{"domain":"example.com","extra_unknown":"x"}}`, nil, nil)
 		c, err := New(Options{URL: srv.URL})
 		require.NoError(t, err)
+		c.sessionID = "stestsession"
 		var out struct {
 			Domain string `json:"domain"`
 		}
@@ -103,6 +105,7 @@ func TestCallTransport(t *testing.T) {
 		srv := jsonHandler(t, http.StatusOK, `{"code":"ok","message":"","response":false}`, nil, nil)
 		c, err := New(Options{URL: srv.URL})
 		require.NoError(t, err)
+		c.sessionID = "stestsession"
 		var out []string
 		require.NoError(t, c.call(context.Background(), "client_get_all", nil, &out))
 		require.Empty(t, out)
@@ -140,6 +143,7 @@ func TestCallFaults(t *testing.T) {
 			srv := jsonHandler(t, http.StatusOK, tt.body, nil, nil)
 			c, err := New(Options{URL: srv.URL})
 			require.NoError(t, err)
+			c.sessionID = "stestsession"
 
 			err = c.call(context.Background(), "some_method", nil, nil)
 			f, ok := IsFault(err)
