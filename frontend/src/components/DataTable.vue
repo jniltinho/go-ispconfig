@@ -118,7 +118,7 @@ function goTo(page: number) {
               <div class="flex items-center gap-2">
                 <button
                   type="button"
-                  class="border border-border bg-surface px-2 py-1 disabled:opacity-50"
+                  class="btn btn-default px-2 py-1"
                   :disabled="page <= 1"
                   @click="goTo(page - 1)"
                 >
@@ -127,7 +127,7 @@ function goTo(page: number) {
                 <span>{{ t('table.page_of', { page, pages }) }}</span>
                 <button
                   type="button"
-                  class="border border-border bg-surface px-2 py-1 disabled:opacity-50"
+                  class="btn btn-default px-2 py-1"
                   :disabled="page >= pages"
                   @click="goTo(page + 1)"
                 >

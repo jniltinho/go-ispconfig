@@ -71,7 +71,7 @@ async function submit() {
           <button
             type="submit"
             :disabled="submitting"
-            class="bg-success px-6 py-2 text-xs font-bold text-white hover:opacity-90 disabled:opacity-50"
+            class="btn btn-success px-6 py-2"
           >
             {{ t('login.submit') }}
           </button>

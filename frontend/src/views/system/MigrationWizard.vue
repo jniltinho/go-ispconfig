@@ -368,8 +368,8 @@ function entityRows(counts: Record<string, EntityCount>) {
 
 const inputClass =
   'w-full max-w-md border border-border bg-surface px-3 py-1.5 text-sm outline-none focus:border-link'
-const buttonClass = 'bg-success px-8 py-1.5 text-xs font-bold text-white hover:opacity-90 disabled:opacity-50'
-const secondaryButtonClass = 'border border-border bg-surface px-6 py-1.5 text-xs font-bold hover:bg-info'
+const buttonClass = 'btn btn-success px-8'
+const secondaryButtonClass = 'btn btn-default px-6'
 </script>
 
 <template>

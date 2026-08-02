@@ -48,7 +48,7 @@ async function remove(row: Row) {
     <h1 class="text-lg font-bold">{{ t('sites.websites_title') }}</h1>
     <button
       type="button"
-      class="my-3 bg-success px-4 py-2 text-xs font-bold text-white hover:opacity-90"
+      class="my-3 btn btn-success px-4 py-2"
       @click="router.push('/sites/domains/new')"
     >
       {{ t('sites.add_website') }}

@@ -206,7 +206,7 @@ async function toggleActive(row: RecordRow) {
       <button
         type="button"
         data-test="add-record"
-        class="bg-success px-4 py-2 text-xs font-bold text-white hover:opacity-90"
+        class="btn btn-success px-4 py-2"
         @click="openAdd"
       >
         {{ t('dns.add_record') }}
@@ -389,7 +389,7 @@ async function toggleActive(row: RecordRow) {
           <div class="flex justify-end gap-2 border-t border-border pt-3">
             <button
               type="button"
-              class="border border-border bg-surface px-6 py-1.5 text-xs font-bold hover:bg-info"
+              class="btn btn-default px-6"
               @click="dialogOpen = false"
             >
               {{ t('form.cancel') }}
@@ -398,7 +398,7 @@ async function toggleActive(row: RecordRow) {
               type="submit"
               data-test="record-save"
               :disabled="saving"
-              class="bg-success px-6 py-1.5 text-xs font-bold text-white hover:opacity-90 disabled:opacity-50"
+              class="btn btn-success px-6"
             >
               {{ t('form.save') }}
             </button>

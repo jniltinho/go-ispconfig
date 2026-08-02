@@ -139,7 +139,7 @@ async function create() {
       <div class="flex justify-end gap-2 border-t border-border bg-bg px-4 py-3">
         <button
           type="button"
-          class="border border-border bg-surface px-8 py-1.5 text-xs font-bold hover:bg-info"
+          class="btn btn-default px-8"
           @click="router.push('/dns')"
         >
           {{ t('form.cancel') }}
@@ -148,7 +148,7 @@ async function create() {
           type="submit"
           data-test="wizard-create"
           :disabled="saving || templateId === null"
-          class="bg-success px-8 py-1.5 text-xs font-bold text-white hover:opacity-90 disabled:opacity-50"
+          class="btn btn-success px-8"
         >
           {{ t('dns.wizard.create') }}
         </button>

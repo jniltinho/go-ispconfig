@@ -166,14 +166,14 @@ watch(
     <div class="flex justify-end gap-2 border-t border-border bg-bg px-4 py-3">
       <button
         type="button"
-        class="border border-border bg-surface px-8 py-1.5 text-xs font-bold hover:bg-info"
+        class="btn btn-default px-8"
         @click="emit('cancel')"
       >
         {{ t('form.cancel') }}
       </button>
       <button
         type="submit"
-        class="bg-success px-8 py-1.5 text-xs font-bold text-white hover:opacity-90"
+        class="btn btn-success px-8"
       >
         {{ t('form.save') }}
       </button>

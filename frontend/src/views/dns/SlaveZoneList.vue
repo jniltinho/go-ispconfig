@@ -67,7 +67,7 @@ async function remove(row: Row) {
     <button
       type="button"
       data-test="add-slave-zone"
-      class="my-3 bg-success px-4 py-2 text-xs font-bold text-white hover:opacity-90"
+      class="my-3 btn btn-success px-4 py-2"
       @click="router.push('/dns/slave-zones/new')"
     >
       {{ t('dns.add_slave_zone') }}

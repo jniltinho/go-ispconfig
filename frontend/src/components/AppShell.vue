@@ -110,7 +110,7 @@ async function logout() {
           </button>
           <button
             type="button"
-            class="bg-brand px-4 py-2 text-xs font-bold text-white transition-colors duration-150 hover:bg-brand-dark"
+            class="btn btn-danger px-4 py-2"
             @click="logout"
           >
             {{ t('topbar.logout', { username: auth.username }) }}

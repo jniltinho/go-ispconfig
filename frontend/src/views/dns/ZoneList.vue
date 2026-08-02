@@ -70,7 +70,7 @@ async function remove(row: Row) {
       <button
         type="button"
         data-test="add-zone-wizard"
-        class="bg-success px-4 py-2 text-xs font-bold text-white hover:opacity-90"
+        class="btn btn-success px-4 py-2"
         @click="router.push('/dns/wizard')"
       >
         {{ t('dns.add_zone_wizard') }}

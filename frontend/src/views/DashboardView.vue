@@ -78,7 +78,7 @@ const savedValues = ref<Record<string, unknown> | null>(null)
       <p class="mb-3 text-sm">{{ t('demo.websites_description') }}</p>
       <button
         type="button"
-        class="mb-3 bg-success px-4 py-2 text-xs font-bold text-white hover:opacity-90"
+        class="mb-3 btn btn-success px-4 py-2"
       >
         {{ t('demo.add_new') }}
       </button>
