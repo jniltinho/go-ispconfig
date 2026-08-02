@@ -3,7 +3,7 @@
 ## 1. VMs and provisioning
 
 - [x] 1.1 `Vagrantfile`: add `legacy-apache` (bento/ubuntu-24.04, `192.168.56.21`, 2 GB) and raise `legacy` resources for the full stack; both marked standing-lab (excluded from `vagrant-destroy`); document the IP table in the file header. Commit.
-- [ ] 1.2 `provision-legacy.sh`: parameterize web server (`--use-nginx` vs apache2 default) and full stack (drop `--no-mail`, add Roundcube); pin admin password per VM; enable Remote API in `sys_config`/Main Config; provision a read-write `remote_user` (full grant set) with a fixed test password via SQL. Idempotent re-run. Commit.
+- [x] 1.2 `provision-legacy.sh`: parameterize web server (`--use-nginx` vs apache2 default) and full stack (drop `--no-mail`, add Roundcube); pin admin password per VM; enable Remote API in `sys_config`/Main Config; provision a read-write `remote_user` (full grant set) with a fixed test password via SQL. Idempotent re-run. Commit.
 - [ ] 1.3 Bring both VMs up for real; verify: panels answer on :8080, `nginx -t`/`apache2ctl configtest`, postfix/dovecot/rspamd units active, Roundcube reachable; record versions in `vagrant/lab/README.md`. Screenshots `docs/prints/lab-provision-*.png`. Commit.
 
 ## 2. Fixture dataset (both VMs, scripted + idempotent)
