@@ -104,6 +104,28 @@ const selection = ref({ clients: true, sites: true, dns: true })
 const targetServerId = ref<number>(0)
 const confirmMapAll = ref(false)
 
+// Go marshals empty slices as null; normalize them once at the fetch
+// boundary so the template can use .length safely.
+function planOf(p: PlanResponse): PlanResponse {
+  return {
+    counts: p.counts ?? {},
+    conflicts: p.conflicts ?? [],
+    warnings: p.warnings ?? [],
+    reset_required: p.reset_required ?? [],
+  }
+}
+
+function reportOf(r: Report): Report {
+  return {
+    counts: r.counts ?? {},
+    conflicts: r.conflicts ?? [],
+    reset_required: r.reset_required ?? [],
+    warnings: r.warnings ?? [],
+    rsync_suggestions: r.rsync_suggestions ?? [],
+    operational_order: r.operational_order ?? [],
+  }
+}
+
 // failureOf extracts the wizard error payload from an ApiError.
 function failureOf(e: unknown): MigrationError {
   if (e instanceof ApiError && e.body) {
@@ -168,7 +190,7 @@ async function runDryRun() {
   busy.value = true
   failure.value = null
   try {
-    plan.value = await api.post<PlanResponse>('/api/system/migration/dry-run', runOptions())
+    plan.value = planOf(await api.post<PlanResponse>('/api/system/migration/dry-run', runOptions()))
     step.value = 'dryrun'
   } catch (e) {
     failure.value = failureOf(e)
@@ -197,7 +219,7 @@ function stopProgress() {
 function applyStatus(status: Status) {
   if (status.progress) progress.value = status.progress
   if (status.state === 'done') {
-    report.value = status.report ?? null
+    report.value = status.report ? reportOf(status.report) : null
     runError.value = ''
     stopProgress()
     step.value = 'report'
@@ -265,7 +287,7 @@ async function reattach() {
       step.value = 'execute'
       watchProgress()
     } else if (status.state === 'done' && status.report) {
-      report.value = status.report
+      report.value = reportOf(status.report)
       step.value = 'report'
     }
   } catch {

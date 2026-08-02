@@ -36,7 +36,7 @@
 ## 6. Wizard UI (Vue, System → Tools)
 
 - [x] 6.1 Add "Migrate from ISPConfig3" wizard view with steps: connection form (URL, user, password, skip-TLS checkbox with warning, Test connection showing panel info or exact missing grants), inventory with per-entity counts and clients/sites/dns toggles + target server mapping + multi-server block requiring explicit confirmation to map onto the single local server. English i18n keys. Commit.
-- [ ] 6.2 Add dry-run step (plan counts + conflict list with reasons, execute button noting conflicts are skipped), execution step (SSE progress with polling fallback, reattach via status on reload), final report step (counts, reset-required users with prominent bulk password-reset action generating one-time tokens/links, warnings incl. SSL re-issue, operational order rsync→SSL/LE→DNS cutover, rsync suggestions with uid/gid remap and operator-responsibility note). agent-browser E2E against the mock legacy server. Commit.
+- [x] 6.2 Add dry-run step (plan counts + conflict list with reasons, execute button noting conflicts are skipped), execution step (SSE progress with polling fallback, reattach via status on reload), final report step (counts, reset-required users with prominent bulk password-reset action generating one-time tokens/links, warnings incl. SSL re-issue, operational order rsync→SSL/LE→DNS cutover, rsync suggestions with uid/gid remap and operator-responsibility note). agent-browser E2E against the mock legacy server. Commit.
 
 ## 7. Docs
 
