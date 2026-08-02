@@ -24,15 +24,15 @@ Conventional commit after each finished + validated task.
 
 ## 4. PHP-FPM pools
 
-- [ ] 4.1 Implement pool vector + render (`web<domain_id>.conf`): pm modes, socket/TCP with stable port allocation, open_basedir, custom_php_ini loop; golden-file tests for dynamic/static/ondemand × socket/TCP
-- [ ] 4.2 Implement `server_php` resolution (default vs pinned version), pool move/delete on version/mode change, pool delete on domain delete/php switch, delayed FPM reload per version; unit tests
+- [x] 4.1 Implement pool vector + render (`web<domain_id>.conf`): pm modes, socket/TCP with stable port allocation, open_basedir, custom_php_ini loop; golden-file tests for dynamic/static/ondemand × socket/TCP
+- [x] 4.2 Implement `server_php` resolution (default vs pinned version), pool move/delete on version/mode change, pool delete on domain delete/php switch, delayed FPM reload per version; unit tests
 
 ## 5. SSL
 
-- [ ] 5.1 Implement `ssl()` handler: ssl_action create (openssl key/CSR/self-signed, 0400 key, DB write without datalog), save (with `.acme.invalid` rejection), del; unit tests with temp dirs
-- [ ] 5.2 Port `letsencrypt` client wrapper: acme.sh/certbot detection order, command assembly (webroot, ec-256 vs RSA by version), domain set assembly with alias/subdomain reachability checks and `ssl_letsencrypt_exclude`; unit tests with mocked client binaries
-- [ ] 5.3 Wire Let's Encrypt into the vhost pipeline: issue on `ssl_letsencrypt=y`, link certs into site ssl/, fall back safely on failure (previous cert kept, datalog error); stub-binary integration test
-- [ ] 5.4 Register daily renewal job in the daemon scheduler (client renew, reload only when renewed, job bookkeeping); unit test with mocked client
+- [x] 5.1 Implement `ssl()` handler: ssl_action create (openssl key/CSR/self-signed, 0400 key, DB write without datalog), save (with `.acme.invalid` rejection), del; unit tests with temp dirs
+- [x] 5.2 Port `letsencrypt` client wrapper: acme.sh/certbot detection order, command assembly (webroot, ec-256 vs RSA by version), domain set assembly with alias/subdomain reachability checks and `ssl_letsencrypt_exclude`; unit tests with mocked client binaries
+- [x] 5.3 Wire Let's Encrypt into the vhost pipeline: issue on `ssl_letsencrypt=y`, link certs into site ssl/, fall back safely on failure (previous cert kept, datalog error); stub-binary integration test
+- [x] 5.4 Register daily renewal job in the daemon scheduler (client renew, reload only when renewed, job bookkeeping); unit test with mocked client
 
 ## 6. Sites REST API
 
