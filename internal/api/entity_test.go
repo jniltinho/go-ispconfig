@@ -80,10 +80,10 @@ func TestLimitHookVeto(t *testing.T) {
 	orig := limitHook
 	t.Cleanup(func() { limitHook = orig })
 
-	RegisterLimitHook(func(_ context.Context, entity string, _ *repository.Identity) error {
+	RegisterLimitHook(func(_ context.Context, entity string, _ *repository.Identity, _ map[string]any) error {
 		return &LimitError{Key: "error.limit_" + entity}
 	})
-	err := limitHook(context.Background(), "server_ip", nil)
+	err := limitHook(context.Background(), "server_ip", nil, nil)
 	var limErr *LimitError
 	require.ErrorAs(t, err, &limErr)
 	require.Equal(t, "error.limit_server_ip", limErr.Key)

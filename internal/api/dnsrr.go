@@ -215,6 +215,11 @@ func createDNSRecord(d *Deps) echo.HandlerFunc {
 		if err != nil {
 			return err
 		}
+		// Custom create path: consult the same limit hook the entity
+		// framework applies (client limit_dns_record).
+		if err := limitHook(c.Request().Context(), "dns_rr", id, body); err != nil {
+			return err
+		}
 
 		rr := &model.DNSRr{
 			ServerID: zone.ServerID,

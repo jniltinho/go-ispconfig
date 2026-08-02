@@ -24,6 +24,10 @@ func setupDB(t *testing.T) *gorm.DB {
 	created, err := database.Migrate(db)
 	require.NoError(t, err)
 	require.True(t, created)
+	// Seed the local server row (web+dns roles) and the admin password;
+	// the limit-hook API tests create real zones/sites against it.
+	_, err = database.Seed(db, "panel.test", "seed-admin-pw")
+	require.NoError(t, err)
 	return db
 }
 

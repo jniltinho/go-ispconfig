@@ -119,13 +119,14 @@ func (e *Entity) fields(yield func(*Field) bool) {
 }
 
 // LimitHook is consulted before every entity create (design D-limit): it
-// receives the entity name and the requesting identity and may veto the
-// operation by returning a *LimitError (rendered as 403 with its i18n key).
-// add-client-module later plugs limit_* enforcement here.
-type LimitHook func(ctx context.Context, entity string, id *repository.Identity) error
+// receives the entity name, the requesting identity and the request body
+// (read-only; needed for per-type limits like web_domain subtypes) and
+// may veto the operation by returning a *LimitError (rendered as 403
+// with its i18n key). add-client-module plugs limit_* enforcement here.
+type LimitHook func(ctx context.Context, entity string, id *repository.Identity, body map[string]any) error
 
 // limitHook is the registered hook; the default allows everything.
-var limitHook LimitHook = func(context.Context, string, *repository.Identity) error { return nil }
+var limitHook LimitHook = func(context.Context, string, *repository.Identity, map[string]any) error { return nil }
 
 // RegisterLimitHook replaces the create limit hook. Call it once at startup
 // before Register.
@@ -324,7 +325,7 @@ func (h *entityHandlers[T]) create(c *echo.Context) error {
 	if err := h.validate(ctx, rec, nil); err != nil {
 		return err
 	}
-	if err := limitHook(ctx, h.ent.Name, id); err != nil {
+	if err := limitHook(ctx, h.ent.Name, id, body); err != nil {
 		return err
 	}
 	if id != nil && id.IsAdmin() {

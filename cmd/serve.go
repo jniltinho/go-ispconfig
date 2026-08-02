@@ -25,6 +25,7 @@ import (
 
 	"go-ispconfig/internal/api"
 	"go-ispconfig/internal/auth"
+	"go-ispconfig/internal/clients"
 	"go-ispconfig/internal/config"
 	"go-ispconfig/internal/database"
 	"go-ispconfig/internal/datalog"
@@ -90,6 +91,9 @@ var serveCmd = &cobra.Command{
 			Sessions: auth.NewStore(db, 0),
 			Config:   cfg,
 		}
+		// Client limit_* enforcement behind the foundation create hook
+		// (add-client-module D5); registered before the routes mount.
+		clients.RegisterLimits(db)
 		if err := api.Register(e, deps); err != nil {
 			return fmt.Errorf("registering API: %w", err)
 		}
