@@ -8,7 +8,7 @@
 
 ## 2. Fixture dataset (both VMs, scripted + idempotent)
 
-- [ ] 2.1 `vagrant/lab/dataset.md` + `vagrant/lab/fixtures.sh` skeleton (remote-API driven via curl/jq or the go client; per-entity idempotency by natural key). Commit.
+- [x] 2.1 `vagrant/lab/dataset.md` + `vagrant/lab/fixtures.sh` skeleton (remote-API driven via curl/jq or the go client; per-entity idempotency by natural key). Commit.
 - [ ] 2.2 Clients: ≥4 per VM incl. one reseller with one child client, distinct limit profiles; screenshots of client lists. Commit.
 - [ ] 2.3 Sites: vhosts per client (static, plain PHP, and WordPress placeholders), auto-subdomain www, one site with custom nginx/apache directives; HTTP 200 checks. Commit.
 - [ ] 2.4 DNS: zones for all site domains via wizard template + extra records (AAAA/CNAME/SRV/TXT); named-checkzone green on both VMs. Commit.
