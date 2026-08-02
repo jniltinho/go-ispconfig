@@ -123,20 +123,11 @@ func (p *Plugin) deleteSite(ctx context.Context, cfg *getconf.WebConfig, old row
 	}
 	p.log.Info("nginx: removed vhost", "file", vhostFile)
 
-	// PHP-FPM pool file of the site (full pool lifecycle is the php-fpm-pools
-	// capability; deletion here keeps parity with php_fpm_pool_delete).
+	// PHP-FPM pool file of the site (port of php_fpm_pool_delete): remove the
+	// pool from its version's dir and prune stale copies across all versions.
 	if old.str("php") == "php-fpm" || old.str("php") == "fast-cgi" {
-		serverPHP, _ := p.loadServerPHP(old.num("server_php_id"))
-		fpm := resolveFPM(cfg, old, serverPHP)
-		if fpm.poolDir != "" {
-			poolFile := filepath.Join(fpm.poolDir, fpm.poolName+".conf")
-			if err := os.Remove(poolFile); err == nil {
-				p.log.Info("nginx: removed php-fpm pool", "file", poolFile)
-				if p.services != nil && fpm.initScript != "" {
-					p.services.Register(fpm.initScript)
-					p.services.RestartServiceDelayed(fpm.initScript, engine.ActionReload)
-				}
-			}
+		if err := p.poolDelete(ctx, cfg, old); err != nil {
+			return err
 		}
 	}
 

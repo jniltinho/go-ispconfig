@@ -1,0 +1,32 @@
+[web1]
+
+listen = /var/lib/php8.3-fpm/web1.sock
+listen.owner = web1
+listen.group = www-data
+listen.mode = 0660
+
+user = web1
+group = client1
+
+pm = dynamic
+pm.max_children = 10
+pm.start_servers = 2
+pm.min_spare_servers = 1
+pm.max_spare_servers = 5
+pm.max_requests = 0
+
+chdir = /
+
+env[HOSTNAME] = $HOSTNAME
+env[TMP] = /var/www/clients/client1/web1/tmp
+env[TMPDIR] = /var/www/clients/client1/web1/tmp
+env[TEMP] = /var/www/clients/client1/web1/tmp
+env[PATH] = /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+php_admin_value[open_basedir] = /var/www/clients/client1/web1/web:/tmp
+php_admin_value[upload_tmp_dir] = /var/www/clients/client1/web1/tmp
+php_admin_value[sendmail_path] = "/usr/sbin/sendmail -t -i -f webmaster@example.com"
+
+php_admin_value[memory_limit] = 256M
+php_admin_flag[display_errors] = off
+php_admin_value[session.save_path] = /var/www/clients/client1/web1/web/sessions

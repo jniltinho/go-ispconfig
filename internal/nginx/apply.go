@@ -27,6 +27,14 @@ func (p *Plugin) applyVhost(ctx context.Context, s site) error {
 	merged, mergeWarnings := mergeLocations(content)
 	warnings = append(warnings, mergeWarnings...)
 
+	// PHP-FPM pool (port of php_fpm_pool_update, called from update() before
+	// the reload): write/remove the pool and prune stale copies across PHP
+	// versions. For a non-fpm site the pool uses the old server_php's dir.
+	fpm := resolveFPM(s.cfg, s.new, poolServerPHP(in.serverPHP, s.new, s.old, in.oldServerPHP))
+	if err := p.managePool(ctx, s.cfg, s.new, s.old, fpm); err != nil {
+		return errors.Join(append(warnings, err)...)
+	}
+
 	if err := p.activateVhost(ctx, s, merged+"\n"); err != nil {
 		return errors.Join(append(warnings, err)...)
 	}
@@ -74,6 +82,15 @@ func (p *Plugin) loadVhostInput(ctx context.Context, s site) (vhostInput, error)
 			return in, err
 		}
 		in.serverPHP = php
+	}
+	// The old pinned version locates the pool of a site switching away from
+	// PHP-FPM (php_fpm_pool_update non-fpm branch).
+	if s.old.num("server_php_id") != 0 && s.old.str("php") != "no" && s.old.str("php") != "" {
+		oldPHP, err := p.loadServerPHP(s.old.num("server_php_id"))
+		if err != nil {
+			return in, err
+		}
+		in.oldServerPHP = oldPHP
 	}
 
 	// SSL is enabled only when both cert files exist non-empty (PHP parity).

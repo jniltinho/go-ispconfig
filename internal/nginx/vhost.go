@@ -20,9 +20,12 @@ type vhostInput struct {
 	aliases []row
 	// folders are the active web_folder rows of this domain (basic auth).
 	folders []row
-	// serverPHP is the resolved server_php row for a pinned PHP version,
-	// nil for the server default.
+	// serverPHP is the resolved server_php row for the new pinned PHP
+	// version, nil for the server default.
 	serverPHP row
+	// oldServerPHP is the previous pinned version, used to locate the pool
+	// of a site switching away from PHP-FPM.
+	oldServerPHP row
 	// nginxVersion is the running nginx version ("1.26.1").
 	nginxVersion string
 	// dummyFile is the random "/<hex>.htm" try_files dummy.
