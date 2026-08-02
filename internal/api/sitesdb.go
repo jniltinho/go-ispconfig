@@ -709,6 +709,42 @@ func sitesDatabaseUserBeforeDelete(_ context.Context, tx *gorm.DB, id *repositor
 	return nil
 }
 
+// sitesDatabaseDecorate combines the datalog state decoration with the
+// optional phpMyAdmin link (design D10 / task 6.4): when the getconf
+// sites phpmyadmin_url template is configured, every record gains a
+// _phpmyadmin_url with [SERVERNAME] and [DATABASENAME] substituted. No
+// bundled installation — external link only.
+func sitesDatabaseDecorate() func(ctx context.Context, db *gorm.DB, items []map[string]any) error {
+	state := datalogStateDecorator("web_database", "database_id")
+	return func(ctx context.Context, db *gorm.DB, items []map[string]any) error {
+		if err := state(ctx, db, items); err != nil {
+			return err
+		}
+		tpl := sitesGlobalConfig(db)["phpmyadmin_url"]
+		if tpl == "" {
+			return nil
+		}
+		serverNames := map[string]string{}
+		for _, item := range items {
+			sid := fmt.Sprint(item["server_id"])
+			name, ok := serverNames[sid]
+			if !ok {
+				var server model.Server
+				if err := db.WithContext(ctx).Select("server_name").
+					Where("server_id = ?", item["server_id"]).Take(&server).Error; err == nil {
+					name = server.ServerName
+				}
+				serverNames[sid] = name
+			}
+			item["_phpmyadmin_url"] = strings.NewReplacer(
+				"[SERVERNAME]", name,
+				"[DATABASENAME]", fmt.Sprint(item["database_name"]),
+			).Replace(tpl)
+		}
+		return nil
+	}
+}
+
 // databaseUserSecretColumns are redacted on every read (design D13:
 // password hashes never leave the API).
 var databaseUserSecretColumns = []string{
@@ -752,7 +788,7 @@ func sitesDatabaseEntity() *Entity {
 		},
 		AfterInsert:  sitesDatabaseAfterInsert,
 		BeforeUpdate: sitesDatabaseBeforeUpdate,
-		Decorate:     datalogStateDecorator("web_database", "database_id"),
+		Decorate:     sitesDatabaseDecorate(),
 		Tabs: []Tab{
 			{
 				Name: "database", Label: "database_tab_txt",
