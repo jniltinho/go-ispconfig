@@ -42,7 +42,7 @@ func TestQuoting(t *testing.T) {
 // TestPluginSubscribesFiveEvents: the plugin handles the five events of
 // design D7 and deliberately not database_user_insert.
 func TestPluginSubscribesFiveEvents(t *testing.T) {
-	p := NewPlugin(nil, nil, "", nil)
+	p := NewPlugin(nil, nil, "", 0, nil)
 	h := p.handlers()
 	for _, event := range []string{
 		"database_insert", "database_update", "database_delete",
@@ -62,7 +62,7 @@ func TestPluginSubscribesFiveEvents(t *testing.T) {
 // connection (PHP parity: type check before connect()).
 func TestNonMySQLTypeSkipped(t *testing.T) {
 	connects := 0
-	p := NewPlugin(nil, nil, "", nil)
+	p := NewPlugin(nil, nil, "", 0, nil)
 	p.OpenAdmin = func(context.Context) (*sql.DB, Config, error) {
 		connects++
 		return nil, Config{}, errors.New("should not connect")
@@ -80,7 +80,7 @@ func TestNonMySQLTypeSkipped(t *testing.T) {
 // connection (PHP dbUpdate early-out).
 func TestInactiveToInactiveUpdateSkipped(t *testing.T) {
 	connects := 0
-	p := NewPlugin(nil, nil, "", nil)
+	p := NewPlugin(nil, nil, "", 0, nil)
 	p.OpenAdmin = func(context.Context) (*sql.DB, Config, error) {
 		connects++
 		return nil, Config{}, errors.New("no")
@@ -97,7 +97,7 @@ func TestInactiveToInactiveUpdateSkipped(t *testing.T) {
 // and returns nil — the daemon run never fails on a client-DB outage
 // (design D3).
 func TestConnectFailureAbortsEventQuietly(t *testing.T) {
-	p := NewPlugin(nil, nil, "", nil)
+	p := NewPlugin(nil, nil, "", 0, nil)
 	p.OpenAdmin = func(context.Context) (*sql.DB, Config, error) {
 		return nil, Config{}, errors.New("connection refused")
 	}
@@ -109,7 +109,7 @@ func TestConnectFailureAbortsEventQuietly(t *testing.T) {
 // password is a no-op before connecting (PHP dbUserUpdate early-out).
 func TestUserUpdateNoChangesSkipped(t *testing.T) {
 	connects := 0
-	p := NewPlugin(nil, nil, "", nil)
+	p := NewPlugin(nil, nil, "", 0, nil)
 	p.OpenAdmin = func(context.Context) (*sql.DB, Config, error) {
 		connects++
 		return nil, Config{}, errors.New("no")
@@ -132,7 +132,7 @@ func TestUserUpdateNoChangesSkipped(t *testing.T) {
 // before any connection (stricter than the PHP missing-return, per D8).
 func TestUserDeleteDenylistRefused(t *testing.T) {
 	connects := 0
-	p := NewPlugin(nil, nil, "", nil)
+	p := NewPlugin(nil, nil, "", 0, nil)
 	p.OpenAdmin = func(context.Context) (*sql.DB, Config, error) {
 		connects++
 		return nil, Config{}, errors.New("no")
@@ -146,5 +146,5 @@ func TestUserDeleteDenylistRefused(t *testing.T) {
 
 // TestPluginName identifies the plugin.
 func TestPluginName(t *testing.T) {
-	assert.Equal(t, "mysql_clientdb", NewPlugin(nil, nil, "", nil).Name())
+	assert.Equal(t, "mysql_clientdb", NewPlugin(nil, nil, "", 0, nil).Name())
 }

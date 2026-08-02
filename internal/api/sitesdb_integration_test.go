@@ -301,7 +301,7 @@ func TestSitesDatabaseUserAPI(t *testing.T) {
 		require.Equal(t, before.DatabasePasswordSha2, after.DatabasePasswordSha2)
 	})
 
-	t.Run("password change fans out per referencing server", func(t *testing.T) {
+	t.Run("password change journals one broadcast row", func(t *testing.T) {
 		// A database on server 1 references the user.
 		domainID := env.createDomain(t, env.aCookie, env.aCSRF,
 			map[string]any{"server_id": 1, "domain": "clienta-dbu.com", "type": "vhost"})
@@ -315,10 +315,14 @@ func TestSitesDatabaseUserAPI(t *testing.T) {
 			map[string]any{"database_password": "An0ther-Secret!"})
 		require.Equal(t, http.StatusOK, status, "%s", data)
 
-		var fanned []model.SysDatalog
-		require.NoError(t, db.Where("dbtable = ? AND action = 'u' AND server_id = 1", "web_database_user").
-			Find(&fanned).Error)
-		require.NotEmpty(t, fanned, "fan-out row targeted at the database's server")
+		// Exactly one journal row, broadcast to every daemon (server_id
+		// 0); each plugin reconciles only its own server's databases —
+		// no duplicated per-server fan-out rows.
+		var rows []model.SysDatalog
+		require.NoError(t, db.Where("dbtable = ? AND action = 'u'", "web_database_user").
+			Find(&rows).Error)
+		require.Len(t, rows, 1, "single broadcast row, no fan-out duplicates")
+		require.EqualValues(t, 0, rows[0].ServerID)
 
 		var stored model.WebDatabaseUser
 		require.NoError(t, db.First(&stored, int(userID)).Error)

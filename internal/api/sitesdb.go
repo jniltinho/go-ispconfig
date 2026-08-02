@@ -625,23 +625,6 @@ func expandSitesPrefix(ctx context.Context, db *gorm.DB, id *repository.Identity
 
 // --- entity hooks (task 4.6, sites_database_plugin + remote API parity) ---
 
-// fanoutDatabaseUserJournal writes one web_database_user UPDATE datalog
-// row with server_id overridden to serverID (PHP "force update of the
-// used database user"): the daemon of that server re-reconciles the
-// user. No row is written when the user is missing or nothing differs.
-func fanoutDatabaseUserJournal(tx *gorm.DB, userID *uint32, serverID uint32, username string) error {
-	if userID == nil || *userID == 0 {
-		return nil
-	}
-	var u model.WebDatabaseUser
-	if err := tx.Take(&u, *userID).Error; err != nil {
-		return nil // dangling reference: nothing to journal
-	}
-	fanned := u
-	fanned.ServerID = serverID
-	return datalog.LogUpdate(tx, &u, &fanned, username)
-}
-
 // sitesDatabaseSyncParent ports sites_database_plugin
 // processDatabaseUpdate: the database is owned by the parent site's
 // group and inherits its backup_copies; the referenced users get a
@@ -658,14 +641,7 @@ func sitesDatabaseSyncParent(tx *gorm.DB, id *repository.Identity, rec *model.We
 			return err
 		}
 	}
-	username := ""
-	if id != nil {
-		username = id.Username
-	}
-	if err := fanoutDatabaseUserJournal(tx, rec.DatabaseUserID, rec.ServerID, username); err != nil {
-		return err
-	}
-	return fanoutDatabaseUserJournal(tx, rec.DatabaseROUserID, rec.ServerID, username)
+	return nil
 }
 
 // sitesDatabaseAfterInsert runs inside the create transaction (before
@@ -686,40 +662,6 @@ func sitesDatabaseBeforeUpdate(_ context.Context, tx *gorm.DB, id *repository.Id
 		}
 		rec.SysGroupID = web.SysGroupID
 		rec.BackupCopies = web.BackupCopies
-	}
-	username := ""
-	if id != nil {
-		username = id.Username
-	}
-	if err := fanoutDatabaseUserJournal(tx, rec.DatabaseUserID, rec.ServerID, username); err != nil {
-		return err
-	}
-	return fanoutDatabaseUserJournal(tx, rec.DatabaseROUserID, rec.ServerID, username)
-}
-
-// sitesDatabaseUserBeforeUpdate fans the user update out per distinct
-// server_id of the databases still referencing it (PHP
-// sites_database_user_update remote API parity).
-func sitesDatabaseUserBeforeUpdate(_ context.Context, tx *gorm.DB, id *repository.Identity, _ map[string]any, oldAny, recAny any) error {
-	old := oldAny.(*model.WebDatabaseUser)
-	rec := recAny.(*model.WebDatabaseUser)
-	var serverIDs []uint32
-	err := tx.Table("web_database").Distinct("server_id").
-		Where("database_user_id = ? OR database_ro_user_id = ?", old.DatabaseUserID, old.DatabaseUserID).
-		Pluck("server_id", &serverIDs)
-	if err.Error != nil {
-		return err.Error
-	}
-	username := ""
-	if id != nil {
-		username = id.Username
-	}
-	for _, sid := range serverIDs {
-		fanned := *rec
-		fanned.ServerID = sid
-		if logErr := datalog.LogUpdate(tx, old, &fanned, username); logErr != nil {
-			return logErr
-		}
 	}
 	return nil
 }
@@ -884,7 +826,6 @@ func sitesDatabaseUserEntity() *Entity {
 		Prepare: func(c *echo.Context, deps *Deps, id *repository.Identity, body map[string]any) error {
 			return sitesDatabaseUserPrepare(c, deps, id, body)
 		},
-		BeforeUpdate: sitesDatabaseUserBeforeUpdate,
 		BeforeDelete: sitesDatabaseUserBeforeDelete,
 		Decorate:     sitesDatabaseUserDecorate(),
 		Tabs: []Tab{

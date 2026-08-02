@@ -59,6 +59,10 @@ type Plugin struct {
 	db       *gorm.DB // panel DB: web_database / web_database_user lookups
 	runner   engine.CommandRunner
 	confPath string
+	// serverID is the local server: user events only reconcile hosts of
+	// databases on this server (each daemon manages its own MySQL).
+	// Zero disables the filter (single-server tests).
+	serverID uint32
 	log      *slog.Logger
 
 	// tempDir hosts the mode-0600 mysqldump files of renameDatabase
@@ -70,16 +74,16 @@ type Plugin struct {
 	OpenAdmin func(ctx context.Context) (*sql.DB, Config, error)
 }
 
-// NewPlugin creates the mysql_clientdb plugin. confPath empty falls back
-// to DefaultConfPath; log nil means slog.Default.
-func NewPlugin(db *gorm.DB, runner engine.CommandRunner, confPath string, log *slog.Logger) *Plugin {
+// NewPlugin creates the mysql_clientdb plugin for one server. confPath
+// empty falls back to DefaultConfPath; log nil means slog.Default.
+func NewPlugin(db *gorm.DB, runner engine.CommandRunner, confPath string, serverID uint32, log *slog.Logger) *Plugin {
 	if log == nil {
 		log = slog.Default()
 	}
 	if confPath == "" {
 		confPath = DefaultConfPath
 	}
-	return &Plugin{db: db, runner: runner, confPath: confPath, log: log}
+	return &Plugin{db: db, runner: runner, confPath: confPath, serverID: serverID, log: log}
 }
 
 // Name identifies the plugin in logs and the registry.

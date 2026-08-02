@@ -28,7 +28,7 @@ func TestDatabaseEventPipeline(t *testing.T) {
 	_, err = database.Migrate(panel)
 	require.NoError(t, err)
 
-	p := NewPlugin(panel, engine.ExecRunner{}, "", nil)
+	p := NewPlugin(panel, engine.ExecRunner{}, "", 1, nil)
 	p.OpenAdmin = func(context.Context) (*sql.DB, Config, error) {
 		db, err := sql.Open("mysql", dsnPrefix+"/")
 		return db, Config{Host: "127.0.0.1", User: "root", Password: "root"}, err

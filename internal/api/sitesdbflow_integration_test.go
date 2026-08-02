@@ -67,7 +67,7 @@ func TestDatabaseEndToEndFlow(t *testing.T) {
 
 	// Daemon-shaped engine: database module + the real mysql_clientdb
 	// plugin with a root admin connection into the same container.
-	plugin := clientdb.NewPlugin(db, engine.ExecRunner{}, "", nil)
+	plugin := clientdb.NewPlugin(db, engine.ExecRunner{}, "", 1, nil)
 	plugin.OpenAdmin = func(context.Context) (*sql.DB, clientdb.Config, error) {
 		adminDB, err := sql.Open("mysql", dsnPrefix+"/")
 		return adminDB, clientdb.Config{Host: "127.0.0.1", User: "root", Password: "root"}, err

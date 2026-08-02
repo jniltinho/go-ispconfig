@@ -275,17 +275,21 @@ func (p *Plugin) dbUserUpdate(ctx context.Context, data engine.Data) error {
 		return nil
 	}
 
-	// All databases this user is active for on the panel side.
+	// All databases this user is active for on the panel side — scoped
+	// to this daemon's server (each server manages only its own MySQL;
+	// serverID 0 keeps the unscoped single-server behavior).
 	var records []struct {
 		RemoteAccess string
 		RemoteIps    string
 	}
 	userID := oldRow.num("database_user_id")
-	err := p.db.WithContext(ctx).Table("web_database").
+	q := p.db.WithContext(ctx).Table("web_database").
 		Select("remote_access, remote_ips").
-		Where("database_user_id = ? OR database_ro_user_id = ?", userID, userID).
-		Find(&records).Error
-	if err != nil {
+		Where("database_user_id = ? OR database_ro_user_id = ?", userID, userID)
+	if p.serverID > 0 {
+		q = q.Where("server_id = ?", p.serverID)
+	}
+	if err := q.Find(&records).Error; err != nil {
 		return err
 	}
 	// Nothing to do on this server for this db user.

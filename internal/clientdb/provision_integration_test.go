@@ -20,7 +20,7 @@ import (
 func startAdmin(t *testing.T, suffix string) (*Plugin, *adminConn, string) {
 	t.Helper()
 	dsnPrefix, _ := database.StartMariaDB(t, suffix)
-	p := NewPlugin(nil, nil, "", nil)
+	p := NewPlugin(nil, nil, "", 0, nil)
 	p.OpenAdmin = func(context.Context) (*sql.DB, Config, error) {
 		db, err := sql.Open("mysql", dsnPrefix+"/")
 		return db, Config{Host: "127.0.0.1", User: "root", Password: "root"}, err
