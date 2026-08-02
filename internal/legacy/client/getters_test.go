@@ -111,6 +111,20 @@ func TestSitesWebDomainGetPagination(t *testing.T) {
 		require.Len(t, callsFor(*calls, "sites_web_domain_get"), 3) // 5+5+2
 	})
 
+	t.Run("panel ignoring #OFFSET# aborts instead of looping forever", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			// Always a full page, regardless of offset.
+			_, _ = w.Write([]byte(`{"code":"ok","message":"","response":[{"domain_id":"1"},{"domain_id":"2"}]}`))
+		}))
+		t.Cleanup(srv.Close)
+		c, err := New(Options{URL: srv.URL, PageSize: 2})
+		require.NoError(t, err)
+		c.sessionID = testSession
+		_, err = c.SitesWebDomainGet(context.Background(), nil)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "pagination did not terminate")
+	})
+
 	t.Run("exact multiple issues one trailing empty page", func(t *testing.T) {
 		c, calls := getterServer(t, 10, nil)
 		c.pageSize = 5

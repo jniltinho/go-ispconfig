@@ -44,6 +44,7 @@ func TestNew(t *testing.T) {
 		{"missing scheme", "panel.example.com", true},
 		{"unsupported scheme", "ftp://panel.example.com", true},
 		{"empty", "", true},
+		{"credentials in URL rejected", "https://user:pw@panel.example.com", true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -167,7 +168,7 @@ func TestCallTransportErrors(t *testing.T) {
 		require.Contains(t, err.Error(), "502")
 	})
 
-	t.Run("non-JSON body is a transport error", func(t *testing.T) {
+	t.Run("non-JSON body is a transport error with a snippet", func(t *testing.T) {
 		srv := jsonHandler(t, http.StatusOK, "Remote API is disabled in security settings.", nil, nil)
 		c, err := New(Options{URL: srv.URL})
 		require.NoError(t, err)
@@ -175,6 +176,7 @@ func TestCallTransportErrors(t *testing.T) {
 		require.Error(t, err)
 		_, ok := IsFault(err)
 		require.False(t, ok)
+		require.Contains(t, err.Error(), "Remote API is disabled")
 	})
 
 	t.Run("unreachable endpoint is a transport error", func(t *testing.T) {

@@ -1,6 +1,9 @@
 package client
 
-import "context"
+import (
+	"context"
+	"fmt"
+)
 
 // DefaultPageSize is the #LIMIT# used by paged getters when
 // Options.PageSize is zero.
@@ -25,6 +28,10 @@ func (c *Client) ClientGet(ctx context.Context, clientID int) (Record, error) {
 	var rec Record
 	if err := c.call(ctx, "client_get", map[string]any{"client_id": clientID}, &rec); err != nil {
 		return nil, err
+	}
+	// The panel answers false instead of a record in some not-found paths.
+	if rec == nil {
+		return nil, fmt.Errorf("legacy: client_get: no record for client %d", clientID)
 	}
 	return rec, nil
 }
@@ -108,6 +115,10 @@ func (c *Client) ServerGet(ctx context.Context, serverID int, section string) (R
 	if err != nil {
 		return nil, err
 	}
+	// The panel answers false instead of a record in some not-found paths.
+	if rec == nil {
+		return nil, fmt.Errorf("legacy: server_get: no %q config for server %d", section, serverID)
+	}
 	return rec, nil
 }
 
@@ -121,6 +132,12 @@ func (c *Client) GetFunctionList(ctx context.Context) ([]string, error) {
 	return functions, nil
 }
 
+// maxPages bounds paged iteration: at the default page size this allows
+// one million records per entity, far beyond any real panel. It guards
+// against a broken panel that ignores #OFFSET# and repeats full pages
+// forever.
+const maxPages = 2000
+
 // pagedGet fetches every record matching filter from a *_get method that
 // implements the legacy filter-object semantics, injecting #OFFSET# and
 // #LIMIT# and iterating until a page returns fewer records than the page
@@ -128,7 +145,10 @@ func (c *Client) GetFunctionList(ctx context.Context) ([]string, error) {
 func (c *Client) pagedGet(ctx context.Context, method string, filter Filter) ([]Record, error) {
 	limit := c.pageSize
 	var all []Record
-	for offset := 0; ; offset += limit {
+	for offset, pages := 0, 0; ; offset, pages = offset+limit, pages+1 {
+		if pages >= maxPages {
+			return nil, fmt.Errorf("legacy: %s: pagination did not terminate after %d pages; the panel seems to ignore #OFFSET#", method, maxPages)
+		}
 		primaryID := make(map[string]any, len(filter)+2)
 		for key, val := range filter {
 			primaryID[key] = val

@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -60,7 +61,8 @@ type Options struct {
 
 // Client is a read-only client for one legacy ISPConfig3 panel.
 // Credentials and the session id live only in memory and are never
-// included in error messages or logs.
+// included in error messages or logs. A Client is not safe for
+// concurrent use; the import runs sequentially on one goroutine.
 type Client struct {
 	endpoint  string
 	username  string
@@ -82,18 +84,25 @@ func New(opts Options) (*Client, error) {
 	if (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
 		return nil, fmt.Errorf("legacy: panel URL must be http(s)://host[:port], got %q", opts.URL)
 	}
+	// Credentials in the URL would leak into net/http error strings,
+	// violating the redaction guarantee; they belong in Options.
+	if u.User != nil {
+		return nil, errors.New("legacy: panel URL must not contain credentials; use the username/password options")
+	}
 	hc := &http.Client{}
 	if opts.Insecure {
-		hc.Transport = &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec // explicit operator opt-in, surfaced via Insecure()
-		}
+		// Clone keeps the default proxy, pooling and timeout behavior.
+		transport := http.DefaultTransport.(*http.Transport).Clone()
+		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true} //nolint:gosec // explicit operator opt-in, surfaced via Insecure()
+		hc.Transport = transport
 	}
 	pageSize := opts.PageSize
 	if pageSize <= 0 {
 		pageSize = DefaultPageSize
 	}
 	return &Client{
-		endpoint:  strings.TrimRight(opts.URL, "/") + "/remote/json.php",
+		// Rebuilt from parsed components: drops any query/fragment noise.
+		endpoint:  u.Scheme + "://" + u.Host + strings.TrimRight(u.Path, "/") + "/remote/json.php",
 		username:  opts.Username,
 		password:  opts.Password,
 		insecure:  opts.Insecure,
@@ -194,9 +203,19 @@ func (c *Client) call(ctx context.Context, method string, params map[string]any,
 		return fmt.Errorf("legacy: %s: unexpected HTTP status %d", method, resp.StatusCode)
 	}
 
+	raw, err := io.ReadAll(io.LimitReader(resp.Body, 64<<20))
+	if err != nil {
+		return fmt.Errorf("legacy: %s: reading response: %w", method, err)
+	}
 	var env envelope
-	if err := json.NewDecoder(resp.Body).Decode(&env); err != nil {
-		return fmt.Errorf("legacy: %s: decoding response: %w", method, err)
+	if err := json.Unmarshal(raw, &env); err != nil {
+		// The panel answers plain text in some states (e.g. "Remote API
+		// is disabled in security settings."); surface a snippet.
+		snippet := strings.TrimSpace(string(raw))
+		if len(snippet) > 120 {
+			snippet = snippet[:120] + "..."
+		}
+		return fmt.Errorf("legacy: %s: response is not JSON (%q): %w", method, snippet, err)
 	}
 	if env.Code != "ok" {
 		return &Fault{Code: env.Code, Message: env.Message}
