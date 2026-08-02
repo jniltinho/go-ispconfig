@@ -20,7 +20,7 @@ func TestBindBaseWritesValidatesReloads(t *testing.T) {
 	assert.Contains(t, string(content), `directory "/var/cache/bind";`)
 	assert.FileExists(t, st.Profile.NamedConfLocalPath, "named.conf.local ensured for the dns module")
 	assert.True(t, mock.called("named-checkconf"))
-	assert.True(t, mock.called("systemctl reload bind9"))
+	assert.True(t, mock.called("systemctl reload named"))
 
 	// Re-run: identical content, no backup, no reload.
 	mock.calls = nil

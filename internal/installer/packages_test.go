@@ -48,7 +48,7 @@ func TestPackagesAllInstalledSkips(t *testing.T) {
 	err := packagesStep{}.Run(context.Background(), st)
 	require.ErrorContains(t, err, "already installed")
 	assert.False(t, mock.called("apt-get"), "no apt call when everything is installed")
-	assert.True(t, mock.called("systemctl enable --now mariadb redis-server nginx bind9 php8.2-fpm"),
+	assert.True(t, mock.called("systemctl enable --now mariadb redis-server nginx named php8.2-fpm"),
 		"services ensured active even when packages were present")
 }
 

@@ -92,8 +92,11 @@ func profileFor(id, name string) *Profile {
 		// five distros ship it under the same package/unit name.
 		Packages: []string{"nginx", "bind9", "mariadb-server", "redis-server"},
 
-		NginxService:  "nginx",
-		BindService:   "bind9",
+		NginxService: "nginx",
+		// The bind9 package ships named.service with bind9.service as an
+		// alias on every supported distro; `systemctl enable` refuses
+		// aliases, so the real unit name is used.
+		BindService:   "named",
 		MySQLService:  "mariadb",
 		PHPFPMService: "php" + php + "-fpm",
 		RedisService:  "redis-server",
