@@ -17,7 +17,7 @@
 - [x] 3.2 Implement `getHostList` / `getOtherHostList` (localhost always; remote_access + remote_ips → IPs or `%`; union of other active DBs for the user); table-driven unit tests. Commit.
 - [x] 3.3 Implement `createDatabase` / `deleteDatabase` with optional charset; integration test against MariaDB. Commit.
 - [x] 3.4 Implement password application (`setPassword`) with MariaDB/MySQL version probe and native vs `caching_sha2_password` paths; refuse when `validate_password` plugin active; tests with stubbed server version. Commit.
-- [ ] 3.5 Implement `grant` / `revokeAndDrop` with modes `rw` / `rd` / `r`, `CREATE USER IF NOT EXISTS`, `FLUSH PRIVILEGES`; integration tests for ALL vs SELECT vs quota-restricted grants. Commit.
+- [x] 3.5 Implement `grant` / `revokeAndDrop` with modes `rw` / `rd` / `r`, `CREATE USER IF NOT EXISTS`, `FLUSH PRIVILEGES`; integration tests for ALL vs SELECT vs quota-restricted grants. Commit.
 - [ ] 3.6 Implement `dbInsert` / `dbUpdate` / `dbDelete` handlers (inactive early-out, missing-DB recreate, host/user reconcile, deactivate revoke); integration test datalog-shaped payloads. Commit.
 - [ ] 3.7 Implement `renameDatabase` (empty path + tables/views/triggers path with mysqldump temp files mode 0600); integration test rename with a base table. Commit.
 - [ ] 3.8 Implement `dbUserUpdate` / `dbUserDelete` (rename user, set password across hosts, drop via `mysql.user` with `Create_user_priv='N'` guard); do **not** register `database_user_insert`; tests. Commit.
