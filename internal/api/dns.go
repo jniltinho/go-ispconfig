@@ -30,7 +30,11 @@ func registerDNSEntities(g *echo.Group, d *Deps) error {
 	if err := RegisterEntity[model.DNSSlave](g, d, dnsSlaveEntity()); err != nil {
 		return err
 	}
-	return RegisterEntity[model.DNSTemplate](g, d, dnsTemplateEntity())
+	if err := RegisterEntity[model.DNSTemplate](g, d, dnsTemplateEntity()); err != nil {
+		return err
+	}
+	registerDNSRecordTypeRoutes(g)
+	return nil
 }
 
 // ynUpperOptions is the uppercase Y/N CHECKBOX value array the dns_ tables
