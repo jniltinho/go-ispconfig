@@ -35,6 +35,8 @@ type Plugin struct {
 	// ~ backups if nginx -t fails (port of ssl_certificate_changed). The
 	// daemon processes rows one at a time, so a plain field is safe.
 	sslChangedDomain string
+	// leWebroot overrides the ACME challenge webroot in tests.
+	leWebroot string
 }
 
 // NewPlugin creates the nginx plugin. customTplDir may be empty (embedded
