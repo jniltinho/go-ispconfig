@@ -44,7 +44,7 @@
 - [x] 7.2 Mailbox entity + routes `/api/mail/mailboxes` (CRUD, list-by-client): domain-exists check, CRYPTMAIL password hashing, password omitted on list; swaggo; tests incl. 403 cross-client. Commit.
 - [x] 7.3 Forwarding routes for aliases, forwards, catchalls, alias-domains (type forced server-side); transport routes with unique (server_id, domain); swaggo; tests. Commit.
 - [x] 7.4 Access + spamfilter policy/users/wblist routes; swaggo; tests. Commit.
-- [ ] 7.5 Regenerate swagger (`make swagger` / `swag init`), verify Swagger UI lists all mail endpoints, CI staleness check green. Commit.
+- [x] 7.5 Regenerate swagger (`make swagger` / `swag init`), verify Swagger UI lists all mail endpoints, CI staleness check green. Commit.
 
 ## 8. Panel UI (Vue)
 
