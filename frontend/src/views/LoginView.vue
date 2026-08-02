@@ -3,6 +3,7 @@
 // "stay logged in", following the ISPConfig3 login layout.
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import UiAlert from '../components/UiAlert.vue'
 import { useI18n } from '../i18n'
 import { useAuthStore } from '../stores/auth'
 
@@ -30,12 +31,7 @@ async function submit() {
         <span class="text-base font-bold text-brand">{{ t('app.title') }}</span>
       </div>
       <form class="space-y-4 p-6" @submit.prevent="submit">
-        <div
-          v-if="auth.error"
-          class="border border-danger-border bg-danger px-3 py-2 text-sm text-danger-text"
-        >
-          {{ t(auth.error) }}
-        </div>
+        <UiAlert v-if="auth.error" variant="danger" :messages="[t(auth.error)]" />
         <div>
           <label class="mb-1 block text-sm font-semibold" for="login-username">
             {{ t('login.username') }}

@@ -20,7 +20,7 @@
 - [x] 3.2 Restyle DataTable: flat `#3E474E` thead with white text, second header row with per-column inline filter inputs + filter button, zebra odd rows `#F2F5F7`, hover `#DFEAF6`, right-aligned icon action buttons with delete confirmation; commit
 - [x] 3.3 Add DataTable loading skeleton rows and the zero-results empty state (icon + hint text); wrap tables in `overflow-x-auto` so narrow viewports scroll the table, never the page; commit
 - [x] 3.4 Restyle TabbedForm: surface card, flat square tabs with 1px separators and connected active tab, horizontal rows with `:`-suffixed labels, fieldset legends as sub-headings, Save (success) / Cancel (default) buttons; commit
-- [ ] 3.5 Implement info (`#DFEAF6`) and danger (`#F7DFDF` with "Error" label + message list) alert components; commit
+- [x] 3.5 Implement info (`#DFEAF6`) and danger (`#F7DFDF` with "Error" label + message list) alert components; commit
 
 ## 4. Screens: login and dashboard
 
