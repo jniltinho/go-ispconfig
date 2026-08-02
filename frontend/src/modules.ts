@@ -18,6 +18,8 @@ export const modules: ModuleDef[] = [
     sections: [
       { labelKey: 'sidebar.sites.websites', path: '/sites' },
       { labelKey: 'sidebar.sites.folders', path: '/sites/folders' },
+      { labelKey: 'sidebar.sites.databases', path: '/sites/databases' },
+      { labelKey: 'sidebar.sites.database_users', path: '/sites/database-users' },
     ],
   },
   {

@@ -68,6 +68,7 @@ func Seed(db *gorm.DB, hostname, adminPassword string) (string, error) {
 			ServerName:   hostname,
 			WebServer:    1,
 			DNSServer:    1,
+			DBServer:     1,
 			Config:       defaultServerConfig,
 			DBVersion:    MinDBVersion,
 			Active:       1,

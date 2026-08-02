@@ -18,6 +18,7 @@ import (
 	"github.com/spf13/cobra"
 	"gorm.io/gorm"
 
+	"go-ispconfig/internal/clientdb"
 	"go-ispconfig/internal/clients"
 	"go-ispconfig/internal/config"
 	"go-ispconfig/internal/database"
@@ -103,6 +104,13 @@ var daemonCmd = &cobra.Command{
 			}
 			modules = append(modules, firewall.NewModule())
 			plugins = append(plugins, fwPlugin)
+		}
+		// Database module: only on DB servers with the module enabled in
+		// config.toml (database-module-events / design D15:
+		// server.db_server = 1 and !disable_database_module).
+		if srv.DBServer == 1 && !cfg.Daemon.DisableDatabaseModule {
+			modules = append(modules, clientdb.NewModule())
+			plugins = append(plugins, clientdb.NewPlugin(db, runner, cfg.Database.ClientDBConf, srv.ServerID, logger))
 		}
 		if err := reg.Load(modules, plugins); err != nil {
 			return err

@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
+	"strings"
 
 	"gorm.io/gorm"
 
@@ -42,6 +44,14 @@ func LimitHook(db *gorm.DB) func(context.Context, string, *repository.Identity, 
 		}
 		if client == nil {
 			return nil // panel user without a client row (legacy admins)
+		}
+		if entity == "databases" {
+			if err := databaseCreateChecks(ctx, db, client, body); err != nil {
+				return err
+			}
+		}
+		if err := checkResellerLimit(ctx, db, client, entity, rule); err != nil {
+			return err
 		}
 		limit := rule.limit(client)
 		if limit < 0 {
@@ -176,10 +186,181 @@ func resolveRule(entity string, body map[string]any) (limitRule, bool) {
 			limit: func(c *model.Client) int32 { return c.LimitClient },
 			count: countByGroup("client", ""),
 		}, true
+	case "databases":
+		return limitRule{
+			key:   "error.limit_database",
+			limit: func(c *model.Client) int32 { return c.LimitDatabase },
+			count: countByGroup("web_database", "type = ?", "mysql"),
+		}, true
+	case "database-users":
+		return limitRule{
+			key:   "error.limit_database_user",
+			limit: func(c *model.Client) int32 { return c.LimitDatabaseUser },
+			count: countByGroup("web_database_user", ""),
+		}, true
 	default:
-		// Reserved for future modules (mail/ftp/shell/db/cron): unknown
+		// Reserved for future modules (ftp/shell/cron): unknown
 		// entities are never vetoed.
 		return limitRule{}, false
+	}
+}
+
+// databaseLimitEntities are the entities whose count limits also apply
+// at the reseller level (PHP checkResellerLimit is only wired for the
+// database module here).
+var databaseLimitEntities = map[string]struct{}{"databases": {}, "database-users": {}}
+
+// checkResellerLimit ports tform checkResellerLimit for the database
+// entities: when the client belongs to a reseller, the same limit column
+// of the reseller row caps the usage summed across every client of that
+// reseller (the reseller's own group included).
+func checkResellerLimit(ctx context.Context, db *gorm.DB, client *model.Client, entity string, rule limitRule) error {
+	if _, ok := databaseLimitEntities[entity]; !ok || client.ParentClientID == 0 {
+		return nil
+	}
+	var reseller model.Client
+	err := db.WithContext(ctx).Where("client_id = ?", client.ParentClientID).Take(&reseller).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("clients: loading reseller %d: %w", client.ParentClientID, err)
+	}
+	limit := rule.limit(&reseller)
+	if limit < 0 {
+		return nil
+	}
+	if limit == 0 {
+		return &LimitError{Key: rule.key}
+	}
+	table, typeFilter := "web_database", "AND type = 'mysql'"
+	if entity == "database-users" {
+		table, typeFilter = "web_database_user", ""
+	}
+	var count int64
+	err = db.WithContext(ctx).Table(table+" t").
+		Joins("JOIN sys_group g ON g.groupid = t.sys_groupid").
+		Joins("JOIN client c ON c.client_id = g.client_id").
+		Where("(c.parent_client_id = ? OR c.client_id = ?) "+typeFilter,
+			reseller.ClientID, reseller.ClientID).
+		Count(&count).Error
+	if err != nil {
+		return fmt.Errorf("clients: counting reseller %s usage: %w", table, err)
+	}
+	if count >= int64(limit) {
+		return &LimitError{Key: rule.key}
+	}
+	return nil
+}
+
+// databaseCreateChecks ports the database_edit.php create-path client
+// checks that go beyond a plain count limit: the db_servers allow-list
+// and the limit_database_quota sum (client and reseller). The quota
+// semantics follow PHP: -1 on the DB means unlimited and is rejected
+// under a finite client quota, 0 is rejected when the client has a
+// positive quota limit, and the sum of quotas may never exceed the
+// limit.
+func databaseCreateChecks(ctx context.Context, db *gorm.DB, client *model.Client, body map[string]any) error {
+	// Client may only place databases on its allow-listed servers.
+	if serverID := bodyNum(body, "server_id"); serverID > 0 && client.DBServers != "" {
+		allowed := false
+		for s := range strings.SplitSeq(client.DBServers, ",") {
+			if strings.TrimSpace(s) == strconv.FormatInt(serverID, 10) {
+				allowed = true
+				break
+			}
+		}
+		if !allowed {
+			return &LimitError{Key: "error.not_allowed_server_id"}
+		}
+	}
+
+	return checkDatabaseQuota(ctx, db, client, bodyNum(body, "database_quota"), 0)
+}
+
+// CheckDatabaseQuotaUpdate re-runs the limit_database_quota enforcement
+// for an update request (the create limit hook does not fire there):
+// excludeID keeps the record's own current quota out of the sums (PHP
+// database_edit onSubmit update path). Admin identities bypass.
+func CheckDatabaseQuotaUpdate(ctx context.Context, db *gorm.DB, id *repository.Identity, newQuota, excludeID int64) error {
+	if id == nil || id.IsAdmin() {
+		return nil
+	}
+	client, err := owningClient(ctx, db, id)
+	if err != nil || client == nil {
+		return err
+	}
+	return checkDatabaseQuota(ctx, db, client, newQuota, excludeID)
+}
+
+// checkDatabaseQuota enforces limit_database_quota at client and
+// reseller level: -1 on the DB is rejected under a finite limit, 0 under
+// a positive limit, and the summed quotas may never exceed the limit.
+func checkDatabaseQuota(ctx context.Context, db *gorm.DB, client *model.Client, newQuota, excludeID int64) error {
+	if client.LimitDatabaseQuota < 0 {
+		return nil
+	}
+	if newQuota < 0 || (client.LimitDatabaseQuota > 0 && newQuota == 0) {
+		return &LimitError{Key: "error.limit_database_quota"}
+	}
+	group, err := clientGroupID(ctx, db, client.ClientID)
+	if err != nil {
+		return err
+	}
+	var used int64
+	err = db.WithContext(ctx).Table("web_database").
+		Where("sys_groupid = ? AND database_id != ?", group, excludeID).
+		Select("COALESCE(SUM(database_quota), 0)").Scan(&used).Error
+	if err != nil {
+		return fmt.Errorf("clients: summing database quota: %w", err)
+	}
+	if used+newQuota > int64(client.LimitDatabaseQuota) {
+		return &LimitError{Key: "error.limit_database_quota"}
+	}
+
+	// Reseller quota cap across all its clients.
+	if client.ParentClientID == 0 {
+		return nil
+	}
+	var reseller model.Client
+	err = db.WithContext(ctx).Where("client_id = ?", client.ParentClientID).Take(&reseller).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("clients: loading reseller %d: %w", client.ParentClientID, err)
+	}
+	if reseller.LimitDatabaseQuota < 0 {
+		return nil
+	}
+	var resellerUsed int64
+	err = db.WithContext(ctx).Table("web_database t").
+		Joins("JOIN sys_group g ON g.groupid = t.sys_groupid").
+		Joins("JOIN client c ON c.client_id = g.client_id").
+		Where("(c.parent_client_id = ? OR c.client_id = ?) AND t.database_id != ?",
+			reseller.ClientID, reseller.ClientID, excludeID).
+		Select("COALESCE(SUM(t.database_quota), 0)").Scan(&resellerUsed).Error
+	if err != nil {
+		return fmt.Errorf("clients: summing reseller database quota: %w", err)
+	}
+	if resellerUsed+newQuota > int64(reseller.LimitDatabaseQuota) {
+		return &LimitError{Key: "error.limit_database_quota"}
+	}
+	return nil
+}
+
+// bodyNum reads a numeric JSON body value (float64 or numeric string).
+func bodyNum(body map[string]any, key string) int64 {
+	switch v := body[key].(type) {
+	case float64:
+		return int64(v)
+	case int:
+		return int64(v)
+	case string:
+		n, _ := strconv.ParseInt(strings.TrimSpace(v), 10, 64)
+		return n
+	default:
+		return 0
 	}
 }
 

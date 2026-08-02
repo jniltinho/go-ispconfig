@@ -55,3 +55,9 @@ func (SpamfilterWblist) DBHistory() bool { return true }
 
 // DBHistory reports that spamfilter_policy mutations are datalogged.
 func (SpamfilterPolicy) DBHistory() bool { return true }
+
+// DBHistory reports that web_database mutations are datalogged.
+func (WebDatabase) DBHistory() bool { return true }
+
+// DBHistory reports that web_database_user mutations are datalogged.
+func (WebDatabaseUser) DBHistory() bool { return true }

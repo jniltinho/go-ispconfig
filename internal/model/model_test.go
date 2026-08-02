@@ -71,6 +71,7 @@ var allModels = []any{
 	ClientTemplate{}, ClientTemplateAssigned{}, ClientMessageTemplate{}, Country{},
 	MailDomain{}, MailUser{}, MailForwarding{}, MailTransport{}, MailAccess{},
 	SpamfilterPolicy{}, SpamfilterUser{}, SpamfilterWblist{},
+	WebDatabase{}, WebDatabaseUser{},
 }
 
 // TestModelsMatchDDL asserts that every GORM model maps exactly the columns
@@ -140,12 +141,14 @@ func goTypeClass(typ reflect.Type) string {
 func TestModelTypesMatchDDL(t *testing.T) {
 	ddl := ddlColumns(t)
 	critical := map[string]any{
-		"sys_datalog": SysDatalog{},
-		"server":      Server{},
-		"web_domain":  WebDomain{},
-		"dns_soa":     DNSSoa{},
-		"dns_rr":      DNSRr{},
-		"client":      Client{},
+		"sys_datalog":       SysDatalog{},
+		"server":            Server{},
+		"web_domain":        WebDomain{},
+		"dns_soa":           DNSSoa{},
+		"dns_rr":            DNSRr{},
+		"client":            Client{},
+		"web_database":      WebDatabase{},
+		"web_database_user": WebDatabaseUser{},
 	}
 
 	cache := &sync.Map{}

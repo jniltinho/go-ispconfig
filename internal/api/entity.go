@@ -561,6 +561,25 @@ func (h *entityHandlers[T]) setField(ctx context.Context, rec *T, column string,
 			return nil // leave the zero value
 		}
 	}
+	// GORM's field setter does not parse strings into numeric pointer
+	// columns (nullable ints like database_quota); forms submit every
+	// value as a string, so convert here.
+	if s, ok := value.(string); ok && f.FieldType.Kind() == reflect.Pointer {
+		switch f.FieldType.Elem().Kind() {
+		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+			if n, err := strconv.ParseInt(s, 10, 64); err == nil {
+				value = n
+			}
+		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+			if n, err := strconv.ParseUint(s, 10, 64); err == nil {
+				value = n
+			}
+		case reflect.Float32, reflect.Float64:
+			if n, err := strconv.ParseFloat(s, 64); err == nil {
+				value = n
+			}
+		}
+	}
 	if err := f.Set(ctx, reflect.ValueOf(rec).Elem(), value); err != nil {
 		return &ValidationError{Fields: map[string][]string{column: {"error.validation.type"}}}
 	}
@@ -579,6 +598,14 @@ func (h *entityHandlers[T]) fieldString(ctx context.Context, rec *T, column stri
 	v, zero := f.ValueOf(ctx, reflect.ValueOf(rec))
 	if v == nil {
 		return ""
+	}
+	// Nullable columns are pointers; validators consume the pointed-to
+	// value (a nil pointer reads as empty, SQL NULL).
+	if rv := reflect.ValueOf(v); rv.Kind() == reflect.Pointer {
+		if rv.IsNil() {
+			return ""
+		}
+		v = rv.Elem().Interface()
 	}
 	if s, ok := v.(string); ok {
 		return s
