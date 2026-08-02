@@ -136,9 +136,9 @@ vagrant-test:
 		&& vagrant upload smoke-test.sh /tmp/smoke-test.sh $(VM) \
 		&& vagrant ssh $(VM) -c "sudo PANEL_IP=$(PANEL_IP) bash /tmp/smoke-test.sh"
 
-## Destroy every rig VM
+## Destroy the installer rig VMs (standing lab VMs legacy/legacy-apache are kept)
 vagrant-destroy:
-	cd vagrant && vagrant destroy -f
+	cd vagrant && vagrant destroy -f ubuntu debian
 
 ## Bring up the comparison lab: go-ispconfig (.10) + legacy PHP ISPConfig (.20)
 vagrant-lab-up: build-linux
@@ -178,6 +178,6 @@ help:
 	@echo "  build-linux      - Cross-build linux/amd64 binary (Vagrant rig)"
 	@echo "  vagrant-up       - Build binary + vagrant up (VM=ubuntu|debian)"
 	@echo "  vagrant-test     - Run smoke test in the guest (VM=ubuntu|debian)"
-	@echo "  vagrant-destroy  - Destroy all rig VMs"
+	@echo "  vagrant-destroy  - Destroy installer rig VMs (keeps standing lab)"
 	@echo "  vagrant-lab-up   - Bring up go-ispconfig + legacy comparison VMs"
 	@echo "  vagrant-parity-test - Run the parity suite against both panels"

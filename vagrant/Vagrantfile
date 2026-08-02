@@ -1,11 +1,17 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 #
-# Test rig for the go-ispconfig installer (openspec add-installer-cli, D11).
+# Test rig for the go-ispconfig installer (openspec add-installer-cli, D11)
+# plus the standing legacy lab (openspec add-legacy-test-lab).
 #
-#   ubuntu (default)  bento/ubuntu-24.04  192.168.56.10
-#   debian (opt-in)   bento/debian-12     192.168.56.11
-#   legacy (opt-in)   bento/ubuntu-24.04  192.168.56.20  PHP ISPConfig3 (nginx+bind)
+#   ubuntu (default)         bento/ubuntu-24.04  192.168.56.10  go-ispconfig panel
+#   debian (opt-in)          bento/debian-12     192.168.56.11  go-ispconfig panel
+#   legacy (lab)             bento/ubuntu-24.04  192.168.56.20  PHP ISPConfig3 nginx (full stack: mail+Roundcube)
+#   legacy-apache (lab)      bento/ubuntu-24.04  192.168.56.21  PHP ISPConfig3 apache2 (full stack: mail+Roundcube)
+#
+# `legacy` and `legacy-apache` are STANDING LAB machines (see vagrant/lab/):
+# `make vagrant-destroy` never touches them — destroy explicitly with
+# `vagrant destroy -f legacy legacy-apache` only when reprovisioning.
 #
 # `make vagrant-up` builds the linux/amd64 binary first; provisioning copies
 # it into the guest and runs `go-ispconfig install --yes` with fixed answers.
@@ -17,8 +23,9 @@ INSTALL = <<~SHELL
     --hostname "$1" --admin-email admin@goisp.test
 SHELL
 
-# Fixed legacy admin password for the parity tests (test rig only).
-LEGACY_ADMIN_PW = "GoIspParity2026"
+# Fixed legacy panel credentials for the lab/parity tests (test rig only).
+LEGACY_ADMIN_PW  = "GoIspParity2026"   # panel admin on both legacy VMs
+LEGACY_REMOTE_PW = "GoIspRemote2026"   # remote-API user `goisp-lab` (full grants)
 
 Vagrant.configure("2") do |config|
   config.vm.provider "virtualbox" do |vb|
@@ -40,12 +47,23 @@ Vagrant.configure("2") do |config|
     end
   end
 
-  # Legacy PHP ISPConfig3 comparison VM (parity baseline + migration source).
-  config.vm.define "legacy", autostart: false do |m|
-    m.vm.box = "bento/ubuntu-24.04"
-    m.vm.hostname = "legacy.goisp.test"
-    m.vm.network "private_network", ip: "192.168.56.20"
-    m.vm.provision "shell", path: "provision-legacy.sh",
-                            env: { "ADMIN_PW" => LEGACY_ADMIN_PW }
+  # Standing legacy PHP ISPConfig3 lab VMs (parity baseline + migration source,
+  # read/write playground — full stack: web + bind + mail + Roundcube).
+  { "legacy"        => ["192.168.56.20", "nginx"],
+    "legacy-apache" => ["192.168.56.21", "apache"] }.each do |name, (ip, web)|
+    config.vm.define name, autostart: false do |m|
+      m.vm.box = "bento/ubuntu-24.04"
+      m.vm.hostname = "#{name}.goisp.test"
+      m.vm.network "private_network", ip: ip
+      m.vm.provider "virtualbox" do |vb|
+        vb.memory = 6144   # full stack (postfix/dovecot/rspamd/clamav) needs headroom
+        vb.cpus = 2
+      end
+      m.vm.provision "shell", path: "provision-legacy.sh",
+                              env: { "ADMIN_PW"   => LEGACY_ADMIN_PW,
+                                     "REMOTE_PW"  => LEGACY_REMOTE_PW,
+                                     "WEB_SERVER" => web,
+                                     "PANEL_IP"   => ip }
+    end
   end
 end
