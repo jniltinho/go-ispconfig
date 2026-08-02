@@ -69,7 +69,43 @@ func (p *Plugin) applyWebDomain(ctx context.Context, action string, oldRow, newR
 	if err := p.ensureSite(ctx, s); err != nil {
 		return err
 	}
-	return p.applyVhost(ctx, s)
+	// Let's Encrypt issuance runs before the vhost render so the -le cert
+	// files exist when the vhost referencing them is written. Failures are
+	// non-fatal (surfaced as datalog errors): the site falls back to its
+	// previous cert or to non-SSL.
+	leWarnings := p.maybeRequestLE(ctx, &s)
+	if err := p.applyVhost(ctx, s); err != nil {
+		return errors.Join(append(leWarnings, err)...)
+	}
+	return errors.Join(leWarnings...)
+}
+
+// maybeRequestLE issues a Let's Encrypt certificate when the site turned LE
+// on, changed its domain/subdomain (port of the request_certificates gate in
+// update()). Warnings are returned for the datalog; the certificate files are
+// what the vhost render then keys off.
+func (p *Plugin) maybeRequestLE(ctx context.Context, s *site) []error {
+	d, old := s.new, s.old
+	if d.str("ssl") != "y" || d.str("ssl_letsencrypt") != "y" {
+		return nil
+	}
+	changed := old.str("ssl") == "n" || old.str("ssl_letsencrypt") == "n" ||
+		old.str("domain") != d.str("domain") || old.str("subdomain") != d.str("subdomain")
+	if !changed {
+		return nil
+	}
+	cfg := webLEConfig{
+		signatureType: s.cfg.LeSignatureType,
+		skipCheck:     s.cfg.SkipLeCheck == "y",
+	}
+	ok, err := p.requestCert(ctx, cfg, d)
+	if err != nil {
+		return []error{err}
+	}
+	if ok {
+		s.sslChanged = true
+	}
+	return nil
 }
 
 // applyParent loads the active parent web_domain row and re-applies it as an

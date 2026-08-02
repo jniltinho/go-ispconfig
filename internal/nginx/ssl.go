@@ -167,6 +167,25 @@ func (p *Plugin) sslDelete(_ context.Context, d row, csr, crt string) error {
 	return nil
 }
 
+// certPaths returns the effective key/crt/bundle files the vhost references:
+// the self-signed <domain>.{key,crt} normally, or the Let's Encrypt
+// <domain>-le.{key,crt} files when ssl_letsencrypt is enabled (port of
+// get_website_certificate_paths).
+func certPaths(d row) (key, crt, bundle string) {
+	docroot := d.str("document_root")
+	if d.str("ssl") == "y" && d.str("ssl_letsencrypt") == "y" {
+		return leCertPaths(docroot, leSSLDomain(d))
+	}
+	domain := d.str("ssl_domain")
+	if domain == "" {
+		domain = d.str("domain")
+	}
+	dir := filepath.Join(docroot, "ssl")
+	return filepath.Join(dir, domain+".key"),
+		filepath.Join(dir, domain+".crt"),
+		filepath.Join(dir, domain+".bundle")
+}
+
 // opensslSubject builds the certificate subject DN, omitting empty fields.
 func opensslSubject(d row, cn string) string {
 	var b strings.Builder

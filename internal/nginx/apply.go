@@ -93,9 +93,10 @@ func (p *Plugin) loadVhostInput(ctx context.Context, s site) (vhostInput, error)
 		in.oldServerPHP = oldPHP
 	}
 
-	// SSL is enabled only when both cert files exist non-empty (PHP parity).
-	paths := sslFilePaths(d)
-	key, crt := paths[0], paths[2]
+	// SSL is enabled only when both cert files exist non-empty (PHP parity);
+	// the LE-aware paths are checked so a letsencrypt site looks at its -le
+	// files.
+	key, crt, _ := certPaths(d)
 	if ki, err := os.Stat(key); err == nil && ki.Size() > 0 {
 		if ci, err := os.Stat(crt); err == nil && ci.Size() > 0 {
 			in.sslFilesExist = true

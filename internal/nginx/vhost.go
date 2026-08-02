@@ -173,15 +173,17 @@ func buildVhost(in vhostInput) (map[string]any, map[string][]map[string]any, fpm
 	vars["php_fpm_chroot_web_folder"] = "/" + strings.Trim(webFolder, "/")
 	vars["rnd_php_dummy_file"] = in.dummyFile
 
-	// SSL: enabled only when the cert files actually exist.
+	// SSL: enabled only when the cert files actually exist. Let's Encrypt
+	// sites reference the -le suffixed files.
 	sslDomain := d.str("ssl_domain")
 	if sslDomain == "" {
 		sslDomain = domain
 	}
+	key, crt, bundle := certPaths(d)
 	vars["ssl_domain"] = sslDomain
-	vars["ssl_crt_file"] = docroot + "/ssl/" + sslDomain + ".crt"
-	vars["ssl_key_file"] = docroot + "/ssl/" + sslDomain + ".key"
-	vars["ssl_bundle_file"] = docroot + "/ssl/" + sslDomain + ".bundle"
+	vars["ssl_crt_file"] = crt
+	vars["ssl_key_file"] = key
+	vars["ssl_bundle_file"] = bundle
 	if d.str("ssl") == "y" && in.sslFilesExist {
 		vars["ssl_enabled"] = 1
 	} else {

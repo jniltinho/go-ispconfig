@@ -30,6 +30,14 @@ func (r *leRunner) Run(_ context.Context, name string, args ...string) ([]byte, 
 	if r.fail[name] {
 		return []byte("boom"), assertErr("issuance failed")
 	}
+	// acme.sh --install-cert writes the key/fullchain files; emulate that so
+	// the pipeline sees the installed -le files.
+	for i, a := range args {
+		if (a == "--key-file" || a == "--fullchain-file") && i+1 < len(args) {
+			_ = os.MkdirAll(filepath.Dir(args[i+1]), 0o755)
+			_ = os.WriteFile(args[i+1], []byte("PEM"), 0o644)
+		}
+	}
 	return nil, nil
 }
 
