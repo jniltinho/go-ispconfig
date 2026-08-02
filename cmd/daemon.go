@@ -70,11 +70,12 @@ var daemonCmd = &cobra.Command{
 		// datalog rows broadcast with server_id = 0 to every node.
 		modules := []engine.Module{web.NewModule(), clientModule}
 		plugins := []engine.Plugin{nginxPlugin}
+		var mailPlugin *mail.Plugin
 		// Mail module: only on mail servers (mail-module-events spec:
 		// server.mail_server = 1).
 		if srv.MailServer == 1 && !cfg.Daemon.DisableMailModule {
 			modules = append(modules, mail.NewModule())
-			mailPlugin := mail.NewPlugin(db, services, runner, srv.ServerID, logger)
+			mailPlugin = mail.NewPlugin(db, services, runner, srv.ServerID, logger)
 			plugins = append(plugins, mailPlugin,
 				mail.NewMaildeliverPlugin(mailPlugin, cfg.Templates.CustomDir),
 				mail.NewDkimPlugin(mailPlugin),
@@ -121,6 +122,11 @@ var daemonCmd = &cobra.Command{
 		}
 		if dnsPlugin != nil {
 			if err := dnsPlugin.RegisterResign(sched); err != nil {
+				return err
+			}
+		}
+		if mailPlugin != nil {
+			if err := mailPlugin.RegisterPurgeJob(sched); err != nil {
 				return err
 			}
 		}
