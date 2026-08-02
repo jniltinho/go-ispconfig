@@ -60,6 +60,8 @@ func TestMigrateFromFullRun(t *testing.T) {
 		require.Contains(t, out, "rsync -a --usermap")
 		require.Contains(t, out, "Operational order:")
 		require.Contains(t, out, "web_domain: 1201/1201", "progress lines printed")
+		require.Contains(t, out, "Run again with --reset-passwords",
+			"reset flow hinted prominently when the flag is not passed")
 		// No credentials anywhere in the output.
 		require.NotContains(t, out, s.Password)
 	})
@@ -101,4 +103,24 @@ func TestMigrateFromFullRun(t *testing.T) {
 		}
 		require.Equal(t, 3, lines)
 	})
+}
+
+// TestMigrateFromResetFlag runs a fresh import with --reset-passwords and
+// asserts the flag flow prints one token per recreated panel user.
+func TestMigrateFromResetFlag(t *testing.T) {
+	db := setupMigrateDB(t)
+	s := legacytest.New()
+	t.Cleanup(s.Close)
+
+	opts := migrateFromOpts{
+		url: s.URL, user: s.Username, password: s.Password,
+		only: "clients", resetPasswords: true,
+	}
+	out, _, err := run(t, opts, func() (*gorm.DB, error) { return db, nil })
+	require.NoError(t, err)
+	require.Contains(t, out, "One-time password reset tokens")
+	for _, u := range []string{"reseller1", "client2", "client3"} {
+		require.Contains(t, out, u)
+	}
+	require.NotContains(t, out, s.Password)
 }
