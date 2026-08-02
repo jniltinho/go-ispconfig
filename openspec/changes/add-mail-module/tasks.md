@@ -28,7 +28,7 @@
 ## 5. DKIM plugin + DNSPublisher
 
 - [x] 5.1 Define `DNSPublisher` interface (UpsertTXT/DeleteTXT) with no-op implementation; DNS-module adapter that upserts `dns_rr` TXT, deletes prior DKIM records, bumps SOA serial via existing NextSerial + datalog through DNS repositories; unit tests. Commit.
-- [ ] 5.2 Implement API-side DKIM key generate/derive/validate (strength from getconf, selector rules); store on `mail_domain`; never log private keys. Commit.
+- [x] 5.2 Implement API-side DKIM key generate/derive/validate (strength from getconf, selector rules); store on `mail_domain`; never log private keys. Commit.
 - [ ] 5.3 Implement dkimPlugin filesystem: ensure dkim_path, write/remove `.private`/`.public`, maintain Rspamd `dkim_domains.map` / `dkim_selectors.map`, delayed rspamd reload; domain rename/disable/delete transitions; tests. Commit.
 - [ ] 5.4 Wire domain save to DNSPublisher when active+dkim; return suggested TXT + `dns_published` flag when no zone; tests for publish/unpublish/no-zone. Commit.
 
