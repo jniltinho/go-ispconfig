@@ -2,7 +2,7 @@
 
 ## 1. Models and getconf
 
-- [ ] 1.1 Add GORM models for `mail_domain`, `mail_user`, `mail_forwarding`, `mail_transport`, `mail_access` with explicit `gorm:"column:..."` tags matching `internal/database/ispconfig3.sql` (incl. sys_* riud fields); unit-test round-trip against MariaDB. Commit.
+- [x] 1.1 Add GORM models for `mail_domain`, `mail_user`, `mail_forwarding`, `mail_transport`, `mail_access` with explicit `gorm:"column:..."` tags matching `internal/database/ispconfig3.sql` (incl. sys_* riud fields); unit-test round-trip against MariaDB. Commit.
 - [ ] 1.2 Add GORM models for `spamfilter_policy`, `spamfilter_users`, `spamfilter_wblist` with explicit column tags; unit-test round-trip. Commit.
 - [ ] 1.3 Add typed `MailConfig` getconf section (`homedir_path`, `mailuser_uid/gid/name/group`, `mailbox_virtual_uidgid_maps`, `mailbox_soft_delete`, `pop3_imap_daemon`, `dkim_path`, `dkim_strength`, `content_filter`, `relayhost*`, `sendmail_path`) with Debian/Ubuntu defaults and parse tests. Commit.
 

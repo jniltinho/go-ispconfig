@@ -31,7 +31,7 @@ func ddlColumns(t *testing.T) map[string]map[string]ddlColumn {
 
 	tables := map[string]map[string]ddlColumn{}
 	reCreate := regexp.MustCompile("^CREATE TABLE (?:IF NOT EXISTS )?`(\\w+)`")
-	reCol := regexp.MustCompile("^\\s*`(\\w+)`\\s+(\\w+)(.*)$")
+	reCol := regexp.MustCompile("^\\s*`([\\w-]+)`\\s+(\\w+)(.*)$")
 	var current string
 	for _, line := range strings.Split(string(raw), "\n") {
 		if m := reCreate.FindStringSubmatch(line); m != nil {
@@ -69,6 +69,7 @@ var allModels = []any{
 	Client{}, WebDomain{}, WebFolder{}, WebFolderUser{},
 	DNSSoa{}, DNSRr{}, DNSSlave{}, DNSTemplate{},
 	ClientTemplate{}, ClientTemplateAssigned{}, ClientMessageTemplate{}, Country{},
+	MailDomain{}, MailUser{}, MailForwarding{}, MailTransport{}, MailAccess{},
 }
 
 // TestModelsMatchDDL asserts that every GORM model maps exactly the columns
