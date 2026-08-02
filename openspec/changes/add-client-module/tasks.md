@@ -4,7 +4,7 @@
 
 - [x] 1.1 Add GORM models for `client_template`, `client_template_assigned`, `client_message_template` and `country` with explicit `gorm:"column:..."` tags matching `ispconfig3.sql`; confirm existing `Client` / `SysUser` / `SysGroup` models cover every column used by this change; unit-test round-trip against MariaDB. Commit.
 - [x] 1.2 Implement client domain helpers: reseller detection (`limit_client != 0`), parent validation (one-level nesting), username uniqueness against `client` + `sys_user`, password hashing via `auth.HashPassword` for new passwords. Table-driven tests. Commit.
-- [ ] 1.3 Implement atomic provisioner: on client create, insert `sys_group` + `sys_user`, append group to parent reseller `sys_user.groups`, stamp ownership; on update sync username/password/language/modules; on delete remove identity rows and detach parent groups — all datalog-aware in one transaction. Tests for create/update/delete paths. Commit.
+- [x] 1.3 Implement atomic provisioner: on client create, insert `sys_group` + `sys_user`, append group to parent reseller `sys_user.groups`, stamp ownership; on update sync username/password/language/modules; on delete remove identity rows and detach parent groups — all datalog-aware in one transaction. Tests for create/update/delete paths. Commit.
 
 ## 2. Limit templates and enforcement
 
