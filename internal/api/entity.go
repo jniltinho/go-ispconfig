@@ -561,6 +561,25 @@ func (h *entityHandlers[T]) setField(ctx context.Context, rec *T, column string,
 			return nil // leave the zero value
 		}
 	}
+	// GORM's field setter does not parse strings into numeric pointer
+	// columns (nullable ints like database_quota); forms submit every
+	// value as a string, so convert here.
+	if s, ok := value.(string); ok && f.FieldType.Kind() == reflect.Pointer {
+		switch f.FieldType.Elem().Kind() {
+		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+			if n, err := strconv.ParseInt(s, 10, 64); err == nil {
+				value = n
+			}
+		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+			if n, err := strconv.ParseUint(s, 10, 64); err == nil {
+				value = n
+			}
+		case reflect.Float32, reflect.Float64:
+			if n, err := strconv.ParseFloat(s, 64); err == nil {
+				value = n
+			}
+		}
+	}
 	if err := f.Set(ctx, reflect.ValueOf(rec).Elem(), value); err != nil {
 		return &ValidationError{Fields: map[string][]string{column: {"error.validation.type"}}}
 	}

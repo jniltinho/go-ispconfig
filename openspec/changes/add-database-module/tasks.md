@@ -43,7 +43,7 @@
 - [x] 6.2 Database form (server, parent site, name+prefix, quota, charset, rw/ro users, remote access/IPs, active, backup_interval); respect edit locks and `disable_client_remote_dbserver`; API errors inline. Commit.
 - [x] 6.3 Database-user form (server, username+prefix, password); empty password on edit means unchanged. Commit.
 - [x] 6.4 phpMyAdmin external link action with `[SERVERNAME]` / `[DATABASENAME]` substitution when configured. Commit.
-- [ ] 6.5 agent-browser E2E: create user, create database for a site, remote access toggle, password change, deletes; screenshots to `docs/prints/`. Commit.
+- [x] 6.5 agent-browser E2E: create user, create database for a site, remote access toggle, password change, deletes; screenshots to `docs/prints/`. Commit.
 
 ## 7. Integration and docs
 
