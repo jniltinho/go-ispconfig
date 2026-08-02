@@ -1,0 +1,18 @@
+// Managed by go-ispconfig install (port of install/tpl/named.conf.options.master).
+// Local edits are backed up to named.conf.options.bak-<ts> before overwrite.
+options {
+	directory "/var/cache/bind";
+
+	// If your ISP provided one or more IP addresses for stable
+	// nameservers, you probably want to use them as forwarders.
+	// forwarders {
+	// 	0.0.0.0;
+	// };
+
+	version "unknown";
+
+	allow-transfer {none;};
+
+	auth-nxdomain no;    # conform to RFC1035
+	listen-on-v6 { any; };
+};
