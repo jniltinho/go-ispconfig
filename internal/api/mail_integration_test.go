@@ -286,3 +286,55 @@ func TestMailForwardingAndTransportAPI(t *testing.T) {
 		require.Contains(t, string(data), "domain_is_maildomain")
 	})
 }
+
+func TestMailAccessAndSpamfilterAPI(t *testing.T) {
+	_, srv, cookie, csrf := newMailTestEnv(t)
+
+	t.Run("mail access CRUD", func(t *testing.T) {
+		status, data := call(t, srv, http.MethodPost, "/api/mail/access", cookie, csrf,
+			map[string]any{"server_id": 1, "source": "spammer@bad.example",
+				"access": "REJECT", "type": "sender", "active": "y"})
+		require.Equal(t, http.StatusCreated, status, "%s", data)
+		var rec map[string]any
+		require.NoError(t, json.Unmarshal(data, &rec))
+		assert.Equal(t, "sender", rec["type"])
+	})
+
+	var policyID float64
+	t.Run("spamfilter policy is admin-scoped", func(t *testing.T) {
+		status, data := call(t, srv, http.MethodPost, "/api/mail/spamfilter/policies", cookie, csrf,
+			map[string]any{"policy_name": "Normal", "rspamd_greylisting": "y",
+				"rspamd_spam_kill_level": 15, "rspamd_spam_tag_level": 6})
+		require.Equal(t, http.StatusCreated, status, "%s", data)
+		var rec map[string]any
+		require.NoError(t, json.Unmarshal(data, &rec))
+		policyID = rec["id"].(float64)
+		assert.Equal(t, "Normal", rec["policy_name"])
+	})
+
+	var ridUser float64
+	t.Run("spamfilter user unique email + policy link", func(t *testing.T) {
+		status, data := call(t, srv, http.MethodPost, "/api/mail/spamfilter/users", cookie, csrf,
+			map[string]any{"server_id": 1, "email": "u@box.example",
+				"policy_id": policyID, "priority": 7})
+		require.Equal(t, http.StatusCreated, status, "%s", data)
+		var rec map[string]any
+		require.NoError(t, json.Unmarshal(data, &rec))
+		ridUser = rec["id"].(float64)
+
+		status, data = call(t, srv, http.MethodPost, "/api/mail/spamfilter/users", cookie, csrf,
+			map[string]any{"server_id": 1, "email": "u@box.example", "policy_id": policyID})
+		require.Equal(t, http.StatusUnprocessableEntity, status, "%s", data)
+		require.Contains(t, string(data), "email_error_unique")
+	})
+
+	t.Run("spamfilter wblist entry", func(t *testing.T) {
+		status, data := call(t, srv, http.MethodPost, "/api/mail/spamfilter/wblists", cookie, csrf,
+			map[string]any{"server_id": 1, "wb": "W", "rid": ridUser,
+				"email": "friend@good.example", "active": "y"})
+		require.Equal(t, http.StatusCreated, status, "%s", data)
+		var rec map[string]any
+		require.NoError(t, json.Unmarshal(data, &rec))
+		assert.Equal(t, "W", rec["wb"])
+	})
+}

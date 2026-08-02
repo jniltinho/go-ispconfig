@@ -338,3 +338,96 @@ func mailTransportListDoc() {}
 //	@Security		CookieAuth
 //	@Security		BearerAuth
 func mailTransportCreateDoc() {}
+
+// Swaggo annotations for the access + spamfilter endpoints.
+var _ = []any{
+	mailAccessListDoc, mailAccessCreateDoc, spamPolicyListDoc, spamPolicyCreateDoc,
+	spamUserCreateDoc, spamWblistCreateDoc,
+}
+
+// mailAccessListDoc documents GET /api/mail/access.
+//
+//	@Summary		List mail access entries
+//	@Description	mail_access rows (recipient/sender/client). The daemon renders them into Rspamd global wblist maps.
+//	@Tags			mail-access
+//	@Produce		json
+//	@Success		200	{object}	ListResponse
+//	@Failure		401	{object}	ErrorResponse
+//	@Router			/mail/access [get]
+//	@Security		CookieAuth
+//	@Security		BearerAuth
+func mailAccessListDoc() {}
+
+// mailAccessCreateDoc documents POST /api/mail/access.
+//
+//	@Summary		Create a mail access entry
+//	@Description	type recipient/sender/client, access e.g. OK/REJECT. Unique (server_id, source, type).
+//	@Tags			mail-access
+//	@Accept			json
+//	@Produce		json
+//	@Param			record	body		model.MailAccess	true	"source, access, type"
+//	@Success		201		{object}	model.MailAccess
+//	@Failure		422		{object}	ErrorResponse
+//	@Router			/mail/access [post]
+//	@Security		CookieAuth
+//	@Security		BearerAuth
+func mailAccessCreateDoc() {}
+
+// spamPolicyListDoc documents GET /api/mail/spamfilter/policies.
+//
+//	@Summary		List spamfilter policies
+//	@Description	Admin only. Rspamd thresholds per policy.
+//	@Tags			spamfilter
+//	@Produce		json
+//	@Success		200	{object}	ListResponse
+//	@Failure		403	{object}	ErrorResponse
+//	@Router			/mail/spamfilter/policies [get]
+//	@Security		CookieAuth
+//	@Security		BearerAuth
+func spamPolicyListDoc() {}
+
+// spamPolicyCreateDoc documents POST /api/mail/spamfilter/policies.
+//
+//	@Summary		Create a spamfilter policy
+//	@Description	Admin only. No daemon table hook — settings refresh when a dependent spamfilter user/mailbox event fires (design D2).
+//	@Tags			spamfilter
+//	@Accept			json
+//	@Produce		json
+//	@Param			record	body		model.SpamfilterPolicy	true	"policy fields"
+//	@Success		201		{object}	model.SpamfilterPolicy
+//	@Failure		403		{object}	ErrorResponse
+//	@Failure		422		{object}	ErrorResponse
+//	@Router			/mail/spamfilter/policies [post]
+//	@Security		CookieAuth
+//	@Security		BearerAuth
+func spamPolicyCreateDoc() {}
+
+// spamUserCreateDoc documents POST /api/mail/spamfilter/users.
+//
+//	@Summary		Create a spamfilter user
+//	@Description	Assigns a policy to an email/@domain identity (unique email). The daemon rewrites that identity's Rspamd settings.
+//	@Tags			spamfilter
+//	@Accept			json
+//	@Produce		json
+//	@Param			record	body		model.SpamfilterUser	true	"email, policy_id, priority"
+//	@Success		201		{object}	model.SpamfilterUser
+//	@Failure		422		{object}	ErrorResponse
+//	@Router			/mail/spamfilter/users [post]
+//	@Security		CookieAuth
+//	@Security		BearerAuth
+func spamUserCreateDoc() {}
+
+// spamWblistCreateDoc documents POST /api/mail/spamfilter/wblists.
+//
+//	@Summary		Create a spamfilter white/blacklist entry
+//	@Description	wb W or B, rid references a spamfilter user. The daemon renders a per-user Rspamd wblist conf.
+//	@Tags			spamfilter
+//	@Accept			json
+//	@Produce		json
+//	@Param			record	body		model.SpamfilterWblist	true	"wb, rid, email"
+//	@Success		201		{object}	model.SpamfilterWblist
+//	@Failure		422		{object}	ErrorResponse
+//	@Router			/mail/spamfilter/wblists [post]
+//	@Security		CookieAuth
+//	@Security		BearerAuth
+func spamWblistCreateDoc() {}

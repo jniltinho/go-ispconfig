@@ -2886,6 +2886,86 @@
                 }
             }
         },
+        "/mail/access": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "mail_access rows (recipient/sender/client). The daemon renders them into Rspamd global wblist maps.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "mail-access"
+                ],
+                "summary": "List mail access entries",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.ListResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "type recipient/sender/client, access e.g. OK/REJECT. Unique (server_id, source, type).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "mail-access"
+                ],
+                "summary": "Create a mail access entry",
+                "parameters": [
+                    {
+                        "description": "source, access, type",
+                        "name": "record",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.MailAccess"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/model.MailAccess"
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/mail/alias-domains": {
             "post": {
                 "security": [
@@ -3819,6 +3899,188 @@
                     },
                     "403": {
                         "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/mail/spamfilter/policies": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Admin only. Rspamd thresholds per policy.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "spamfilter"
+                ],
+                "summary": "List spamfilter policies",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.ListResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Admin only. No daemon table hook — settings refresh when a dependent spamfilter user/mailbox event fires (design D2).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "spamfilter"
+                ],
+                "summary": "Create a spamfilter policy",
+                "parameters": [
+                    {
+                        "description": "policy fields",
+                        "name": "record",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.SpamfilterPolicy"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/model.SpamfilterPolicy"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/mail/spamfilter/users": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Assigns a policy to an email/@domain identity (unique email). The daemon rewrites that identity's Rspamd settings.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "spamfilter"
+                ],
+                "summary": "Create a spamfilter user",
+                "parameters": [
+                    {
+                        "description": "email, policy_id, priority",
+                        "name": "record",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.SpamfilterUser"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/model.SpamfilterUser"
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/mail/spamfilter/wblists": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "wb W or B, rid references a spamfilter user. The daemon renders a per-user Rspamd wblist conf.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "spamfilter"
+                ],
+                "summary": "Create a spamfilter white/blacklist entry",
+                "parameters": [
+                    {
+                        "description": "wb, rid, email",
+                        "name": "record",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.SpamfilterWblist"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/model.SpamfilterWblist"
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
                         "schema": {
                             "$ref": "#/definitions/api.ErrorResponse"
                         }
@@ -7529,6 +7791,44 @@
                 }
             }
         },
+        "model.MailAccess": {
+            "type": "object",
+            "properties": {
+                "access": {
+                    "type": "string"
+                },
+                "accessID": {
+                    "type": "integer"
+                },
+                "active": {
+                    "type": "string"
+                },
+                "serverID": {
+                    "type": "integer"
+                },
+                "source": {
+                    "type": "string"
+                },
+                "sysGroupID": {
+                    "type": "integer"
+                },
+                "sysPermGroup": {
+                    "type": "string"
+                },
+                "sysPermOther": {
+                    "type": "string"
+                },
+                "sysPermUser": {
+                    "type": "string"
+                },
+                "sysUserID": {
+                    "type": "integer"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
         "model.MailDomain": {
             "type": "object",
             "properties": {
@@ -7861,6 +8161,252 @@
                 "virtualhost_port": {
                     "type": "string",
                     "example": "80,443"
+                }
+            }
+        },
+        "model.SpamfilterPolicy": {
+            "type": "object",
+            "properties": {
+                "addrExtensionBadHeader": {
+                    "type": "string"
+                },
+                "addrExtensionBanned": {
+                    "type": "string"
+                },
+                "addrExtensionSpam": {
+                    "type": "string"
+                },
+                "addrExtensionVirus": {
+                    "type": "string"
+                },
+                "badHeaderAdmin": {
+                    "type": "string"
+                },
+                "badHeaderLover": {
+                    "type": "string"
+                },
+                "badHeaderQuarantineTo": {
+                    "type": "string"
+                },
+                "bannedAdmin": {
+                    "type": "string"
+                },
+                "bannedFilesLover": {
+                    "type": "string"
+                },
+                "bannedQuarantineTo": {
+                    "type": "string"
+                },
+                "bannedRulenames": {
+                    "type": "string"
+                },
+                "bypassBannedChecks": {
+                    "type": "string"
+                },
+                "bypassHeaderChecks": {
+                    "type": "string"
+                },
+                "bypassSpamChecks": {
+                    "type": "string"
+                },
+                "bypassVirusChecks": {
+                    "type": "string"
+                },
+                "cleanQuarantineTo": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "messageSizeLimit": {
+                    "type": "integer"
+                },
+                "newvirusAdmin": {
+                    "type": "string"
+                },
+                "otherQuarantineTo": {
+                    "type": "string"
+                },
+                "policyName": {
+                    "type": "string"
+                },
+                "policydGreylist": {
+                    "type": "string"
+                },
+                "policydQuotaIn": {
+                    "type": "integer"
+                },
+                "policydQuotaInPeriod": {
+                    "type": "integer"
+                },
+                "policydQuotaOut": {
+                    "type": "integer"
+                },
+                "policydQuotaOutPeriod": {
+                    "type": "integer"
+                },
+                "rspamdGreylisting": {
+                    "type": "string"
+                },
+                "rspamdSpamGreylistingLevel": {
+                    "type": "number"
+                },
+                "rspamdSpamKillLevel": {
+                    "type": "number"
+                },
+                "rspamdSpamTagLevel": {
+                    "type": "number"
+                },
+                "rspamdSpamTagMethod": {
+                    "type": "string"
+                },
+                "spamAdmin": {
+                    "type": "string"
+                },
+                "spamDsnCutoffLevel": {
+                    "type": "number"
+                },
+                "spamKillLevel": {
+                    "type": "number"
+                },
+                "spamLover": {
+                    "type": "string"
+                },
+                "spamModifiesSubj": {
+                    "type": "string"
+                },
+                "spamQuarantineCutoffLevel": {
+                    "type": "number"
+                },
+                "spamQuarantineTo": {
+                    "type": "string"
+                },
+                "spamSubjectTag": {
+                    "type": "string"
+                },
+                "spamSubjectTag2": {
+                    "type": "string"
+                },
+                "spamTag2Level": {
+                    "type": "number"
+                },
+                "spamTagLevel": {
+                    "type": "number"
+                },
+                "sysGroupID": {
+                    "type": "integer"
+                },
+                "sysPermGroup": {
+                    "type": "string"
+                },
+                "sysPermOther": {
+                    "type": "string"
+                },
+                "sysPermUser": {
+                    "type": "string"
+                },
+                "sysUserID": {
+                    "type": "integer"
+                },
+                "virusAdmin": {
+                    "type": "string"
+                },
+                "virusLover": {
+                    "type": "string"
+                },
+                "virusQuarantineTo": {
+                    "type": "string"
+                },
+                "warnBadhRecip": {
+                    "type": "string"
+                },
+                "warnBannedRecip": {
+                    "type": "string"
+                },
+                "warnVirusRecip": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.SpamfilterUser": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "fullname": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "local": {
+                    "type": "string"
+                },
+                "policyID": {
+                    "type": "integer"
+                },
+                "priority": {
+                    "type": "integer"
+                },
+                "serverID": {
+                    "type": "integer"
+                },
+                "sysGroupID": {
+                    "type": "integer"
+                },
+                "sysPermGroup": {
+                    "type": "string"
+                },
+                "sysPermOther": {
+                    "type": "string"
+                },
+                "sysPermUser": {
+                    "type": "string"
+                },
+                "sysUserID": {
+                    "type": "integer"
+                }
+            }
+        },
+        "model.SpamfilterWblist": {
+            "type": "object",
+            "properties": {
+                "active": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "priority": {
+                    "type": "integer"
+                },
+                "rid": {
+                    "type": "integer"
+                },
+                "serverID": {
+                    "type": "integer"
+                },
+                "sysGroupID": {
+                    "type": "integer"
+                },
+                "sysPermGroup": {
+                    "type": "string"
+                },
+                "sysPermOther": {
+                    "type": "string"
+                },
+                "sysPermUser": {
+                    "type": "string"
+                },
+                "sysUserID": {
+                    "type": "integer"
+                },
+                "wb": {
+                    "type": "string"
+                },
+                "wblistID": {
+                    "type": "integer"
                 }
             }
         },
