@@ -24,7 +24,7 @@
 - [x] 4.1 Add System → Firewall nav (`adminOnly`) and routes for list + form; English i18n keys ported from `en_firewall.lng` / `en_firewall_list.lng` plus lock-out help text. Commit.
 - [x] 4.2 Implement firewall list with `DataTable` (active, server, tcp_port, udp_port; add/edit/delete + confirm). Commit.
 - [x] 4.3 Implement firewall form with metadata-driven `TabbedForm` (defaults, port validation, inline API errors, server immutable on edit). Commit.
-- [ ] 4.4 agent-browser E2E: admin create → edit ports → toggle active → delete; non-admin cannot open section; screenshots to `docs/prints/`. Commit.
+- [x] 4.4 agent-browser E2E: admin create → edit ports → toggle active → delete; non-admin cannot open section; screenshots to `docs/prints/`. Commit.
 
 ## 5. Integration and docs
 

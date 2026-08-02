@@ -491,7 +491,7 @@ export const router = createRouter({
           name: 'system-firewall-edit',
           component: EntityForm,
           meta: { adminOnly: true },
-          props: (route) => ({ entity: 'firewall', apiBase: '/api/firewall', backTo: '/system/firewall', id: String(route.params.id) }),
+          props: (route) => ({ entity: 'firewall', apiBase: '/api/firewall', backTo: '/system/firewall', id: String(route.params.id), readonlyFields: ['server_id'] }),
         },
         {
           path: 'system/migration',
