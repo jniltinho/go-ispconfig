@@ -14,7 +14,7 @@
 - [x] 2.4 DNS: zones for all site domains via wizard template + extra records (AAAA/CNAME/SRV/TXT); named-checkzone green on both VMs. Commit.
 - [x] 2.5 Email: mail domains, ≥2 mailboxes per VM with known passwords, one alias, one autoresponder; local delivery test between two lab mailboxes (swaks or sendmail + Dovecot check). Commit.
 - [x] 2.6 FTP users (one per WordPress site, verified real FTP login + upload) and shell users (one plain, one jailkit-chrooted, verified via SSH command). Commit.
-- [ ] 2.7 Client databases + DB users for the WordPress installs, verified by SQL connect; document credentials in `vagrant/lab/dataset.md` (test-only values). Commit.
+- [x] 2.7 Client databases + DB users for the WordPress installs, verified by SQL connect; document credentials in `vagrant/lab/dataset.md` (test-only values). Commit.
 
 ## 3. Applications
 
