@@ -40,13 +40,15 @@ func TestBuildDiff(t *testing.T) {
 		require.Equal(t, "a.tld", diff.Old["domain"])
 	})
 
-	t.Run("update carries changed fields only", func(t *testing.T) {
+	t.Run("update carries full old and new records", func(t *testing.T) {
+		// PHP datalogSave parity: unchanged fields (id, zone, origin, ...)
+		// stay in the payload — daemon plugins address related rows by them.
 		oldMap := map[string]any{"domain": "a.tld", "active": "y"}
 		newMap := map[string]any{"domain": "a.tld", "active": "n"}
 		diff, changed := buildDiff("u", oldMap, newMap)
 		require.True(t, changed)
-		require.Equal(t, map[string]any{"active": "y"}, diff.Old)
-		require.Equal(t, map[string]any{"active": "n"}, diff.New)
+		require.Equal(t, oldMap, diff.Old)
+		require.Equal(t, newMap, diff.New)
 	})
 
 	t.Run("no-op update writes nothing", func(t *testing.T) {

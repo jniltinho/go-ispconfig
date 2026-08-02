@@ -198,7 +198,7 @@ func TestEngineE2E(t *testing.T) {
 		require.Equal(t, lastDatalogID(t, db), serverUpdated(t, db))
 	})
 
-	t.Run("update journals only changed fields", func(t *testing.T) {
+	t.Run("update journals full old and new records", func(t *testing.T) {
 		var rec model.WebDomain
 		require.NoError(t, repo.Get(ctx, admin, domainID, &rec))
 		rec.Active = "n"
@@ -209,8 +209,12 @@ func TestEngineE2E(t *testing.T) {
 		require.Equal(t, "u", row.Action)
 		var data engine.Data
 		require.NoError(t, json.Unmarshal([]byte(row.Data), &data))
-		require.Equal(t, map[string]any{"active": "y"}, data.Old)
-		require.Equal(t, map[string]any{"active": "n"}, data.New)
+		// PHP datalogSave parity: full records with the changed field
+		// visible in old vs new; unchanged keys (domain, ...) stay present.
+		require.Equal(t, "y", data.Old["active"])
+		require.Equal(t, "n", data.New["active"])
+		require.Equal(t, "e2e.example", data.New["domain"])
+		require.EqualValues(t, domainID, data.New["domain_id"])
 
 		require.NoError(t, daemon.RunCycle(ctx))
 		require.Equal(t, []string{"web_domain_update"}, plugin.Reset())

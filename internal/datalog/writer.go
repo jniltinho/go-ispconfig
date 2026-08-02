@@ -119,9 +119,11 @@ func LogInsert(tx *gorm.DB, rec any, username string) error {
 	return logChange(tx, "i", nil, rec, username)
 }
 
-// LogUpdate journals a modified record with action u and a diff containing
-// only the changed fields. No row is written when nothing changed or when
-// the record is not Tracked. Call it inside the updating transaction.
+// LogUpdate journals a modified record with action u and the full old/new
+// records as data (PHP db::diffrec/datalogSave semantics: the change count
+// only gates whether a row is written). No row is written when nothing
+// changed or when the record is not Tracked. Call it inside the updating
+// transaction.
 func LogUpdate(tx *gorm.DB, oldRec, newRec any, username string) error {
 	return logChange(tx, "u", oldRec, newRec, username)
 }
@@ -198,14 +200,19 @@ func buildDiff(action string, oldMap, newMap map[string]any) (Diff, bool) {
 	case "d":
 		return Diff{Old: oldMap, New: map[string]any{}}, true
 	default: // "u"
-		diff := Diff{Old: map[string]any{}, New: map[string]any{}}
+		// PHP parity (db::diffrec + datalogSave): the update payload carries
+		// the FULL old and new records — daemon plugins rely on unchanged
+		// fields like id/zone/origin being present (e.g. bind_plugin loads
+		// the parent SOA from new.zone on a dns_rr data change). The field
+		// comparison only decides whether a row is written at all.
+		changed := false
 		for col, newVal := range newMap {
 			if oldVal, ok := oldMap[col]; !ok || !reflect.DeepEqual(oldVal, newVal) {
-				diff.Old[col] = oldMap[col]
-				diff.New[col] = newVal
+				changed = true
+				break
 			}
 		}
-		return diff, len(diff.New) > 0
+		return Diff{Old: oldMap, New: newMap}, changed
 	}
 }
 
