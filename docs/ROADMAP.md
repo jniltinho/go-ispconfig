@@ -10,7 +10,7 @@ proposal now and get design/specs/tasks when scheduled.
 |---|---|
 | `port-ispconfig3-to-go` | Foundation: CLI, identical DB schema, sys_datalog engine, daemon with internal scheduler (no system cron), auth/riud permissions, REST API + Swagger, .master template engine, Vue panel skeleton |
 | `add-web-nginx-module` | Sites: nginx vhosts, PHP-FPM pools, SSL/Let's Encrypt — **implemented** ([docs/nginx-module.md](nginx-module.md)) |
-| `add-dns-bind-module` | DNS: Bind zones, records, templates, DNSSEC |
+| `add-dns-bind-module` | DNS: Bind zones, records, templates, DNSSEC — **implemented** ([docs/dns-module.md](dns-module.md)) |
 | `add-installer-cli` | `go-ispconfig install` for Debian 11–13 / Ubuntu 22.04–24.04 + Vagrant test rig |
 | `add-panel-ui-theme` | ISPConfig-derived theme, modernized, square corners, dark mode |
 | `add-legacy-migration` | Import wizard/CLI from a running PHP ISPConfig3 via remote API |

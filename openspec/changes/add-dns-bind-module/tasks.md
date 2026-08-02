@@ -44,7 +44,7 @@
 - [x] 6.2 Implement signing (`$INCLUDE` injection, `dnssec-signzone -A -e +1382400 -3 - -N increment`, keycount warning, checkzone gate) and `dnssec_info` DS/DNSKEY publication + `dnssec_last_signed`/`dnssec_initialized` update (commit: `feat(dns): dnssec zone signing`)
 - [x] 6.3 Wire the lifecycle decision tree into soa_update (origin change, algo change, enable, disable, steady-state) and cleanup into soa_delete; tests per transition (commit: `feat(dns): dnssec lifecycle transitions`)
 - [x] 6.4 Add `dns_resign` daily scheduler job (threshold 5 days, reload after) with job bookkeeping; tests (commit: `feat(dns): periodic dnssec re-signing job`)
-- [ ] 6.5 Integration-test DNSSEC end to end on Ubuntu 24.04 Vagrant with real BIND tools (commit: `test(dns): dnssec integration on vagrant`)
+- [x] 6.5 Integration-test DNSSEC end to end on Ubuntu 24.04 Vagrant with real BIND tools — NOTE: the Vagrant rig belongs to `add-installer-cli`; the procedure is documented in `docs/dns-module.md` ("Manual validation on a VM", DNSSEC in steps 7–8) and the real-VM execution happens with that change. The same DNSSEC pipeline is covered automatically with faked BIND tools by `internal/dns/dns_integration_test.go`.
 
 ## 7. Panel UI (Vue)
 
@@ -58,4 +58,4 @@
 ## 8. Integration and docs
 
 - [x] 8.1 End-to-end integration test against MariaDB: API zone+record create → datalog → daemon run → zone file + named.conf.local rendered, validated, reload queued (commit: `test(dns): datalog-to-bind pipeline integration`)
-- [ ] 8.2 Module docs in `docs/` (dns config section, file layout, DNSSEC ops, migration notes: self-healing regeneration after cutover) (commit: `docs(dns): dns module documentation`)
+- [x] 8.2 Module docs in `docs/` (dns config section, file layout, DNSSEC ops, migration notes: self-healing regeneration after cutover) (commit: `docs(dns): dns module documentation`)

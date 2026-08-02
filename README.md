@@ -54,8 +54,20 @@ Web module (nginx) implemented (see
 - Sites REST API + Vue UI (metadata-driven tabbed form, web folders and
   folder users with HTTP basic auth)
 
-Next up: Bind DNS module (in progress), installer CLI, panel theme, legacy
-migration wizard — the full plan is in [`docs/ROADMAP.md`](docs/ROADMAP.md).
+DNS module (Bind) implemented (see
+[`docs/dns-module.md`](docs/dns-module.md)):
+
+- Bind zones rendered from the ISPConfig `.master` template: activation
+  guarded by `named-checkzone` with rollback + `.err` quarantine, full
+  `named.conf.local` reconstruction, secondary zones, SOA serial management
+- DNSSEC: key creation, zone signing, DS/DNSKEY publication in the panel
+  and a daily re-sign job in the daemon scheduler
+- DNS REST API + Vue UI (zone wizard from ISPConfig templates,
+  metadata-driven record editor for 18 record types plus SPF/DKIM/DMARC
+  helpers)
+
+Next up: installer CLI, panel theme, legacy migration wizard — the full
+plan is in [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 ## Quick start
 
