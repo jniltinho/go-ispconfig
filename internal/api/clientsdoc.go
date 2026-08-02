@@ -8,6 +8,10 @@ var _ = []any{
 	resellerListDoc, resellerGetDoc, resellerCreateDoc, resellerUpdateDoc, resellerDeleteDoc,
 	clientByUsernameDoc, clientByCustomerNoDoc, clientByGroupIDDoc, clientIDBySysUserDoc,
 	clientChangePasswordDoc, clientDeleteEverythingDoc,
+	clientTemplateListDoc, clientTemplateGetDoc, clientTemplateCreateDoc,
+	clientTemplateUpdateDoc, clientTemplateDeleteDoc,
+	clientTemplatesAssignedListDoc, clientTemplateAssignDoc, clientTemplateUnassignDoc,
+	countriesDoc,
 }
 
 // clientListDoc documents GET /api/clients.
@@ -261,3 +265,144 @@ func clientChangePasswordDoc() {}
 //	@Security		CookieAuth
 //	@Security		BearerAuth
 func clientDeleteEverythingDoc() {}
+
+// clientTemplateListDoc documents GET /api/client-templates.
+//
+//	@Summary		List client limit templates
+//	@Description	Admin only (client_templates_get_all). Master ('m') and additional ('a') templates with their limit columns.
+//	@Tags			client-templates
+//	@Produce		json
+//	@Param			page	query		int	false	"1-based page number"	default(1)
+//	@Param			limit	query		int	false	"Page size (max 100)"	default(25)
+//	@Success		200		{object}	ListResponse
+//	@Failure		401		{object}	ErrorResponse
+//	@Failure		403		{object}	ErrorResponse	"Not an admin session"
+//	@Router			/client-templates [get]
+//	@Security		CookieAuth
+//	@Security		BearerAuth
+func clientTemplateListDoc() {}
+
+// clientTemplateGetDoc documents GET /api/client-templates/{id}.
+//
+//	@Summary	Get a client limit template
+//	@Tags		client-templates
+//	@Produce	json
+//	@Param		id	path		int	true	"template_id"
+//	@Success	200	{object}	model.ClientTemplate
+//	@Failure	401	{object}	ErrorResponse
+//	@Failure	403	{object}	ErrorResponse
+//	@Router		/client-templates/{id} [get]
+//	@Security	CookieAuth
+//	@Security	BearerAuth
+func clientTemplateGetDoc() {}
+
+// clientTemplateCreateDoc documents POST /api/client-templates.
+//
+//	@Summary		Create a client limit template
+//	@Description	Admin only. template_type 'm' (master, applied via client.template_master) or 'a' (additional, applied via the assignment endpoints).
+//	@Tags			client-templates
+//	@Accept			json
+//	@Produce		json
+//	@Param			record	body		model.ClientTemplate	true	"Template fields"
+//	@Success		201		{object}	model.ClientTemplate
+//	@Failure		401		{object}	ErrorResponse
+//	@Failure		403		{object}	ErrorResponse
+//	@Failure		422		{object}	ErrorResponse	"Validation failed (empty template_name, ...)"
+//	@Router			/client-templates [post]
+//	@Security		CookieAuth
+//	@Security		BearerAuth
+func clientTemplateCreateDoc() {}
+
+// clientTemplateUpdateDoc documents PUT /api/client-templates/{id}.
+//
+//	@Summary		Update a client limit template
+//	@Description	Admin only. Changed limits apply to a client the next time that client is saved or its assignments change (no immediate fan-out re-materialization).
+//	@Tags			client-templates
+//	@Accept			json
+//	@Produce		json
+//	@Param			id		path		int						true	"template_id"
+//	@Param			record	body		model.ClientTemplate	true	"Changed field values"
+//	@Success		200		{object}	model.ClientTemplate
+//	@Failure		401		{object}	ErrorResponse
+//	@Failure		403		{object}	ErrorResponse
+//	@Failure		422		{object}	ErrorResponse
+//	@Router			/client-templates/{id} [put]
+//	@Security		CookieAuth
+//	@Security		BearerAuth
+func clientTemplateUpdateDoc() {}
+
+// clientTemplateDeleteDoc documents DELETE /api/client-templates/{id}.
+//
+//	@Summary		Delete a client limit template
+//	@Description	Admin only. Existing assignments to the deleted template are skipped at merge time (PHP parity).
+//	@Tags			client-templates
+//	@Param			id	path	int	true	"template_id"
+//	@Success		204
+//	@Failure		401	{object}	ErrorResponse
+//	@Failure		403	{object}	ErrorResponse
+//	@Router			/client-templates/{id} [delete]
+//	@Security		CookieAuth
+//	@Security		BearerAuth
+func clientTemplateDeleteDoc() {}
+
+// clientTemplatesAssignedListDoc documents GET /api/clients/{id}/templates.
+//
+//	@Summary		List a client's additional templates
+//	@Description	remote client_template_additional_get: the client_template_assigned rows in assignment order.
+//	@Tags			client-templates
+//	@Produce		json
+//	@Param			id	path		int	true	"client_id"
+//	@Success		200	{array}		assignedTemplateJSON
+//	@Failure		401	{object}	ErrorResponse
+//	@Failure		403	{object}	ErrorResponse
+//	@Router			/clients/{id}/templates [get]
+//	@Security		CookieAuth
+//	@Security		BearerAuth
+func clientTemplatesAssignedListDoc() {}
+
+// clientTemplateAssignDoc documents POST /api/clients/{id}/templates.
+//
+//	@Summary		Assign an additional template to a client
+//	@Description	remote client_template_additional_add: creates a client_template_assigned row and re-materializes the client limits in the same transaction. The same template may be assigned repeatedly (its limits add each time).
+//	@Tags			client-templates
+//	@Accept			json
+//	@Produce		json
+//	@Param			id		path		int					true	"client_id"
+//	@Param			record	body		assignTemplateBody	true	"Template to assign"
+//	@Success		201		{object}	assignedTemplateJSON
+//	@Failure		401		{object}	ErrorResponse
+//	@Failure		403		{object}	ErrorResponse	"No update permission on the client"
+//	@Failure		404		{object}	ErrorResponse	"Unknown template id"
+//	@Router			/clients/{id}/templates [post]
+//	@Security		CookieAuth
+//	@Security		BearerAuth
+func clientTemplateAssignDoc() {}
+
+// clientTemplateUnassignDoc documents DELETE /api/clients/{id}/templates/{assigned}.
+//
+//	@Summary		Remove an additional template assignment
+//	@Description	remote client_template_additional_delete: deletes one client_template_assigned row and re-materializes the client limits in the same transaction.
+//	@Tags			client-templates
+//	@Param			id			path	int	true	"client_id"
+//	@Param			assigned	path	int	true	"assigned_template_id"
+//	@Success		204
+//	@Failure		401	{object}	ErrorResponse
+//	@Failure		403	{object}	ErrorResponse
+//	@Failure		404	{object}	ErrorResponse	"Assignment not found on this client"
+//	@Router			/clients/{id}/templates/{assigned} [delete]
+//	@Security		CookieAuth
+//	@Security		BearerAuth
+func clientTemplateUnassignDoc() {}
+
+// countriesDoc documents GET /api/countries.
+//
+//	@Summary		List countries
+//	@Description	Read-only ISO country list for address forms, ordered by printable name.
+//	@Tags			clients
+//	@Produce		json
+//	@Success		200	{array}		model.Country
+//	@Failure		401	{object}	ErrorResponse
+//	@Router			/countries [get]
+//	@Security		CookieAuth
+//	@Security		BearerAuth
+func countriesDoc() {}

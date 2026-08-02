@@ -121,12 +121,12 @@ func (ClientMessageTemplate) TableName() string { return "client_message_templat
 // Country is the read-only ISO country lookup (table country) used by the
 // client address forms.
 type Country struct {
-	ISO           string `gorm:"column:iso;primaryKey"`
-	Name          string `gorm:"column:name"`
-	PrintableName string `gorm:"column:printable_name"`
-	ISO3          string `gorm:"column:iso3"`
-	Numcode       int16  `gorm:"column:numcode"`
-	EU            string `gorm:"column:eu;default:n"`
+	ISO           string `gorm:"column:iso;primaryKey" json:"iso"`
+	Name          string `gorm:"column:name" json:"name,omitempty"`
+	PrintableName string `gorm:"column:printable_name" json:"printable_name"`
+	ISO3          string `gorm:"column:iso3" json:"iso3,omitempty"`
+	Numcode       int16  `gorm:"column:numcode" json:"numcode,omitempty"`
+	EU            string `gorm:"column:eu;default:n" json:"eu"`
 }
 
 // TableName maps Country to the ISPConfig table country.

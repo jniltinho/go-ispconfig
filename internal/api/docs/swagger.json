@@ -8,6 +8,274 @@
     },
     "basePath": "/api",
     "paths": {
+        "/client-templates": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Admin only (client_templates_get_all). Master ('m') and additional ('a') templates with their limit columns.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "client-templates"
+                ],
+                "summary": "List client limit templates",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "1-based page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 25,
+                        "description": "Page size (max 100)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.ListResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Not an admin session",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Admin only. template_type 'm' (master, applied via client.template_master) or 'a' (additional, applied via the assignment endpoints).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "client-templates"
+                ],
+                "summary": "Create a client limit template",
+                "parameters": [
+                    {
+                        "description": "Template fields",
+                        "name": "record",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.ClientTemplate"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/model.ClientTemplate"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Validation failed (empty template_name, ...)",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/client-templates/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "client-templates"
+                ],
+                "summary": "Get a client limit template",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "template_id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.ClientTemplate"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Admin only. Changed limits apply to a client the next time that client is saved or its assignments change (no immediate fan-out re-materialization).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "client-templates"
+                ],
+                "summary": "Update a client limit template",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "template_id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Changed field values",
+                        "name": "record",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.ClientTemplate"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.ClientTemplate"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Admin only. Existing assignments to the deleted template are skipped at merge time (PHP parity).",
+                "tags": [
+                    "client-templates"
+                ],
+                "summary": "Delete a client limit template",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "template_id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/clients": {
             "get": {
                 "security": [
@@ -582,6 +850,216 @@
                     },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/clients/{id}/templates": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "remote client_template_additional_get: the client_template_assigned rows in assignment order.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "client-templates"
+                ],
+                "summary": "List a client's additional templates",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "client_id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/api.assignedTemplateJSON"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "remote client_template_additional_add: creates a client_template_assigned row and re-materializes the client limits in the same transaction. The same template may be assigned repeatedly (its limits add each time).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "client-templates"
+                ],
+                "summary": "Assign an additional template to a client",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "client_id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Template to assign",
+                        "name": "record",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.assignTemplateBody"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/api.assignedTemplateJSON"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "No update permission on the client",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Unknown template id",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/clients/{id}/templates/{assigned}": {
+            "delete": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "remote client_template_additional_delete: deletes one client_template_assigned row and re-materializes the client limits in the same transaction.",
+                "tags": [
+                    "client-templates"
+                ],
+                "summary": "Remove an additional template assignment",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "client_id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "assigned_template_id",
+                        "name": "assigned",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Assignment not found on this client",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/countries": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Read-only ISO country list for address forms, ordered by printable name.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "clients"
+                ],
+                "summary": "List countries",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/model.Country"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
                         "schema": {
                             "$ref": "#/definitions/api.ErrorResponse"
                         }
@@ -4455,6 +4933,28 @@
                 }
             }
         },
+        "api.assignTemplateBody": {
+            "type": "object",
+            "properties": {
+                "template_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "api.assignedTemplateJSON": {
+            "type": "object",
+            "properties": {
+                "assigned_template_id": {
+                    "type": "integer"
+                },
+                "client_template_id": {
+                    "type": "integer"
+                },
+                "template_name": {
+                    "type": "string"
+                }
+            }
+        },
         "api.changePasswordBody": {
             "type": "object",
             "properties": {
@@ -5054,6 +5554,271 @@
                     "type": "string"
                 },
                 "zip": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.ClientTemplate": {
+            "type": "object",
+            "properties": {
+                "dbservers": {
+                    "type": "string"
+                },
+                "defaultSlaveDNSServer": {
+                    "type": "integer"
+                },
+                "defaultXMPPServer": {
+                    "type": "integer"
+                },
+                "dnsservers": {
+                    "type": "string"
+                },
+                "forceSuexec": {
+                    "type": "string"
+                },
+                "limitAps": {
+                    "type": "integer"
+                },
+                "limitBackup": {
+                    "type": "string"
+                },
+                "limitCGI": {
+                    "type": "string"
+                },
+                "limitClient": {
+                    "type": "integer"
+                },
+                "limitCron": {
+                    "type": "integer"
+                },
+                "limitCronFrequency": {
+                    "type": "integer"
+                },
+                "limitCronType": {
+                    "type": "string"
+                },
+                "limitDNSRecord": {
+                    "type": "integer"
+                },
+                "limitDNSSlaveZone": {
+                    "type": "integer"
+                },
+                "limitDNSZone": {
+                    "type": "integer"
+                },
+                "limitDatabase": {
+                    "type": "integer"
+                },
+                "limitDatabasePostgresql": {
+                    "type": "integer"
+                },
+                "limitDatabaseQuota": {
+                    "type": "integer"
+                },
+                "limitDatabaseUser": {
+                    "type": "integer"
+                },
+                "limitDirectiveSnippets": {
+                    "type": "string"
+                },
+                "limitDomainmodule": {
+                    "type": "integer"
+                },
+                "limitFTPUser": {
+                    "type": "integer"
+                },
+                "limitFetchmail": {
+                    "type": "integer"
+                },
+                "limitHterror": {
+                    "type": "string"
+                },
+                "limitMailBackup": {
+                    "type": "string"
+                },
+                "limitMailWblist": {
+                    "type": "integer"
+                },
+                "limitMailalias": {
+                    "type": "integer"
+                },
+                "limitMailaliasdomain": {
+                    "type": "integer"
+                },
+                "limitMailbox": {
+                    "type": "integer"
+                },
+                "limitMailcatchall": {
+                    "type": "integer"
+                },
+                "limitMaildomain": {
+                    "type": "integer"
+                },
+                "limitMailfilter": {
+                    "type": "integer"
+                },
+                "limitMailforward": {
+                    "type": "integer"
+                },
+                "limitMailmailinglist": {
+                    "type": "integer"
+                },
+                "limitMailquota": {
+                    "type": "integer"
+                },
+                "limitMailrouting": {
+                    "type": "integer"
+                },
+                "limitOpenvzVM": {
+                    "type": "integer"
+                },
+                "limitOpenvzVMTemplateID": {
+                    "type": "integer"
+                },
+                "limitPerl": {
+                    "type": "string"
+                },
+                "limitPython": {
+                    "type": "string"
+                },
+                "limitRelayhost": {
+                    "type": "string"
+                },
+                "limitRuby": {
+                    "type": "string"
+                },
+                "limitSSI": {
+                    "type": "string"
+                },
+                "limitSSL": {
+                    "type": "string"
+                },
+                "limitSSLLetsencrypt": {
+                    "type": "string"
+                },
+                "limitShellUser": {
+                    "type": "integer"
+                },
+                "limitSpamfilterPolicy": {
+                    "type": "integer"
+                },
+                "limitSpamfilterUser": {
+                    "type": "integer"
+                },
+                "limitSpamfilterWblist": {
+                    "type": "integer"
+                },
+                "limitTrafficQuota": {
+                    "type": "integer"
+                },
+                "limitWebAliasdomain": {
+                    "type": "integer"
+                },
+                "limitWebDomain": {
+                    "type": "integer"
+                },
+                "limitWebIP": {
+                    "type": "string"
+                },
+                "limitWebQuota": {
+                    "type": "integer"
+                },
+                "limitWebSubdomain": {
+                    "type": "integer"
+                },
+                "limitWebdavUser": {
+                    "type": "integer"
+                },
+                "limitWildcard": {
+                    "type": "string"
+                },
+                "limitXMPPAnon": {
+                    "type": "string"
+                },
+                "limitXMPPDomain": {
+                    "type": "integer"
+                },
+                "limitXMPPHttparchive": {
+                    "type": "string"
+                },
+                "limitXMPPMuc": {
+                    "type": "string"
+                },
+                "limitXMPPPastebin": {
+                    "type": "string"
+                },
+                "limitXMPPProxy": {
+                    "type": "string"
+                },
+                "limitXMPPStatus": {
+                    "type": "string"
+                },
+                "limitXMPPUser": {
+                    "type": "integer"
+                },
+                "limitXMPPVjud": {
+                    "type": "string"
+                },
+                "mailServers": {
+                    "type": "string"
+                },
+                "sshchroot": {
+                    "type": "string"
+                },
+                "sysGroupID": {
+                    "type": "integer"
+                },
+                "sysPermGroup": {
+                    "type": "string"
+                },
+                "sysPermOther": {
+                    "type": "string"
+                },
+                "sysPermUser": {
+                    "type": "string"
+                },
+                "sysUserID": {
+                    "type": "integer"
+                },
+                "templateID": {
+                    "type": "integer"
+                },
+                "templateName": {
+                    "type": "string"
+                },
+                "templateType": {
+                    "type": "string"
+                },
+                "webPHPOptions": {
+                    "type": "string"
+                },
+                "webServers": {
+                    "type": "string"
+                },
+                "xmppservers": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.Country": {
+            "type": "object",
+            "properties": {
+                "eu": {
+                    "type": "string"
+                },
+                "iso": {
+                    "type": "string"
+                },
+                "iso3": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "numcode": {
+                    "type": "integer"
+                },
+                "printable_name": {
                     "type": "string"
                 }
             }

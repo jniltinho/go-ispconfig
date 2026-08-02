@@ -30,7 +30,11 @@ func registerClientEntities(g *echo.Group, d *Deps) error {
 	if err := RegisterEntity[model.Client](g, d, resellerEntity()); err != nil {
 		return err
 	}
+	if err := RegisterEntity[model.ClientTemplate](g, d, clientTemplateEntity()); err != nil {
+		return err
+	}
 	registerClientExtraRoutes(g, d)
+	registerClientTemplateRoutes(g, d)
 	return nil
 }
 
@@ -144,79 +148,14 @@ func clientTabs(reseller bool) []Tab {
 	limits := Tab{
 		Name:  "limits",
 		Label: "limits_txt",
-		Fields: []Field{
-			// Mail (defaults per client table DDL; enforcement follows the
-			// module that owns the counted table).
+		Fields: append([]Field{
+			// Default servers exist on the client row only (not on
+			// client_template — PHP schema quirk kept for parity).
 			intField("default_mailserver", "default_mailserver_txt", "1"),
-			text("mail_servers", "mail_servers_txt"),
-			intLimit("limit_maildomain", "-1"),
-			intLimit("limit_mailbox", "-1"),
-			intLimit("limit_mailalias", "-1"),
-			intLimit("limit_mailaliasdomain", "-1"),
-			intLimit("limit_mailmailinglist", "-1"),
-			intLimit("limit_mailforward", "-1"),
-			intLimit("limit_mailcatchall", "-1"),
-			intLimit("limit_mailrouting", "0"),
-			intLimit("limit_mail_wblist", "0"),
-			intLimit("limit_mailfilter", "-1"),
-			intLimit("limit_fetchmail", "-1"),
-			intLimit("limit_mailquota", "-1"),
-			intLimit("limit_spamfilter_wblist", "0"),
-			intLimit("limit_spamfilter_user", "0"),
-			intLimit("limit_spamfilter_policy", "0"),
-			checkbox("limit_mail_backup", "limit_mail_backup_txt", "y"),
-			checkbox("limit_relayhost", "limit_relayhost_txt", "n"),
-			// XMPP
-			intField("default_xmppserver", "default_xmppserver_txt", "1"),
-			text("xmpp_servers", "xmpp_servers_txt"),
-			intLimit("limit_xmpp_domain", "-1"),
-			intLimit("limit_xmpp_user", "-1"),
-			// Web
 			intField("default_webserver", "default_webserver_txt", "1"),
-			text("web_servers", "web_servers_txt"),
-			intLimit("limit_web_domain", "-1"),
-			intLimit("limit_web_quota", "-1"),
-			text("web_php_options", "web_php_options_txt"),
-			checkbox("limit_cgi", "limit_cgi_txt", "n"),
-			checkbox("limit_ssi", "limit_ssi_txt", "n"),
-			checkbox("limit_perl", "limit_perl_txt", "n"),
-			checkbox("limit_ruby", "limit_ruby_txt", "n"),
-			checkbox("limit_python", "limit_python_txt", "n"),
-			checkbox("force_suexec", "force_suexec_txt", "y"),
-			checkbox("limit_hterror", "limit_hterror_txt", "n"),
-			checkbox("limit_wildcard", "limit_wildcard_txt", "n"),
-			checkbox("limit_ssl", "limit_ssl_txt", "n"),
-			checkbox("limit_ssl_letsencrypt", "limit_ssl_letsencrypt_txt", "n"),
-			intLimit("limit_web_subdomain", "-1"),
-			intLimit("limit_web_aliasdomain", "-1"),
-			intLimit("limit_ftp_user", "-1"),
-			intLimit("limit_shell_user", "0"),
-			text("ssh_chroot", "ssh_chroot_txt"),
-			intLimit("limit_webdav_user", "0"),
-			checkbox("limit_backup", "limit_backup_txt", "y"),
-			checkbox("limit_directive_snippets", "limit_directive_snippets_txt", "n"),
-			intLimit("limit_traffic_quota", "-1"),
-			// DNS
 			intField("default_dnsserver", "default_dnsserver_txt", "1"),
-			text("dns_servers", "dns_servers_txt"),
-			intLimit("limit_dns_zone", "-1"),
-			intField("default_slave_dnsserver", "default_slave_dnsserver_txt", "1"),
-			intLimit("limit_dns_slave_zone", "-1"),
-			intLimit("limit_dns_record", "-1"),
-			// Database
 			intField("default_dbserver", "default_dbserver_txt", "1"),
-			text("db_servers", "db_servers_txt"),
-			intLimit("limit_database", "-1"),
-			intLimit("limit_database_user", "-1"),
-			intLimit("limit_database_quota", "-1"),
-			intLimit("limit_database_postgresql", "-1"),
-			// Cron
-			intLimit("limit_cron", "0"),
-			selectField("limit_cron_type", "limit_cron_type_txt", "VARCHAR", "url", []Option{
-				{Value: "url", Label: "URL Cron"}, {Value: "chrooted", Label: "Chrooted Cron"}, {Value: "full", Label: "Full Cron"},
-			}),
-			intLimit("limit_cron_frequency", "5"),
-		},
+		}, clientLimitFields()...),
 	}
 	if reseller {
 		limits.Fields = append([]Field{
@@ -232,6 +171,80 @@ func clientTabs(reseller bool) []Tab {
 		},
 	}
 	return []Tab{address, limits, ip}
+}
+
+// clientLimitFields is the limit field set shared by the client, reseller
+// and client-template entities (every column exists on both tables).
+func clientLimitFields() []Field {
+	return []Field{
+		// Mail (defaults per client table DDL; enforcement follows the
+		// module that owns the counted table).
+		text("mail_servers", "mail_servers_txt"),
+		intLimit("limit_maildomain", "-1"),
+		intLimit("limit_mailbox", "-1"),
+		intLimit("limit_mailalias", "-1"),
+		intLimit("limit_mailaliasdomain", "-1"),
+		intLimit("limit_mailmailinglist", "-1"),
+		intLimit("limit_mailforward", "-1"),
+		intLimit("limit_mailcatchall", "-1"),
+		intLimit("limit_mailrouting", "0"),
+		intLimit("limit_mail_wblist", "0"),
+		intLimit("limit_mailfilter", "-1"),
+		intLimit("limit_fetchmail", "-1"),
+		intLimit("limit_mailquota", "-1"),
+		intLimit("limit_spamfilter_wblist", "0"),
+		intLimit("limit_spamfilter_user", "0"),
+		intLimit("limit_spamfilter_policy", "0"),
+		checkbox("limit_mail_backup", "limit_mail_backup_txt", "y"),
+		checkbox("limit_relayhost", "limit_relayhost_txt", "n"),
+		// XMPP
+		intField("default_xmppserver", "default_xmppserver_txt", "1"),
+		text("xmpp_servers", "xmpp_servers_txt"),
+		intLimit("limit_xmpp_domain", "-1"),
+		intLimit("limit_xmpp_user", "-1"),
+		// Web
+		text("web_servers", "web_servers_txt"),
+		intLimit("limit_web_domain", "-1"),
+		intLimit("limit_web_quota", "-1"),
+		text("web_php_options", "web_php_options_txt"),
+		checkbox("limit_cgi", "limit_cgi_txt", "n"),
+		checkbox("limit_ssi", "limit_ssi_txt", "n"),
+		checkbox("limit_perl", "limit_perl_txt", "n"),
+		checkbox("limit_ruby", "limit_ruby_txt", "n"),
+		checkbox("limit_python", "limit_python_txt", "n"),
+		checkbox("force_suexec", "force_suexec_txt", "y"),
+		checkbox("limit_hterror", "limit_hterror_txt", "n"),
+		checkbox("limit_wildcard", "limit_wildcard_txt", "n"),
+		checkbox("limit_ssl", "limit_ssl_txt", "n"),
+		checkbox("limit_ssl_letsencrypt", "limit_ssl_letsencrypt_txt", "n"),
+		intLimit("limit_web_subdomain", "-1"),
+		intLimit("limit_web_aliasdomain", "-1"),
+		intLimit("limit_ftp_user", "-1"),
+		intLimit("limit_shell_user", "0"),
+		text("ssh_chroot", "ssh_chroot_txt"),
+		intLimit("limit_webdav_user", "0"),
+		checkbox("limit_backup", "limit_backup_txt", "y"),
+		checkbox("limit_directive_snippets", "limit_directive_snippets_txt", "n"),
+		intLimit("limit_traffic_quota", "-1"),
+		// DNS
+		text("dns_servers", "dns_servers_txt"),
+		intLimit("limit_dns_zone", "-1"),
+		intField("default_slave_dnsserver", "default_slave_dnsserver_txt", "1"),
+		intLimit("limit_dns_slave_zone", "-1"),
+		intLimit("limit_dns_record", "-1"),
+		// Database
+		text("db_servers", "db_servers_txt"),
+		intLimit("limit_database", "-1"),
+		intLimit("limit_database_user", "-1"),
+		intLimit("limit_database_quota", "-1"),
+		intLimit("limit_database_postgresql", "-1"),
+		// Cron
+		intLimit("limit_cron", "0"),
+		selectField("limit_cron_type", "limit_cron_type_txt", "VARCHAR", "url", []Option{
+			{Value: "url", Label: "URL Cron"}, {Value: "chrooted", Label: "Chrooted Cron"}, {Value: "full", Label: "Full Cron"},
+		}),
+		intLimit("limit_cron_frequency", "5"),
+	}
 }
 
 // checkClientUsername ports the tform username REGEX (letters, digits,
@@ -606,4 +619,154 @@ func purgeOwned[T any](ctx context.Context, tx *gorm.DB, groupID uint32, usernam
 		}
 	}
 	return nil
+}
+
+// --- limit templates (client_template) and countries ---
+
+// clientTemplateEntity is the /api/client-templates CRUD surface
+// (client_template.tform.php). Admin only: templates are a global
+// catalog; resellers consume them through the assignment endpoints.
+func clientTemplateEntity() *Entity {
+	return &Entity{
+		Name:      "client-templates",
+		Title:     "client_template_edit_title",
+		AdminOnly: true,
+		Tabs: []Tab{{
+			Name:  "template",
+			Label: "template_txt",
+			Fields: append([]Field{
+				text("template_name", "template_name_txt",
+					validator.Rule{Type: "NOTEMPTY", ErrKey: "template_name_error_empty"}),
+				selectField("template_type", "template_type_txt", "VARCHAR", "m", []Option{
+					{Value: "m", Label: "template_type_main_txt"},
+					{Value: "a", Label: "template_type_additional_txt"},
+				}),
+				intLimit("limit_client", "0"),
+				text("limit_web_ip", "limit_web_ip_txt"),
+			}, clientLimitFields()...),
+		}},
+	}
+}
+
+// assignedTemplateJSON is one row of the client template assignment list.
+type assignedTemplateJSON struct {
+	AssignedTemplateID int64  `json:"assigned_template_id"`
+	ClientTemplateID   int32  `json:"client_template_id"`
+	TemplateName       string `json:"template_name"`
+}
+
+// assignTemplateBody is the assignment request payload.
+type assignTemplateBody struct {
+	TemplateID int32 `json:"template_id"`
+}
+
+// registerClientTemplateRoutes mounts the additional-template assignment
+// endpoints (remote client_template_additional_get/add/delete) and the
+// read-only countries list.
+func registerClientTemplateRoutes(g *echo.Group, d *Deps) {
+	g.GET("/clients/:id/templates", func(c *echo.Context) error {
+		row, err := loadClientScoped(c, d, repository.PermRead)
+		if err != nil {
+			return err
+		}
+		var rows []model.ClientTemplateAssigned
+		err = d.DB.WithContext(c.Request().Context()).
+			Where("client_id = ?", row.ClientID).Order("assigned_template_id").Find(&rows).Error
+		if err != nil {
+			return err
+		}
+		out := make([]assignedTemplateJSON, 0, len(rows))
+		for _, r := range rows {
+			item := assignedTemplateJSON{AssignedTemplateID: r.AssignedTemplateID, ClientTemplateID: r.ClientTemplateID}
+			var tpl model.ClientTemplate
+			if err := d.DB.Where("template_id = ?", r.ClientTemplateID).Take(&tpl).Error; err == nil {
+				item.TemplateName = tpl.TemplateName
+			}
+			out = append(out, item)
+		}
+		return c.JSON(http.StatusOK, out)
+	})
+
+	g.POST("/clients/:id/templates", func(c *echo.Context) error {
+		row, err := loadClientScoped(c, d, repository.PermUpdate)
+		if err != nil {
+			return err
+		}
+		var body assignTemplateBody
+		if err := c.Bind(&body); err != nil {
+			return err
+		}
+		ctx := c.Request().Context()
+		var tpl model.ClientTemplate
+		if err := d.DB.WithContext(ctx).Where("template_id = ?", body.TemplateID).Take(&tpl).Error; err != nil {
+			return err // 404 on unknown template
+		}
+		var created model.ClientTemplateAssigned
+		err = d.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			created = model.ClientTemplateAssigned{ClientID: int64(row.ClientID), ClientTemplateID: body.TemplateID}
+			if err := tx.Create(&created).Error; err != nil {
+				return err
+			}
+			// Same-transaction materialization (spec client-rest-api).
+			return clients.ApplyTemplates(ctx, tx, row)
+		})
+		if err != nil {
+			return err
+		}
+		return c.JSON(http.StatusCreated, assignedTemplateJSON{
+			AssignedTemplateID: created.AssignedTemplateID,
+			ClientTemplateID:   created.ClientTemplateID,
+			TemplateName:       tpl.TemplateName,
+		})
+	})
+
+	g.DELETE("/clients/:id/templates/:assigned", func(c *echo.Context) error {
+		row, err := loadClientScoped(c, d, repository.PermUpdate)
+		if err != nil {
+			return err
+		}
+		ctx := c.Request().Context()
+		err = d.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			res := tx.Where("assigned_template_id = ? AND client_id = ?", c.Param("assigned"), row.ClientID).
+				Delete(&model.ClientTemplateAssigned{})
+			if res.Error != nil {
+				return res.Error
+			}
+			if res.RowsAffected == 0 {
+				return gorm.ErrRecordNotFound
+			}
+			return clients.ApplyTemplates(ctx, tx, row)
+		})
+		if err != nil {
+			return err
+		}
+		return c.NoContent(http.StatusNoContent)
+	})
+
+	g.GET("/countries", func(c *echo.Context) error {
+		var rows []model.Country
+		err := d.DB.WithContext(c.Request().Context()).
+			Select("iso", "printable_name", "eu").Order("printable_name").Find(&rows).Error
+		if err != nil {
+			return err
+		}
+		return c.JSON(http.StatusOK, rows)
+	})
+}
+
+// loadClientScoped loads the client of the :id path param under the
+// caller's permission scope; hidden rows surface as permission denied.
+func loadClientScoped(c *echo.Context, d *Deps, perm byte) (*model.Client, error) {
+	id := identity(c)
+	var row model.Client
+	err := d.DB.WithContext(c.Request().Context()).
+		Scopes(repository.WithPerm(id, perm)).
+		Where("client_id = ?", c.Param("id")).Take(&row).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, repository.ErrPermissionDenied
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &row, nil
 }
