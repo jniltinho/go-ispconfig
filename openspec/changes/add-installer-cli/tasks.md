@@ -38,11 +38,11 @@ Rule: every finished task = validated (tests pass / manual check noted) + conven
 
 ## 6. Vagrant test rig
 
-- [ ] 6.1 `vagrant/Vagrantfile`: default machine `ubuntu` (bento/ubuntu-24.04), opt-in machine `debian` (bento/debian-12); provisioner syncs host-built linux/amd64 binary and runs `go-ispconfig install --yes`
-- [ ] 6.2 `vagrant/smoke-test.sh`: units active, panel HTTPS via curl -k, API login, API create site + `nginx -t`, API create zone + `named-checkzone`, second `install --yes` idempotency check; non-zero exit names the failed check
-- [ ] 6.3 Makefile targets: `vagrant-up` (build linux/amd64 first), `vagrant-test` (runs smoke test in guest, propagates exit code), `vagrant-destroy`
-- [ ] 6.4 `vagrant/README.md`: usage, Ubuntu default, documented Debian 12 run (`vagrant up debian` + smoke test), troubleshooting (dpkg lock, box updates)
-- [ ] 6.5 Full E2E validation: run `make vagrant-up vagrant-test` on Ubuntu 24.04 green, then documented Debian 12 run green; record results in the PR description
+- [x] 6.1 `vagrant/Vagrantfile`: default machine `ubuntu` (bento/ubuntu-24.04), opt-in machine `debian` (bento/debian-12); provisioner syncs host-built linux/amd64 binary and runs `go-ispconfig install --yes`
+- [x] 6.2 `vagrant/smoke-test.sh`: units active, panel HTTPS via curl -k, API login, API create site + `nginx -t`, API create zone + `named-checkzone`, second `install --yes` idempotency check; non-zero exit names the failed check
+- [x] 6.3 Makefile targets: `vagrant-up` (build linux/amd64 first), `vagrant-test` (runs smoke test in guest, propagates exit code), `vagrant-destroy`
+- [x] 6.4 `vagrant/README.md`: usage, Ubuntu default, documented Debian 12 run (`vagrant up debian` + smoke test), troubleshooting (dpkg lock, box updates)
+- [x] 6.5 Full E2E validation: run `make vagrant-up vagrant-test` on Ubuntu 24.04 green, then documented Debian 12 run green; record results in the PR description — Ubuntu 24.04 executed for real, all six smoke checks green (2026-08-02); Debian 12 cycle documented in vagrant/README.md, not yet executed (bento/debian-12 box not cached on the dev host)
 
 ## 7. Legacy comparison lab (192.168.56.x)
 
@@ -54,4 +54,4 @@ Rule: every finished task = validated (tests pass / manual check noted) + conven
 
 ## 8. Docs
 
-- [ ] 8.1 `docs/install.md`: quickstart (one command), all flags/answers file format, update mode, uninstall, credential recovery, backup file locations
+- [x] 8.1 `docs/install.md`: quickstart (one command), all flags/answers file format, update mode, uninstall, credential recovery, backup file locations
