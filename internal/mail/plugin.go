@@ -27,6 +27,12 @@ type Plugin struct {
 	// LoadConfig loads the [mail] getconf section; nil means the DB
 	// getconf of this plugin's server. Tests inject a fixed config.
 	LoadConfig func(ctx context.Context) (getconf.MailConfig, error)
+	// LoadGlobalConfig loads the panel-wide [mail] ini section; nil
+	// means sys_ini via getconf. Tests inject fixed values.
+	LoadGlobalConfig func() (map[string]string, error)
+	// Sendmail submits one raw message via the local MTA; nil means the
+	// configured sendmail binary. Tests inject a fake.
+	Sendmail func(ctx context.Context, envelopeFrom, to string, msg []byte) error
 }
 
 // NewPlugin creates the mail plugin for one server.
@@ -62,6 +68,11 @@ func (p *Plugin) handlers() map[string]func(context.Context, engine.Data) error 
 		"mail_user_update":   p.userUpdate,
 		"mail_user_delete":   p.userDelete,
 		"mail_domain_delete": p.domainDelete,
+
+		// PHP registers all three transport events onto one handler.
+		"mail_transport_insert": p.transportUpdate,
+		"mail_transport_update": p.transportUpdate,
+		"mail_transport_delete": p.transportUpdate,
 	}
 }
 

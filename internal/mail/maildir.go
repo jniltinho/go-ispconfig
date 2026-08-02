@@ -16,10 +16,14 @@ import (
 // (mail_plugin parity: Sent/Drafts/Trash/Junk plus the INBOX maildir).
 var dovecotFolders = []string{"Sent", "Drafts", "Trash", "Junk"}
 
-// userInsert provisions the mailbox on disk (port of
-// mail_plugin::user_insert; the welcome mail is task 3.5).
+// userInsert provisions the mailbox on disk and sends the optional
+// welcome mail (port of mail_plugin::user_insert).
 func (p *Plugin) userInsert(ctx context.Context, data engine.Data) error {
-	return p.provisionMailbox(ctx, row(data.New))
+	if err := p.provisionMailbox(ctx, row(data.New)); err != nil {
+		return err
+	}
+	p.sendWelcomeMail(ctx, row(data.New).str("email"))
+	return nil
 }
 
 // provisionMailbox is the shared create/repair path of user_insert and

@@ -203,3 +203,52 @@ func TestUserUpdateQuotaOnlyOnNonDovecot(t *testing.T) {
 	run("courier", 0)
 	assert.NoFileExists(t, maildir+"/maildirsize")
 }
+
+func TestTransportEventsQueuePostfixReload(t *testing.T) {
+	exec := &recordExec{}
+	services := engine.NewServices(exec, nil)
+	RegisterServices(services)
+	p := NewPlugin(nil, services, &fakeRunner{}, 1, nil)
+
+	for range 3 { // insert/update/delete all map to the same handler
+		require.NoError(t, p.transportUpdate(context.Background(), engine.Data{}))
+	}
+	services.ProcessDelayedActions(context.Background())
+	assert.Equal(t, []string{"postfix/reload"}, exec.runs, "batched into one reload")
+}
+
+func TestWelcomeMailGatedAndRendered(t *testing.T) {
+	home := t.TempDir()
+	cfg := getconf.DefaultMailConfig()
+	cfg.HomedirPath = home
+
+	var sent []string
+	mk := func(enabled string) *Plugin {
+		p, _ := testPlugin(t, cfg)
+		p.LoadGlobalConfig = func() (map[string]string, error) {
+			return map[string]string{
+				"enable_welcome_mail": enabled,
+				"admin_mail":          "postmaster@panel.test",
+				"admin_name":          "The Admin",
+			}, nil
+		}
+		p.Sendmail = func(_ context.Context, from, to string, msg []byte) error {
+			sent = append(sent, from+"|"+to+"|"+string(msg))
+			return nil
+		}
+		return p
+	}
+
+	// Disabled: nothing sent.
+	mk("n").sendWelcomeMail(context.Background(), "user@example.com")
+	assert.Empty(t, sent)
+
+	// Enabled: rendered with placeholders, utf-8 subject, envelope from.
+	mk("y").sendWelcomeMail(context.Background(), "user@example.com")
+	require.Len(t, sent, 1)
+	assert.True(t, strings.HasPrefix(sent[0], "postmaster@panel.test|user@example.com|"), sent[0])
+	assert.Contains(t, sent[0], "From: The Admin <postmaster@panel.test>")
+	assert.Contains(t, sent[0], "To: user@example.com")
+	assert.Contains(t, sent[0], "Subject: =?utf-8?B?")
+	assert.Contains(t, sent[0], "Welcome to your new email account.")
+}
