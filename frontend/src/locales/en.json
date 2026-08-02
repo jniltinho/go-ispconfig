@@ -522,5 +522,17 @@
   "client.load": "Load",
   "client.send": "Send email",
   "client.message_sent": "Message submitted: {sent} sent, {skipped} skipped.",
-  "client.smtp_disabled": "Email delivery is disabled: no SMTP server is configured (mail.smtp_host)."
+  "client.smtp_disabled": "Email delivery is disabled: no SMTP server is configured (mail.smtp_host).",
+  "client.delete_title": "Delete client {username}?",
+  "client.delete_owned_intro": "This client currently owns:",
+  "client.count_web_domains": "Websites",
+  "client.count_web_folders": "Protected folders",
+  "client.count_dns_zones": "DNS zones",
+  "client.count_dns_records": "DNS records",
+  "client.count_dns_slaves": "Secondary DNS zones",
+  "client.count_child_clients": "Child clients",
+  "client.delete_choice_help": "Delete keeps the resources (they stay assigned to the group); Delete everything removes all of the above and any child clients too.",
+  "client.cancel": "Cancel",
+  "client.delete_simple": "Delete",
+  "client.delete_everything": "Delete everything"
 }

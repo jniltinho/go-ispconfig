@@ -522,6 +522,9 @@ func registerClientExtraRoutes(g *echo.Group, d *Deps) {
 		}
 		return c.JSON(http.StatusOK, map[string]any{"client_id": u.ClientID})
 	})
+	g.GET("/clients/:id/resource-counts", func(c *echo.Context) error {
+		return clientResourceCounts(c, d)
+	})
 	g.POST("/clients/:id/change-password", func(c *echo.Context) error {
 		return clientChangePassword(c, d)
 	})
@@ -559,6 +562,37 @@ func clientJSON(ctx context.Context, d *Deps, row *model.Client) map[string]any 
 	}
 	_ = redactClientSecrets(ctx, nil, []map[string]any{out})
 	return out
+}
+
+// clientResourceCounts serves the owned-resource counts shown by the
+// delete confirmation UI (client_del.php intent): rows owned by the
+// client's group plus direct child clients.
+func clientResourceCounts(c *echo.Context, d *Deps) error {
+	row, err := loadClientScoped(c, d, repository.PermRead)
+	if err != nil {
+		return err
+	}
+	ctx := c.Request().Context()
+	var grp model.SysGroup
+	_ = d.DB.WithContext(ctx).Where("client_id = ?", row.ClientID).Take(&grp).Error
+	count := func(table string) int64 {
+		var n int64
+		if grp.GroupID != 0 {
+			_ = d.DB.WithContext(ctx).Table(table).Where("sys_groupid = ?", grp.GroupID).Count(&n).Error
+		}
+		return n
+	}
+	var children int64
+	_ = d.DB.WithContext(ctx).Model(&model.Client{}).
+		Where("parent_client_id = ?", row.ClientID).Count(&children).Error
+	return c.JSON(http.StatusOK, map[string]int64{
+		"web_domains":   count("web_domain"),
+		"web_folders":   count("web_folder"),
+		"dns_zones":     count("dns_soa"),
+		"dns_records":   count("dns_rr"),
+		"dns_slaves":    count("dns_slave"),
+		"child_clients": children,
+	})
 }
 
 // changePasswordBody is the change-password request payload.

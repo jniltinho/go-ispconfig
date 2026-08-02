@@ -328,6 +328,17 @@ func TestClientsAPI(t *testing.T) {
 		require.Contains(t, string(data), "password_error_length")
 	})
 
+	t.Run("resource-counts for the delete confirmation", func(t *testing.T) {
+		status, data := call(t, srv, http.MethodGet,
+			fmt.Sprintf("/api/clients/%d/resource-counts", int(resellerID)), adminCookie, "", nil)
+		require.Equal(t, http.StatusOK, status, "%s", data)
+		var counts map[string]int64
+		require.NoError(t, json.Unmarshal(data, &counts))
+		require.Positive(t, counts["child_clients"], "resellen has children")
+		require.Contains(t, counts, "web_domains")
+		require.Contains(t, counts, "dns_zones")
+	})
+
 	t.Run("delete-everything purges owned resources", func(t *testing.T) {
 		// New client owning a DNS zone.
 		status, data := call(t, srv, http.MethodPost, "/api/clients", adminCookie, adminCSRF,

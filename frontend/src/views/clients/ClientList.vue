@@ -6,8 +6,9 @@ import { useRouter } from 'vue-router'
 import { utilityIcons } from '../../icons'
 import DataTable, { type Column, type Row } from '../../components/DataTable.vue'
 import { useSitesStore, type ListResponse } from '../../stores/sites'
-import { api, ApiError } from '../../api'
+import { ApiError } from '../../api'
 import UiAlert from '../../components/UiAlert.vue'
+import ClientDeleteDialog from './ClientDeleteDialog.vue'
 import { useI18n } from '../../i18n'
 
 const props = withDefaults(
@@ -46,6 +47,7 @@ const pageSize = 25
 const filters = ref<Record<string, string>>({})
 const error = ref('')
 const loading = ref(false)
+const deleting = ref<Row | null>(null)
 
 async function load(p?: number) {
   error.value = ''
@@ -73,16 +75,8 @@ function open(row: Row) {
   router.push(`${props.formBase}/${row.client_id}`)
 }
 
-// ponytail: plain confirm; the owned-resource count dialog lands with
-// task 5.5.
-async function remove(row: Row) {
-  if (!confirm(t('sites.confirm_delete'))) return
-  try {
-    await api.delete(`${props.apiBase}/${row.client_id}`)
-  } catch (e) {
-    error.value = e instanceof ApiError ? e.key : 'error.request_failed'
-    return
-  }
+function onDeleted() {
+  deleting.value = null
   load()
 }
 </script>
@@ -138,11 +132,20 @@ async function remove(row: Row) {
           :aria-label="t('sites.delete')"
           data-test="delete"
           class="ml-1 border border-danger-border bg-danger p-1 text-danger-text"
-          @click="remove(row)"
+          @click="deleting = row"
         >
           <component :is="utilityIcons.delete" :size="14" />
         </button>
       </template>
     </DataTable>
+
+    <ClientDeleteDialog
+      v-if="deleting"
+      :client-id="Number(deleting.client_id)"
+      :username="String(deleting.username ?? '')"
+      :api-base="apiBase"
+      @close="deleting = null"
+      @deleted="onDeleted"
+    />
   </div>
 </template>

@@ -32,7 +32,7 @@
 - [x] 5.2 Client form with TabbedForm tabs Info / Address / Limits / IP address; country select; write-only password; parent selector for admin; API error mapping. Commit.
 - [x] 5.3 Reseller form (same tabs, `limit_client` editable) and limit-template list/form. Commit.
 - [x] 5.4 Message-template list/form + Send message view (recipient, template load, delivery-disabled state). Commit.
-- [ ] 5.5 Delete confirmation dialog with owned-resource counts and delete vs delete-everything actions. Commit.
+- [x] 5.5 Delete confirmation dialog with owned-resource counts and delete vs delete-everything actions. Commit.
 - [ ] 5.6 agent-browser E2E: admin creates reseller + client; reseller isolation; template assign; message template; send attempt; delete confirm; screenshots to `docs/prints/`. Commit.
 
 ## 6. Integration and docs

@@ -14,6 +14,7 @@ var _ = []any{
 	countriesDoc,
 	clientMessageTemplateListDoc, clientMessageTemplateGetDoc, clientMessageTemplateCreateDoc,
 	clientMessageTemplateUpdateDoc, clientMessageTemplateDeleteDoc, clientSendMessageDoc,
+	clientResourceCountsDoc,
 }
 
 // clientListDoc documents GET /api/clients.
@@ -500,3 +501,18 @@ func clientMessageTemplateDeleteDoc() {}
 //	@Security		CookieAuth
 //	@Security		BearerAuth
 func clientSendMessageDoc() {}
+
+// clientResourceCountsDoc documents GET /api/clients/{id}/resource-counts.
+//
+//	@Summary		Count the resources a client owns
+//	@Description	Owned-resource counts for the delete confirmation UI (web domains/folders, dns zones/records/slaves, direct child clients). Read-scoped.
+//	@Tags			clients
+//	@Produce		json
+//	@Param			id	path		int	true	"client_id"
+//	@Success		200	{object}	map[string]int64
+//	@Failure		401	{object}	ErrorResponse
+//	@Failure		403	{object}	ErrorResponse
+//	@Router			/clients/{id}/resource-counts [get]
+//	@Security		CookieAuth
+//	@Security		BearerAuth
+func clientResourceCountsDoc() {}
