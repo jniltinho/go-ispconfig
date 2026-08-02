@@ -414,5 +414,7 @@
   "migration.plan.conflicts_more": "…and {n} more (full list in the CLI/API output)",
   "migration.inventory.orphans_to_admin": "Assign DNS zones whose owning client is absent to admin (instead of conflicting)",
   "migration.report.copy_tokens": "Copy all",
-  "migration.report.copied": "Copied"
+  "migration.report.copied": "Copied",
+  "topbar.dark_mode": "Switch to dark mode",
+  "topbar.light_mode": "Switch to light mode"
 }

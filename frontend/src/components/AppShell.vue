@@ -3,8 +3,9 @@
 // search, red logout), per-module sidebar with sections, routed content area.
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { utilityIcons } from '../icons'
-import { moduleIcons } from '../icons'
+import { Moon, Sun } from 'lucide-vue-next'
+import { moduleIcons, utilityIcons } from '../icons'
+import { isDark, toggleTheme } from '../theme'
 import { modules } from '../modules'
 import { useI18n } from '../i18n'
 import { useAuthStore } from '../stores/auth'
@@ -64,6 +65,16 @@ async function logout() {
             />
             <component :is="utilityIcons.search" :size="16" class="mx-2 text-text" />
           </div>
+          <button
+            type="button"
+            data-test="theme-toggle"
+            :title="t(isDark ? 'topbar.light_mode' : 'topbar.dark_mode')"
+            :aria-label="t(isDark ? 'topbar.light_mode' : 'topbar.dark_mode')"
+            class="border border-border bg-surface p-2 text-text transition-colors duration-150 hover:bg-info"
+            @click="toggleTheme"
+          >
+            <component :is="isDark ? Sun : Moon" :size="16" />
+          </button>
           <button
             type="button"
             class="bg-brand px-4 py-2 text-xs font-bold text-white hover:opacity-90"

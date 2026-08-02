@@ -7,6 +7,11 @@ import App from './App.vue'
 import { router } from './router'
 import { setSessionLostHandler } from './api'
 import { useAuthStore } from './stores/auth'
+import { applyTheme } from './theme'
+
+// Keep the class in sync with the store-backed state (index.html already
+// applied it pre-bundle, so this never flashes).
+applyTheme()
 
 const app = createApp(App)
 app.use(createPinia())
