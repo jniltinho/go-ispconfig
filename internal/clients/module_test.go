@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"go-ispconfig/internal/engine"
+	"go-ispconfig/internal/web"
 )
 
 // capturePlugin records the events it receives.
@@ -52,6 +53,33 @@ func TestClientModuleEvents(t *testing.T) {
 			require.Equal(t, data, plugin.payloads[0], "payload is the decoded {old,new} datalog data")
 		})
 	}
+}
+
+func TestClientDeleteReachesWebStackSubscribers(t *testing.T) {
+	// Daemon-shaped load: web + client modules together; a plugin
+	// subscribing client_delete (like nginx's teardown handler) must
+	// resolve its announcement via the client module — the web module no
+	// longer carries the stopgap announcement.
+	reg := engine.NewRegistry(nil)
+	plugin := &capturePlugin{subscribe: []string{"client_delete", "web_domain_delete"}}
+	require.NoError(t, reg.Load([]engine.Module{web.NewModule(), NewModule()}, []engine.Plugin{plugin}))
+
+	require.NoError(t, reg.RaiseTableHook(context.Background(), "client", "d",
+		engine.Data{Old: map[string]any{"client_id": float64(9)}, New: map[string]any{}}))
+	require.Equal(t, []string{"client_delete"}, plugin.got)
+}
+
+func TestClientModuleDisableHook(t *testing.T) {
+	// The emergency switch keeps announcements (subscriptions Load) but
+	// raises nothing.
+	reg := engine.NewRegistry(nil)
+	plugin := &capturePlugin{subscribe: []string{"client_delete"}}
+	mod := NewModule()
+	mod.DisableHook = true
+	require.NoError(t, reg.Load([]engine.Module{mod}, []engine.Plugin{plugin}))
+
+	require.NoError(t, reg.RaiseTableHook(context.Background(), "client", "d", engine.Data{}))
+	require.Empty(t, plugin.got)
 }
 
 func TestClientModuleAnnouncesOnly(t *testing.T) {

@@ -14,6 +14,11 @@ import (
 // itself and loads on every daemon regardless of server role flags —
 // client rows are broadcast with server_id = 0.
 type Module struct {
+	// DisableHook keeps the events announced (so plugin subscriptions
+	// still Load) but stops translating datalog rows into events —
+	// the daemon.disable_client_events emergency switch.
+	DisableHook bool
+
 	reg *engine.Registry
 }
 
@@ -27,7 +32,9 @@ func (*Module) Name() string { return "client" }
 // (client_module.inc.php onLoad).
 func (m *Module) OnLoad(r *engine.Registry) error {
 	m.reg = r
-	r.RegisterTableHook("client", m.process)
+	if !m.DisableHook {
+		r.RegisterTableHook("client", m.process)
+	}
 	r.AnnounceEvents(m.Name(), "client_insert", "client_update", "client_delete")
 	return nil
 }

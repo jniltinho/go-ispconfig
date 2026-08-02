@@ -169,13 +169,24 @@ func TestSSLNoActionOrNonVhost(t *testing.T) {
 	assert.Empty(t, runner.calls, "no openssl for non-vhost or no action")
 }
 
+// clientEventsStub announces the client events like the daemon's client
+// module (add-client-module), which the nginx plugin subscribes to.
+type clientEventsStub struct{}
+
+func (clientEventsStub) Name() string { return "client" }
+func (clientEventsStub) OnLoad(r *engine.Registry) error {
+	r.AnnounceEvents("client", "client_insert", "client_update", "client_delete")
+	return nil
+}
+
 // TestSSLHandlerLoadsWithWebModule pins design D2 wiring: the plugin
 // registers its ssl + insert/update/delete handlers against the events the
-// web module announces (ssl ahead of update in registration order).
+// web and client modules announce (ssl ahead of update in registration
+// order).
 func TestSSLHandlerLoadsWithWebModule(t *testing.T) {
 	reg := engine.NewRegistry(nil)
 	require.NoError(t, reg.Load(
-		[]engine.Module{web.NewModule()},
+		[]engine.Module{web.NewModule(), clientEventsStub{}},
 		[]engine.Plugin{NewPlugin(nil, nil, newFakeRunner(), "", nil)},
 	))
 }

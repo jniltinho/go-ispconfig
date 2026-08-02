@@ -16,7 +16,7 @@
 ## 3. Daemon client module
 
 - [x] 3.1 Implement `internal/modules/client` Module: announce `client_insert`/`client_update`/`client_delete`, register table hook on `client`, map datalog `i`/`u`/`d`; optional config.toml disable; unit tests with fake registries. Commit.
-- [ ] 3.2 Wire module into daemon bootstrap; verify nginx (or test double) `client_delete` handler still receives events when a client datalog delete is processed. Commit.
+- [x] 3.2 Wire module into daemon bootstrap; verify nginx (or test double) `client_delete` handler still receives events when a client datalog delete is processed. Commit.
 
 ## 4. REST API
 

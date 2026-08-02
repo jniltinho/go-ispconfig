@@ -15,6 +15,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"go-ispconfig/internal/clients"
 	"go-ispconfig/internal/config"
 	"go-ispconfig/internal/database"
 	"go-ispconfig/internal/dns"
@@ -62,7 +63,11 @@ var daemonCmd = &cobra.Command{
 
 		reg := engine.NewRegistry(logger)
 		nginxPlugin := nginx.NewPlugin(db, services, runner, cfg.Templates.CustomDir, logger)
-		modules := []engine.Module{web.NewModule()}
+		clientModule := clients.NewModule()
+		clientModule.DisableHook = cfg.Daemon.DisableClientEvents
+		// The client module loads regardless of server roles: client
+		// datalog rows broadcast with server_id = 0 to every node.
+		modules := []engine.Module{web.NewModule(), clientModule}
 		plugins := []engine.Plugin{nginxPlugin}
 		var dnsPlugin *dns.Plugin
 		if srv.DNSServer == 1 {

@@ -31,13 +31,11 @@ func NewModule() *Module { return &Module{} }
 func (*Module) Name() string { return "web" }
 
 // OnLoad announces the web events and registers the table hooks (port of
-// web_module.inc.php onLoad). client_delete is announced here too: the
-// nginx plugin subscribes to it for the client teardown cascade
-// (web-module-events spec); the event itself will be raised by the future
-// client module.
+// web_module.inc.php onLoad). client_delete is announced (and raised) by
+// the client module since add-client-module.
 func (m *Module) OnLoad(r *engine.Registry) error {
 	m.reg = r
-	events := []string{"client_delete"}
+	var events []string
 	for _, table := range hookedTables {
 		events = append(events, table+"_insert", table+"_update", table+"_delete")
 		r.RegisterTableHook(table, m.process)

@@ -28,7 +28,6 @@ var allWebEvents = []string{
 	"web_domain_insert", "web_domain_update", "web_domain_delete",
 	"web_folder_insert", "web_folder_update", "web_folder_delete",
 	"web_folder_user_insert", "web_folder_user_update", "web_folder_user_delete",
-	"client_delete",
 }
 
 // TestModuleFanOut covers the web-module-events spec: a datalog row for a
@@ -84,13 +83,13 @@ func TestModuleIgnoresUnhookedTable(t *testing.T) {
 	assert.Empty(t, *got)
 }
 
-// TestClientDeleteAnnounced pins the client_delete cascade contract: the
-// event is announced by this module so the nginx plugin can subscribe before
-// the client module exists.
-func TestClientDeleteAnnounced(t *testing.T) {
+// TestClientDeleteNotAnnouncedHere pins the ownership move: since
+// add-client-module, client_delete is announced (and raised) by the
+// client module, not the web module.
+func TestClientDeleteNotAnnouncedHere(t *testing.T) {
 	r := engine.NewRegistry(nil)
 	require.NoError(t, r.Load([]engine.Module{NewModule()}, nil))
-	assert.NoError(t, r.RegisterEvent("client_delete", func(context.Context, string, engine.Data) error {
+	assert.ErrorIs(t, r.RegisterEvent("client_delete", func(context.Context, string, engine.Data) error {
 		return nil
-	}))
+	}), engine.ErrEventNotAnnounced)
 }
