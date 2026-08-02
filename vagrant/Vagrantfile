@@ -1,0 +1,51 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+#
+# Test rig for the go-ispconfig installer (openspec add-installer-cli, D11).
+#
+#   ubuntu (default)  bento/ubuntu-24.04  192.168.56.10
+#   debian (opt-in)   bento/debian-12     192.168.56.11
+#   legacy (opt-in)   bento/ubuntu-24.04  192.168.56.20  PHP ISPConfig3 (nginx+bind)
+#
+# `make vagrant-up` builds the linux/amd64 binary first; provisioning copies
+# it into the guest and runs `go-ispconfig install --yes` with fixed answers.
+
+INSTALL = <<~SHELL
+  set -e
+  install -m 0755 /tmp/go-ispconfig /usr/local/bin/go-ispconfig
+  /usr/local/bin/go-ispconfig install --yes --write-credentials \
+    --hostname "$1" --admin-email admin@goisp.test
+SHELL
+
+# Fixed legacy admin password for the parity tests (test rig only).
+LEGACY_ADMIN_PW = "GoIspParity2026"
+
+Vagrant.configure("2") do |config|
+  config.vm.provider "virtualbox" do |vb|
+    vb.memory = 4096
+    vb.cpus = 2
+  end
+  # No synced folder: the file provisioner copies what the guests need.
+  config.vm.synced_folder ".", "/vagrant", disabled: true
+
+  { "ubuntu" => ["bento/ubuntu-24.04", "192.168.56.10", true],
+    "debian" => ["bento/debian-12",    "192.168.56.11", false] }.each do |name, (box, ip, default)|
+    config.vm.define name, primary: default, autostart: default do |m|
+      m.vm.box = box
+      m.vm.hostname = "#{name}.goisp.test"
+      m.vm.network "private_network", ip: ip
+      m.vm.provision "file", source: "../bin/go-ispconfig-linux-amd64",
+                             destination: "/tmp/go-ispconfig"
+      m.vm.provision "shell", inline: INSTALL, args: ["#{name}.goisp.test"]
+    end
+  end
+
+  # Legacy PHP ISPConfig3 comparison VM (parity baseline + migration source).
+  config.vm.define "legacy", autostart: false do |m|
+    m.vm.box = "bento/ubuntu-24.04"
+    m.vm.hostname = "legacy.goisp.test"
+    m.vm.network "private_network", ip: "192.168.56.20"
+    m.vm.provision "shell", path: "provision-legacy.sh",
+                            env: { "ADMIN_PW" => LEGACY_ADMIN_PW }
+  end
+end

@@ -17,9 +17,15 @@ GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 
 LDFLAGS    := -trimpath -ldflags "-s -w -X $(PREFIX).Version=$(VERSION) -X $(PREFIX).BuildDate=$(BUILD_TIME) -X $(PREFIX).GitCommit=$(GIT_COMMIT)"
 
-.PHONY: all build build-prod run clean frontend frontend-dev \
+## Vagrant test rig (vagrant/): VM=ubuntu (default) or debian
+VM        ?= ubuntu
+PANEL_IP  := $(if $(filter debian,$(VM)),192.168.56.11,192.168.56.10)
+LINUX_BIN := bin/go-ispconfig-linux-amd64
+
+.PHONY: all build build-prod build-linux run clean frontend frontend-dev \
         migrate tidy deps deps-frontend install-upx lint swagger \
-        swagger-check test test-race help
+        swagger-check test test-race help \
+        vagrant-up vagrant-test vagrant-destroy vagrant-lab-up vagrant-parity-test
 
 ## Default: build frontend + go binary
 all: clean frontend build
@@ -114,6 +120,33 @@ swagger-check: swagger
 	@git diff --exit-code internal/api/docs internal/api \
 		|| { echo "swagger docs are stale: run 'make swagger' and commit"; exit 1; }
 
+## Cross-build the linux/amd64 binary consumed by the Vagrant rig
+build-linux:
+	@echo "Building linux/amd64 binary for the Vagrant rig..."
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o $(LINUX_BIN) $(LDFLAGS) .
+
+## Bring the test VM up (VM=ubuntu|debian), building the binary first
+vagrant-up: build-linux
+	cd vagrant && vagrant up $(VM)
+
+## Run the smoke test inside the guest; exit code = test result
+vagrant-test:
+	cd vagrant && vagrant up $(VM) --no-provision \
+		&& vagrant upload smoke-test.sh /tmp/smoke-test.sh $(VM) \
+		&& vagrant ssh $(VM) -c "sudo PANEL_IP=$(PANEL_IP) bash /tmp/smoke-test.sh"
+
+## Destroy every rig VM
+vagrant-destroy:
+	cd vagrant && vagrant destroy -f
+
+## Bring up the comparison lab: go-ispconfig (.10) + legacy PHP ISPConfig (.20)
+vagrant-lab-up: build-linux
+	cd vagrant && vagrant up ubuntu legacy
+
+## Run the agent-browser parity suite against both panels (see vagrant/parity/)
+vagrant-parity-test:
+	bash vagrant/parity/parity-test.sh
+
 install-upx:
 	@echo "Installing UPX $(UPX_VERSION)..."
 	curl -sSL "$(UPX_URL)" -o "$(UPX_ARCHIVE)"
@@ -141,3 +174,9 @@ help:
 	@echo "  deps-frontend    - Install frontend npm packages"
 	@echo "  swagger          - Generate Swagger API documentation"
 	@echo "  install-upx      - Download and install UPX binary"
+	@echo "  build-linux      - Cross-build linux/amd64 binary (Vagrant rig)"
+	@echo "  vagrant-up       - Build binary + vagrant up (VM=ubuntu|debian)"
+	@echo "  vagrant-test     - Run smoke test in the guest (VM=ubuntu|debian)"
+	@echo "  vagrant-destroy  - Destroy all rig VMs"
+	@echo "  vagrant-lab-up   - Bring up go-ispconfig + legacy comparison VMs"
+	@echo "  vagrant-parity-test - Run the parity suite against both panels"
