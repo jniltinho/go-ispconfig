@@ -7,26 +7,26 @@ import "time"
 // Unlike most ISPConfig tables, the Active, DNSSECInitialized and
 // DNSSECWanted enums use uppercase 'N'/'Y' values.
 type DNSSoa struct {
-	ID                uint32 `gorm:"column:id;primaryKey;autoIncrement"`
-	SysUserID         uint32 `gorm:"column:sys_userid"`
-	SysGroupID        uint32 `gorm:"column:sys_groupid"`
-	SysPermUser       string `gorm:"column:sys_perm_user"`
-	SysPermGroup      string `gorm:"column:sys_perm_group"`
-	SysPermOther      string `gorm:"column:sys_perm_other"`
-	ServerID          int32  `gorm:"column:server_id"`
-	Origin            string `gorm:"column:origin"`
-	NS                string `gorm:"column:ns"`
-	Mbox              string `gorm:"column:mbox"`
-	Serial            uint32 `gorm:"column:serial"`
-	Refresh           uint32 `gorm:"column:refresh"`
-	Retry             uint32 `gorm:"column:retry"`
-	Expire            uint32 `gorm:"column:expire"`
-	Minimum           uint32 `gorm:"column:minimum"`
-	TTL               uint32 `gorm:"column:ttl"`
-	Active            string `gorm:"column:active"`
-	Xfer              string `gorm:"column:xfer"`
-	AlsoNotify        string `gorm:"column:also_notify"`
-	UpdateACL         string `gorm:"column:update_acl"`
+	ID           uint32 `gorm:"column:id;primaryKey;autoIncrement"`
+	SysUserID    uint32 `gorm:"column:sys_userid"`
+	SysGroupID   uint32 `gorm:"column:sys_groupid"`
+	SysPermUser  string `gorm:"column:sys_perm_user"`
+	SysPermGroup string `gorm:"column:sys_perm_group"`
+	SysPermOther string `gorm:"column:sys_perm_other"`
+	ServerID     int32  `gorm:"column:server_id"`
+	Origin       string `gorm:"column:origin"`
+	NS           string `gorm:"column:ns"`
+	Mbox         string `gorm:"column:mbox"`
+	Serial       uint32 `gorm:"column:serial"`
+	Refresh      uint32 `gorm:"column:refresh"`
+	Retry        uint32 `gorm:"column:retry"`
+	Expire       uint32 `gorm:"column:expire"`
+	Minimum      uint32 `gorm:"column:minimum"`
+	TTL          uint32 `gorm:"column:ttl"`
+	Active       string `gorm:"column:active"`
+	Xfer         string `gorm:"column:xfer"`
+	AlsoNotify   string `gorm:"column:also_notify"`
+	UpdateACL    string `gorm:"column:update_acl"`
 	// DNSSECInitialized is daemon-managed; the default tag keeps a zero
 	// value out of API inserts (the column is a strict-mode enum).
 	DNSSECInitialized string `gorm:"column:dnssec_initialized;default:N"`

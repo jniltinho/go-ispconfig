@@ -25,18 +25,18 @@
 
 ## 4. Zone management (API-side domain logic)
 
-- [ ] 4.1 Implement `NextSerial` (YYYYMMDDnn) with unit tests for same-day increment, overflow date-roll, stale-date reset (commit: `feat(dns): SOA serial management`)
-- [ ] 4.2 Implement SOA validation (origin FQDN regex+UNIQUE+IDN/lowercase, ns/mbox regexes, ranges >=60, xfer/also_notify IP lists, update_acl admin-only, dnssec_algo set) on the foundation validation engine; tests (commit: `feat(dns): zone validation rules`)
-- [ ] 4.3 Implement declarative record-type metadata (18 types + SPF/DKIM/DMARC helpers): name/data/aux/ttl validators per `dns_<type>.tform.php`, TXT negative regexes; JSON export endpoint for the UI; table-driven tests (commit: `feat(dns): record type metadata and validation`)
-- [ ] 4.4 Implement zone/record/slave repositories with riud scopes, datalog `{old,new}` writes, and transactional serial bump with `SELECT ... FOR UPDATE`; permission tests (client/reseller/admin) (commit: `feat(dns): dns repositories with permissions and datalog`)
-- [ ] 4.5 Implement template expansion (placeholders `{DOMAIN}/{IP}/{IPV6}/{NS1}/{NS2}/{EMAIL}`, `[ZONE]`/`[DNS_RECORDS]` parsing, `TYPE|name|data|aux|ttl`, DNSSEC injection, initial serial `<today>01`, single transaction); test against the stock Default template row (commit: `feat(dns): zone template expansion`)
+- [x] 4.1 Implement `NextSerial` (YYYYMMDDnn) with unit tests for same-day increment, overflow date-roll, stale-date reset (commit: `feat(dns): SOA serial management`)
+- [x] 4.2 Implement SOA validation (origin FQDN regex+UNIQUE+IDN/lowercase, ns/mbox regexes, ranges >=60, xfer/also_notify IP lists, update_acl admin-only, dnssec_algo set) on the foundation validation engine; tests (commit: `feat(dns): zone validation rules`)
+- [x] 4.3 Implement declarative record-type metadata (18 types + SPF/DKIM/DMARC helpers): name/data/aux/ttl validators per `dns_<type>.tform.php`, TXT negative regexes; JSON export endpoint for the UI; table-driven tests (commit: `feat(dns): record type metadata and validation`)
+- [x] 4.4 Implement zone/record/slave repositories with riud scopes, datalog `{old,new}` writes, and transactional serial bump with `SELECT ... FOR UPDATE`; permission tests (client/reseller/admin) (commit: `feat(dns): dns repositories with permissions and datalog`)
+- [x] 4.5 Implement template expansion (placeholders `{DOMAIN}/{IP}/{IPV6}/{NS1}/{NS2}/{EMAIL}`, `[ZONE]`/`[DNS_RECORDS]` parsing, `TYPE|name|data|aux|ttl`, DNSSEC injection, initial serial `<today>01`, single transaction); test against the stock Default template row (commit: `feat(dns): zone template expansion`)
 
 ## 5. REST API
 
-- [ ] 5.1 Zone endpoints: create/get/get-id-by-origin/list/update/delete/set-status/set-dnssec with swaggo annotations; handler tests (commit: `feat(api): dns zone endpoints`)
-- [ ] 5.2 Record endpoints: typed CRUD + list-by-zone with `update_serial` flag; swaggo; tests incl. 403 on foreign zone (commit: `feat(api): dns record endpoints`)
-- [ ] 5.3 Secondary zone + template endpoints (slave CRUD, template list/CRUD, wizard create-from-template); swaggo; tests (commit: `feat(api): dns slave and template endpoints`)
-- [ ] 5.4 Regenerate swagger (`swag init`), verify Swagger UI shows all DNS endpoints, CI staleness check green (commit: `docs(api): regenerate swagger for dns`)
+- [x] 5.1 Zone endpoints: create/get/get-id-by-origin/list/update/delete/set-status/set-dnssec with swaggo annotations; handler tests (commit: `feat(api): dns zone endpoints`)
+- [x] 5.2 Record endpoints: typed CRUD + list-by-zone with `update_serial` flag; swaggo; tests incl. 403 on foreign zone (commit: `feat(api): dns record endpoints`)
+- [x] 5.3 Secondary zone + template endpoints (slave CRUD, template list/CRUD, wizard create-from-template); swaggo; tests (commit: `feat(api): dns slave and template endpoints`)
+- [x] 5.4 Regenerate swagger (`swag init`), verify Swagger UI shows all DNS endpoints, CI staleness check green (commit: `docs(api): regenerate swagger for dns`)
 
 ## 6. DNSSEC (phase 2)
 
@@ -48,12 +48,12 @@
 
 ## 7. Panel UI (Vue)
 
-- [ ] 7.1 DNS module navigation + zone list (search, status) and secondary-zones list; en locale keys (commit: `feat(ui): dns zone lists`)
-- [ ] 7.2 Zone form with tabs Records / Zone settings / Zone rendering; `update_acl` admin-only; serial read-only; DNSSEC fields + info (commit: `feat(ui): dns zone form`)
-- [ ] 7.3 Record grid (ordered type,name) + metadata-driven add/edit dialog with per-type fields/validation, delete and active toggle (commit: `feat(ui): dns record editor grid`)
-- [ ] 7.4 Zone wizard from templates (inputs from template `fields`, create + navigate) and secondary zone form (commit: `feat(ui): dns wizard and secondary zone form`)
-- [ ] 7.5 Admin template management screen (commit: `feat(ui): dns template admin`)
-- [ ] 7.6 agent-browser E2E: wizard creation, manual zone, A/MX/TXT record flows, secondary zone, update_acl visibility; screenshots to docs/prints (commit: `test(ui): dns e2e suite`)
+- [x] 7.1 DNS module navigation + zone list (search, status) and secondary-zones list; en locale keys (commit: `feat(ui): dns zone lists`)
+- [x] 7.2 Zone form with tabs Records / Zone settings / Zone rendering; `update_acl` admin-only; serial read-only; DNSSEC fields + info (commit: `feat(ui): dns zone form`)
+- [x] 7.3 Record grid (ordered type,name) + metadata-driven add/edit dialog with per-type fields/validation, delete and active toggle (commit: `feat(ui): dns record editor grid`)
+- [x] 7.4 Zone wizard from templates (inputs from template `fields`, create + navigate) and secondary zone form (commit: `feat(ui): dns wizard and secondary zone form`)
+- [x] 7.5 Admin template management screen (commit: `feat(ui): dns template admin`)
+- [x] 7.6 agent-browser E2E: wizard creation, manual zone, A/MX/TXT record flows, secondary zone, update_acl visibility; screenshots to docs/prints (commit: `test(ui): dns e2e suite`)
 
 ## 8. Integration and docs
 
