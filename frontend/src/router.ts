@@ -57,6 +57,32 @@ export const router = createRouter({
           component: DomainForm,
           props: (route) => ({ id: String(route.params.id) }),
         },
+        {
+          path: 'mail/mailboxes',
+          name: 'mail-mailboxes',
+          component: MailList,
+          props: {
+            apiBase: '/api/mail/mailboxes', idField: 'mailuser_id', formBase: '/mail/mailboxes',
+            columns: [
+              { key: 'email', label: 'Email' },
+              { key: 'name', label: 'Name' },
+              { key: 'quota', label: 'Quota' },
+            ],
+            titleKey: 'mail.mailboxes_title', addKey: 'mail.add_mailbox',
+          },
+        },
+        {
+          path: 'mail/mailboxes/new',
+          name: 'mail-mailbox-new',
+          component: EntityForm,
+          props: { entity: 'mailboxes', apiBase: '/api/mail/mailboxes', backTo: '/mail/mailboxes' },
+        },
+        {
+          path: 'mail/mailboxes/:id(\\d+)',
+          name: 'mail-mailbox-edit',
+          component: EntityForm,
+          props: (route) => ({ entity: 'mailboxes', apiBase: '/api/mail/mailboxes', backTo: '/mail/mailboxes', id: String(route.params.id) }),
+        },
         { path: 'clients/resellers', name: 'resellers', component: ResellerList },
         { path: 'clients/new', name: 'client-new', component: ClientForm },
         { path: 'clients/resellers/new', name: 'reseller-new', component: ClientForm, props: { reseller: true } },
