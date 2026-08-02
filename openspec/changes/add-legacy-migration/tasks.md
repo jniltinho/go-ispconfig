@@ -10,7 +10,7 @@
 
 ## 2. Mock legacy server (test fixture)
 
-- [ ] 2.1 Build an httptest-based mock of `/remote/json.php` serving canned fixtures (login/logout, attempts limit, grant list, clients, paged web domains, zones, RRs incl. `$6$` hash fields) for reuse by client, engine, CLI, and wizard integration tests. Commit.
+- [x] 2.1 Build an httptest-based mock of `/remote/json.php` serving canned fixtures (login/logout, attempts limit, grant list, clients, paged web domains, zones, RRs incl. `$6$` hash fields) for reuse by client, engine, CLI, and wizard integration tests. Commit.
 
 ## 3. Import engine (`internal/legacy/importer`)
 
