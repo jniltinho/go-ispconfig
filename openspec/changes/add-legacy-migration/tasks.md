@@ -20,7 +20,7 @@
 - [x] 3.4 Implement apply: execute plan in per-entity transactions through the foundation's datalog-aware writer (JSON `{old,new}`, correct dbtable/dbidx/action/server_id); skip conflicts; riud strings copied verbatim, sys_userid/sys_groupid rewritten via remap. Integration test: applied zone produces sys_datalog rows consumable by the daemon. Commit.
 - [x] 3.5 Implement password handling: import `$1$/$5$/$6$` hashes verbatim for service entities; panel sys_users always get unusable placeholder + reset-required marker (API never exposes `sys_user.passwort`); bulk one-time reset-token generation for all flagged users; report lists reset users; assert no plaintext in DB or logs. Tests. Commit.
 - [x] 3.6 Implement final report struct: per-entity counts, reset list, warnings (insecure TLS, unmapped servers, SSL re-issue), operational-order note (rsync files → SSL/LE → DNS cutover), per-domain rsync suggestion with uid/gid remap (`rsync -a --usermap=... --groupmap=... legacyhost:<document_root>/ <document_root>/` or post-rsync `chown -R`). Tests. Commit.
-- [ ] 3.7 Idempotency and dry-run integration tests against MariaDB + mock server: dry-run leaves zero writes and zero datalog rows; apply-twice yields identical counts and all-skip second plan; changed legacy field re-plans as update. Commit.
+- [x] 3.7 Idempotency and dry-run integration tests against MariaDB + mock server: dry-run leaves zero writes and zero datalog rows; apply-twice yields identical counts and all-skip second plan; changed legacy field re-plans as update. Commit.
 
 ## 4. CLI (`migrate-from`)
 
