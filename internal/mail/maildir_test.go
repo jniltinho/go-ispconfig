@@ -129,3 +129,77 @@ func TestUserInsertMdboxUsesDoveadm(t *testing.T) {
 	assert.Contains(t, cmds, "doveadm mailbox subscribe -u box@example.com Drafts")
 	assert.NoDirExists(t, home+"/example.com/box/Maildir", "mdbox never builds a maildir layout")
 }
+
+func TestUserUpdateRefusesFormatChangeAndMoves(t *testing.T) {
+	home := t.TempDir()
+	cfg := getconf.DefaultMailConfig()
+	cfg.HomedirPath = home
+	p, runner := testPlugin(t, cfg)
+
+	oldMaildir := home + "/example.com/olduser"
+	newMaildir := home + "/example.com/newuser"
+	require.NoError(t, os.MkdirAll(oldMaildir+"/Maildir/new", 0o700))
+	require.NoError(t, os.MkdirAll(oldMaildir+"/Maildir/cur", 0o700))
+
+	err := p.userUpdate(context.Background(), engine.Data{
+		Old: map[string]any{
+			"mailuser_id": float64(5), "email": "old@example.com",
+			"maildir": oldMaildir, "maildir_format": "maildir",
+		},
+		New: map[string]any{
+			"mailuser_id": float64(5), "email": "new@example.com",
+			"uid": float64(5000), "gid": float64(5000),
+			"maildir": newMaildir, "maildir_format": "mdbox", // attempted change
+			"quota": float64(0), "server_id": float64(1),
+		},
+	})
+	require.NoError(t, err)
+
+	cmds := runner.all()
+	// Old format wins: no doveadm calls, maildir layout provisioned.
+	for _, c := range cmds {
+		assert.NotContains(t, c, "doveadm", "format change must be refused")
+	}
+	assert.DirExists(t, newMaildir+"/Maildir/new", "structure provisioned at the new path")
+	// Freshly built target replaced by the moved mailbox (PHP rm+mv).
+	assert.Contains(t, cmds, "rm -fr "+newMaildir)
+	assert.Contains(t, cmds, "mv -f "+oldMaildir+" "+newMaildir)
+}
+
+func TestUserUpdateQuotaOnlyOnNonDovecot(t *testing.T) {
+	home := t.TempDir()
+	cfg := getconf.DefaultMailConfig()
+	cfg.HomedirPath = home
+	maildir := home + "/example.com/quotauser"
+
+	run := func(daemon string, quota float64) []string {
+		cfg.POP3IMAPDaemon = daemon
+		p, runner := testPlugin(t, cfg)
+		err := p.userUpdate(context.Background(), engine.Data{
+			Old: map[string]any{"maildir": maildir, "maildir_format": "maildir"},
+			New: map[string]any{
+				"mailuser_id": float64(6), "email": "q@example.com",
+				"uid": float64(5000), "gid": float64(5000),
+				"maildir": maildir, "maildir_format": "maildir",
+				"quota": quota, "server_id": float64(1),
+			},
+		})
+		require.NoError(t, err)
+		return runner.all()
+	}
+
+	for _, c := range run("dovecot", 12345) {
+		assert.NotContains(t, c, "maildirmake -q", "dovecot quota is SQL-authoritative")
+	}
+
+	// Non-dovecot (courier-style layout at the maildir root) applies quota.
+	require.NoError(t, os.RemoveAll(maildir))
+	require.NoError(t, os.MkdirAll(maildir+"/new", 0o700))
+	require.NoError(t, os.MkdirAll(maildir+"/cur", 0o700))
+	assert.Contains(t, run("courier", 12345), "maildirmake -q 12345S "+maildir)
+
+	// quota 0 removes maildirsize (unlimited).
+	require.NoError(t, os.WriteFile(maildir+"/maildirsize", []byte("x"), 0o600))
+	run("courier", 0)
+	assert.NoFileExists(t, maildir+"/maildirsize")
+}

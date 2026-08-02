@@ -190,3 +190,68 @@ func isDir(path string) bool {
 	fi, err := os.Stat(path)
 	return err == nil && fi.IsDir()
 }
+
+// userUpdate ports mail_plugin::user_update: the maildir format can
+// never change (the old value always wins), the structure is repaired/
+// re-created, a renamed maildir is moved over, and maildrop quota is
+// refreshed on non-Dovecot setups (Dovecot quota is SQL-authoritative).
+func (p *Plugin) userUpdate(ctx context.Context, data engine.Data) error {
+	oldRow := row(data.Old)
+	newRow := make(row, len(data.New))
+	for k, v := range data.New {
+		newRow[k] = v
+	}
+	// Maildir-Format must not be changed this way (PHP parity).
+	newRow["maildir_format"] = oldRow.str("maildir_format")
+
+	cfg, err := p.config(ctx)
+	if err != nil {
+		p.log.Warn("mail: using default [mail] config", "error", err)
+	}
+	oldMaildir, newMaildir := oldRow.str("maildir"), newRow.str("maildir")
+
+	if newRow.str("maildir_format") == "mdbox" {
+		if newMaildir != oldMaildir && isDir(oldMaildir) {
+			p.moveMaildir(ctx, oldMaildir, newMaildir)
+		}
+		if !isDir(newMaildir + "/mdbox") {
+			return p.mdboxCreate(ctx, newRow.str("email"))
+		}
+		return nil
+	}
+
+	if err := p.provisionMailbox(ctx, newRow); err != nil {
+		return err
+	}
+	if newMaildir != oldMaildir && isDir(oldMaildir) {
+		p.moveMaildir(ctx, oldMaildir, newMaildir)
+	}
+	// Maildrop quota refresh (never on Dovecot: SQL quota is live).
+	if cfg.POP3IMAPDaemon != "dovecot" && isDir(newMaildir+"/new") {
+		if quota := newRow.num("quota"); quota > 0 {
+			if _, err := p.runner.Run(ctx, "maildirmake", "-q", fmt.Sprintf("%dS", quota), newMaildir); err != nil {
+				p.log.Error("mail: maildirmake quota failed", "path", newMaildir, "error", err)
+			}
+		} else if err := os.Remove(newMaildir + "/maildirsize"); err == nil {
+			p.log.Debug("mail: maildir quota set to unlimited", "path", newMaildir)
+		}
+	}
+	return nil
+}
+
+// moveMaildir replaces the target with the source tree (PHP: rm -fr new,
+// mv -f old new — the freshly provisioned structure is superseded by the
+// real mailbox data).
+func (p *Plugin) moveMaildir(ctx context.Context, oldPath, newPath string) {
+	if isDir(newPath) {
+		if _, err := p.runner.Run(ctx, "rm", "-fr", newPath); err != nil {
+			p.log.Error("mail: could not remove target maildir before move", "path", newPath, "error", err)
+			return
+		}
+	}
+	if _, err := p.runner.Run(ctx, "mv", "-f", oldPath, newPath); err != nil {
+		p.log.Error("mail: maildir move failed", "from", oldPath, "to", newPath, "error", err)
+		return
+	}
+	p.log.Debug("mail: moved maildir", "from", oldPath, "to", newPath)
+}
