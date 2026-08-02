@@ -27,7 +27,9 @@ type DNSSoa struct {
 	Xfer              string `gorm:"column:xfer"`
 	AlsoNotify        string `gorm:"column:also_notify"`
 	UpdateACL         string `gorm:"column:update_acl"`
-	DNSSECInitialized string `gorm:"column:dnssec_initialized"`
+	// DNSSECInitialized is daemon-managed; the default tag keeps a zero
+	// value out of API inserts (the column is a strict-mode enum).
+	DNSSECInitialized string `gorm:"column:dnssec_initialized;default:N"`
 	DNSSECWanted      string `gorm:"column:dnssec_wanted"`
 	DNSSECAlgo        string `gorm:"column:dnssec_algo"`
 	DNSSECLastSigned  int64  `gorm:"column:dnssec_last_signed"`
