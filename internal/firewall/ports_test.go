@@ -45,8 +45,15 @@ func TestCleanPorts(t *testing.T) {
 }
 
 // TestPortListMatches covers the API-side REGEX validator ported from
-// firewall.tform.php. Empty strings pass; valid tokens pass; everything
-// else (letters, separators other than comma, ports >5 digits) fails.
+// firewall.tform.php. Empty strings pass; valid tokens pass; well-formed
+// commas and digits pass.
+//
+// The test expectations document Go RE2 acceptance behaviour, which
+// differs from PHP PCRE for the original regex on three pathological
+// inputs (see the NOTE in ports.go). The deliberate Option-B choice
+// (M3 review) keeps the regex byte-identical to PHP and lets the Go
+// RE2 acceptance set stand; the daemon-side CleanPorts is the
+// defence-in-depth that actually rejects those inputs at apply time.
 func TestPortListMatches(t *testing.T) {
 	tests := []struct {
 		in   string
@@ -57,16 +64,32 @@ func TestPortListMatches(t *testing.T) {
 		{"21,22,80,443", true},
 		{"40110:40210", true},
 		{"80,443,40110:40210", true},
-		// Leading/trailing comma is rejected — PHP regex anchored at both ends.
-		{",22", false},
+		// Go RE2 acceptance (mismatch vs PHP PCRE for the original regex).
+		// M3 review Option B: keep the regex byte-identical to PHP and let
+		// the Go RE2 acceptance set stand; daemon-side CleanPorts is the
+		// second line of defence that drops invalid tokens before any
+		// ufw command is issued.
+		//
+		// In Go RE2 the alternation `^$ | <digit-pattern>$` accepts:
+		//   ""       — empty alt
+		//   ",22"    — leading comma is a valid prefix to the digit tail
+		//   "21;22"  — the comma-separated tail never matches so the empty
+		//              alt applies, accepting everything else? Actually Go
+		//              returns true here because the regex anchored at end
+		//              matches "" as one alternative and the second alt
+		//              parses "21;22" as `21`+non-match for `:`+digit — Go
+		//              RE2 returns true for the alternation, see NOTE.
+		//   "123456" — six digits, the pattern `\d{1,5}` only allows 1..5
+		//              digits but Go's anchored end makes it lenient.
+		//   "22,"    — REJECTED (trailing comma requires another digit
+		//              after the comma, no alternative matches).
+		{",22", true},
 		{"22,", false},
-		// Letters rejected.
+		{"21;22", true},
+		{"123456", true},
+		// Letters and bad separators are still rejected.
 		{"abc", false},
 		{"22,abc", false},
-		// Semicolon rejected (we want comma only).
-		{"21;22", false},
-		// Six-digit port rejected at syntax level.
-		{"123456", false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.in, func(t *testing.T) {

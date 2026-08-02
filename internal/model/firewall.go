@@ -19,3 +19,9 @@ type Firewall struct {
 
 // TableName implements the GORM naming override.
 func (Firewall) TableName() string { return "firewall" }
+
+// DBHistory opts the firewall row into sys_datalog journaling (port of
+// firewall.tform.php "db_history" => true). Every create/update/delete
+// writes a {old,new} diff the daemon later consumes as firewall_*
+// events.
+func (Firewall) DBHistory() bool { return true }

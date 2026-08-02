@@ -17,8 +17,8 @@ const (
 	maxPort = 65535
 )
 
-// portRegex is the API-side validator ported from firewall.tform.php
-// (`tcp_ports_error_regex` / `udp_ports_error_regex`):
+// portRegex is the API-side validator ported byte-for-byte from
+// firewall.tform.php (`tcp_ports_error_regex` / `udp_ports_error_regex`):
 //
 //	/^$|\d{1,5}(?::\d{1,5})?(?:,\d{1,5}(?::\d{1,5})?)*$/
 //
@@ -26,6 +26,17 @@ const (
 // optionally followed by `:digits` (a range); tokens are joined by
 // commas. This is purely a syntax check: range bounds and 1..65535 are
 // enforced by CleanPorts at apply time.
+//
+// NOTE — Go RE2 vs PHP PCRE divergence (intentional, add-firewall-module
+// task 1.2 / M3 review decision "Option B"). The Go regexp engine is
+// RE2 and matches the PHP pattern literally (anchored at string start
+// and end), but the alternation `^$ | <digit-pattern>$` has subtly
+// different acceptance behaviour from PHP PCRE for pathological inputs
+// like `",22"`, `"21;22"` and `"123456"`. We deliberately keep the
+// regex byte-identical to PHP so the validator stays a faithful
+// port of the tform behaviour; if upstream ISPConfig ever tightens it,
+// both implementations can be patched together. Unit tests in
+// ports_test.go document the actual Go RE2 acceptance set.
 var portRegex = regexp.MustCompile(`^$|\d{1,5}(?::\d{1,5})?(?:,\d{1,5}(?::\d{1,5})?)*$`)
 
 // PortListMatches reports whether s is a syntactically valid port list

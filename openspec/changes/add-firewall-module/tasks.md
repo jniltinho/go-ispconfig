@@ -2,9 +2,9 @@
 
 ## 1. Models and domain validation
 
-- [ ] 1.1 Add GORM model `Firewall` for table `firewall` with explicit `gorm:"column:..."` tags for `firewall_id`, `sys_userid`, `sys_groupid`, `sys_perm_user`, `sys_perm_group`, `sys_perm_other`, `server_id`, `tcp_port`, `udp_port`, `active`; unit-test round-trip against MariaDB. Do not model `iptables`. Commit.
-- [ ] 1.2 Implement pure `CleanPorts` (port of `firewall_plugin::clean_ports`) and the tform port-list REGEX validator; table-driven tests for singles, ranges, invalid tokens, empty input. Commit.
-- [ ] 1.3 Implement firewall domain rules on the foundation validation/entity stack: `server_id` UNIQUE (`firewall_error_unique`), port regex error keys, create defaults (`tcp_port` / `udp_port` / `active` from `firewall.tform.php`), immutable `server_id` on update; unit tests. Commit.
+- [x] 1.1 Add GORM model `Firewall` for table `firewall` with explicit `gorm:"column:..."` tags for `firewall_id`, `sys_userid`, `sys_groupid`, `sys_perm_user`, `sys_perm_group`, `sys_perm_other`, `server_id`, `tcp_port`, `udp_port`, `active`; unit-test round-trip against MariaDB. Do not model `iptables`. Commit.
+- [x] 1.2 Implement pure `CleanPorts` (port of `firewall_plugin::clean_ports`) and the tform port-list REGEX validator; table-driven tests for singles, ranges, invalid tokens, empty input. Commit.
+- [x] 1.3 Implement firewall domain rules on the foundation validation/entity stack: `server_id` UNIQUE (`firewall_error_unique`), port regex error keys, create defaults (`tcp_port` / `udp_port` / `active` from `firewall.tform.php`), immutable `server_id` on update; unit tests. Commit.
 
 ## 2. Daemon module and UFW plugin
 
