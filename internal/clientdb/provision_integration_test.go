@@ -5,6 +5,7 @@ package clientdb
 import (
 	"context"
 	"database/sql"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -14,8 +15,9 @@ import (
 )
 
 // startAdmin spins up a MariaDB container and returns a plugin wired to
-// it via OpenAdmin plus an open admin connection for direct assertions.
-func startAdmin(t *testing.T, suffix string) (*Plugin, *adminConn) {
+// it via OpenAdmin, an open admin connection for direct assertions and
+// the root DSN prefix ("root:root@tcp(host:port)").
+func startAdmin(t *testing.T, suffix string) (*Plugin, *adminConn, string) {
 	t.Helper()
 	dsnPrefix, _ := database.StartMariaDB(t, suffix)
 	p := NewPlugin(nil, nil, "", nil)
@@ -26,7 +28,16 @@ func startAdmin(t *testing.T, suffix string) (*Plugin, *adminConn) {
 	c, err := p.connect(context.Background())
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = c.Close() })
-	return p, c
+	return p, c, dsnPrefix
+}
+
+// dsnAddr extracts the host:port from a StartMariaDB DSN prefix.
+func dsnAddr(t *testing.T, dsnPrefix string) string {
+	t.Helper()
+	start := strings.Index(dsnPrefix, "tcp(")
+	end := strings.LastIndex(dsnPrefix, ")")
+	require.True(t, start >= 0 && end > start)
+	return dsnPrefix[start+4 : end]
 }
 
 // schemaCharset returns the DEFAULT_CHARACTER_SET_NAME of a schema, or
@@ -47,7 +58,7 @@ func schemaCharset(t *testing.T, c *adminConn, name string) string {
 // TestCreateDeleteDatabase covers task 3.3: CREATE DATABASE with and
 // without charset, DROP DATABASE, and the system-schema denylist.
 func TestCreateDeleteDatabase(t *testing.T) {
-	p, c := startAdmin(t, "prov")
+	p, c, _ := startAdmin(t, "prov")
 	ctx := context.Background()
 
 	// with charset
