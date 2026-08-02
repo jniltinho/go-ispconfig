@@ -30,6 +30,23 @@ export const modules: ModuleDef[] = [
     ],
   },
   {
+    id: 'mail',
+    path: '/mail',
+    sections: [
+      { labelKey: 'sidebar.mail.domains', path: '/mail' },
+      { labelKey: 'sidebar.mail.mailboxes', path: '/mail/mailboxes' },
+      { labelKey: 'sidebar.mail.aliases', path: '/mail/aliases' },
+      { labelKey: 'sidebar.mail.forwards', path: '/mail/forwards' },
+      { labelKey: 'sidebar.mail.catchalls', path: '/mail/catchalls' },
+      { labelKey: 'sidebar.mail.alias_domains', path: '/mail/alias-domains' },
+      { labelKey: 'sidebar.mail.transports', path: '/mail/transports' },
+      { labelKey: 'sidebar.mail.spamfilter_policies', path: '/mail/spamfilter/policies', adminOnly: true },
+      { labelKey: 'sidebar.mail.spamfilter_users', path: '/mail/spamfilter/users' },
+      { labelKey: 'sidebar.mail.spamfilter_wblist', path: '/mail/spamfilter/wblists' },
+      { labelKey: 'sidebar.mail.access', path: '/mail/access' },
+    ],
+  },
+  {
     id: 'client',
     path: '/clients',
     sections: [

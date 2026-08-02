@@ -10,6 +10,8 @@ import WebDomainList from './views/sites/WebDomainList.vue'
 import WebFolderList from './views/sites/WebFolderList.vue'
 import WebFolderUserList from './views/sites/WebFolderUserList.vue'
 import EntityForm from './views/sites/EntityForm.vue'
+import MailList from './views/mail/MailList.vue'
+import DomainForm from './views/mail/DomainForm.vue'
 import ZoneList from './views/dns/ZoneList.vue'
 import ZoneForm from './views/dns/ZoneForm.vue'
 import ZoneWizard from './views/dns/ZoneWizard.vue'
@@ -35,6 +37,26 @@ export const router = createRouter({
         { path: 'dashboard', name: 'dashboard', component: DashboardView },
         { path: 'sites', name: 'sites', component: WebDomainList },
         { path: 'clients', name: 'clients', component: ClientList },
+        {
+          path: 'mail',
+          name: 'mail-domains',
+          component: MailList,
+          props: {
+            apiBase: '/api/mail/domains', idField: 'domain_id', formBase: '/mail/domains',
+            columns: [
+              { key: 'active', label: 'Active' },
+              { key: 'domain', label: 'Domain' },
+            ],
+            titleKey: 'mail.domains_title', addKey: 'mail.add_domain',
+          },
+        },
+        { path: 'mail/domains/new', name: 'mail-domain-new', component: DomainForm },
+        {
+          path: 'mail/domains/:id(\\d+)',
+          name: 'mail-domain-edit',
+          component: DomainForm,
+          props: (route) => ({ id: String(route.params.id) }),
+        },
         { path: 'clients/resellers', name: 'resellers', component: ResellerList },
         { path: 'clients/new', name: 'client-new', component: ClientForm },
         { path: 'clients/resellers/new', name: 'reseller-new', component: ClientForm, props: { reseller: true } },

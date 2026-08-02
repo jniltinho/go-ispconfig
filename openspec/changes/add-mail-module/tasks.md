@@ -48,7 +48,7 @@
 
 ## 8. Panel UI (Vue)
 
-- [ ] 8.1 Mail module navigation in `modules.ts` + router + en.json keys; domain list (DataTable) and domain form with DKIM generate/suggested TXT. Commit.
+- [x] 8.1 Mail module navigation in `modules.ts` + router + en.json keys; domain list (DataTable) and domain form with DKIM generate/suggested TXT. Commit.
 - [ ] 8.2 Mailbox list + tabbed form (Mailbox / Autoresponder / Filters); password field create/update UX. Commit.
 - [ ] 8.3 Alias, forward, catchall, alias-domain lists/forms and transport list/form. Commit.
 - [ ] 8.4 Spamfilter policy/users/wblist screens and mail access list/form. Commit.
