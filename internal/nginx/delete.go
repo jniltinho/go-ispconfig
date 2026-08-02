@@ -2,11 +2,14 @@ package nginx
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"gorm.io/gorm"
 
 	"go-ispconfig/internal/engine"
 	"go-ispconfig/internal/getconf"
@@ -103,8 +106,8 @@ func subdomainFolderToDelete(webFolder string, usedFolders []string) (string, bo
 // vhosts — the system user. A delayed httpd reload is scheduled.
 func (p *Plugin) deleteSite(ctx context.Context, cfg *getconf.WebConfig, old row, usedFolders []string, clientID int64) error {
 	domain := old.str("domain")
-	if domain == "" {
-		return fmt.Errorf("nginx: delete with empty domain")
+	if err := safeDomain(domain); err != nil {
+		return err
 	}
 
 	// Vhost file and symlinks.
@@ -201,14 +204,21 @@ func (p *Plugin) deleteSite(ctx context.Context, cfg *getconf.WebConfig, old row
 	return nil
 }
 
-// loadServerPHP fetches one server_php row (nil when id is 0 or missing).
+// loadServerPHP fetches one server_php row (nil when id is 0 or the row is
+// gone — a deleted pinned version falls back to the server default). A real
+// DB error (connection, etc.) is returned so the caller never silently
+// renders the wrong pool/socket for a live database.
 func (p *Plugin) loadServerPHP(id int64) (row, error) {
 	if id == 0 || p.db == nil {
 		return nil, nil
 	}
 	var rec map[string]any
-	if err := p.db.Table("server_php").Where("server_php_id = ?", id).Take(&rec).Error; err != nil {
-		return nil, nil //nolint:nilerr // a missing pinned version falls back to the default
+	err := p.db.Table("server_php").Where("server_php_id = ?", id).Take(&rec).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("nginx: loading server_php %d: %w", id, err)
 	}
 	return rec, nil
 }

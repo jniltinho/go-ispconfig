@@ -45,9 +45,13 @@ var blacklistedWebFolders = []string{
 	"ssl", "usr", "var", "proc", "net", "sys", "srv", "sbin", "run",
 }
 
-// allowedSystemName reports whether name may own a website.
+// allowedSystemName reports whether name may own a website. A leading "-" is
+// rejected so the name can never be parsed as an option flag by the
+// privileged useradd/groupadd/chown commands the daemon runs as root
+// (e.g. system_user "-u0" would create a UID-0 account).
 func allowedSystemName(name string) bool {
-	return !slices.Contains(forbiddenSystemNames, name) && systemNameRe.MatchString(name)
+	return name != "" && !strings.HasPrefix(name, "-") &&
+		!slices.Contains(forbiddenSystemNames, name) && systemNameRe.MatchString(name)
 }
 
 // webFolderOf returns the folder below document_root serving the site
@@ -88,8 +92,8 @@ func (p *Plugin) ensureSite(ctx context.Context, s site) error {
 	docroot := d.str("document_root")
 	basedir := s.cfg.WebsiteBasedir
 
-	if strings.TrimSpace(d.str("domain")) == "" {
-		return fmt.Errorf("nginx: domain is empty")
+	if err := safeDomain(d.str("domain")); err != nil {
+		return err
 	}
 	if err := safeSitePath(docroot, basedir); err != nil {
 		return err
@@ -105,6 +109,12 @@ func (p *Plugin) ensureSite(ctx context.Context, s site) error {
 			return fmt.Errorf("nginx: blacklisted or empty web folder %q", webFolder)
 		}
 	}
+	// The web folder is user-controllable (web_folder column): revalidate the
+	// resolved path so a "../.." folder can never escape the docroot the
+	// daemon chowns/chmods as root.
+	if err := safeSitePath(filepath.Join(docroot, webFolder), basedir); err != nil {
+		return fmt.Errorf("nginx: web folder escapes docroot: %w", err)
+	}
 
 	// Create group and user when missing (port of the groupadd/useradd
 	// block; connect_userid_to_webid fixed uids and chroot are not ported).
@@ -113,6 +123,20 @@ func (p *Plugin) ensureSite(ctx context.Context, s site) error {
 	}
 	if err := p.ensureUser(ctx, username, groupname, docroot, s.cfg.AddWebUsersToSshusersGroup == "y"); err != nil {
 		return err
+	}
+
+	// Security level 20 (default): the nginx worker user joins the client
+	// group so it can read the site's files behind the 0710/0750 perms (port
+	// of add_user_to_group). Without it nginx 403s on static files and 500s
+	// on auth_basic_user_file.
+	if d.str("type") == "vhost" && s.cfg.SecurityLevel == "20" {
+		nginxUser := s.cfg.NginxUser
+		if nginxUser == "" {
+			nginxUser = "www-data"
+		}
+		if out, err := p.runner.Run(ctx, "usermod", "-a", "-G", groupname, nginxUser); err != nil {
+			return fmt.Errorf("nginx: adding %s to group %s: %w: %s", nginxUser, groupname, err, out)
+		}
 	}
 
 	// Docroot move on rename/client change (vhost only: sub/alias sites live

@@ -69,12 +69,11 @@ func (p *Plugin) loadVhostInput(ctx context.Context, s site) (vhostInput, error)
 	}
 
 	if d.num("server_php_id") != 0 && (d.str("php") == "php-fpm" || d.str("php") == "fast-cgi") {
-		var php map[string]any
-		err := p.db.Table("server_php").
-			Where("server_php_id = ?", d.num("server_php_id")).Take(&php).Error
-		if err == nil {
-			in.serverPHP = row(php)
+		php, err := p.loadServerPHP(d.num("server_php_id"))
+		if err != nil {
+			return in, err
 		}
+		in.serverPHP = php
 	}
 
 	// SSL is enabled only when both cert files exist non-empty (PHP parity).

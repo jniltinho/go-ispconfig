@@ -279,10 +279,14 @@ func proxyDirectiveRows(text string) []map[string]any {
 	if strings.TrimSpace(text) == "" {
 		return nil
 	}
-	text = strings.ReplaceAll(text, "\r\n", "\n")
-	text = strings.ReplaceAll(text, "\r", "\n")
+	// Proxy directives are the same class of user-supplied config as
+	// nginx_directives, so they pass the same blacklist (dropping e.g.
+	// load_module). They run in a location block, not the server block.
+	filtered, _ := filterBlacklistedDirectives(text)
+	filtered = strings.ReplaceAll(filtered, "\r\n", "\n")
+	filtered = strings.ReplaceAll(filtered, "\r", "\n")
 	var rows []map[string]any
-	for _, line := range strings.Split(text, "\n") {
+	for _, line := range strings.Split(filtered, "\n") {
 		rows = append(rows, map[string]any{"proxy_directive": line})
 	}
 	return rows

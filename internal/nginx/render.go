@@ -17,22 +17,32 @@ const vhostTemplate = "nginx_vhost.conf.master"
 // returned warnings are non-fatal (the vhost renders without the offending
 // lines) and end up as datalog errors.
 func directiveRows(d row, vars map[string]any, fpm fpmInfo) ([]map[string]any, []error) {
-	directives, warnings := filterBlacklistedDirectives(d.str("nginx_directives"))
+	directives := d.str("nginx_directives")
 	if strings.TrimSpace(directives) == "" {
-		return nil, warnings
+		return nil, nil
 	}
 
-	// Directives may use template logic (use_socket, fpm_socket, ...).
+	// Directives may use template logic (use_socket, fpm_socket, ...). Render
+	// FIRST, then blacklist-filter the rendered text: a forbidden directive
+	// hidden inside a <tmpl_if> would not match the raw-line regex but would
+	// reappear after rendering, so filtering the render output is the only
+	// place the blacklist actually holds.
 	tpl := mastertpl.New(directives)
 	for k, v := range vars {
 		tpl.SetVar(k, v)
 	}
+	var warnings []error
 	if rendered, err := tpl.Render(); err == nil {
-		if rendered != "" {
-			directives = rendered
-		}
+		directives = rendered // an empty render is a valid result (drops the block)
 	} else {
 		warnings = append(warnings, fmt.Errorf("nginx: custom directives template error (kept verbatim): %w", err))
+	}
+
+	filtered, rejected := filterBlacklistedDirectives(directives)
+	directives = filtered
+	warnings = append(warnings, rejected...)
+	if strings.TrimSpace(directives) == "" {
+		return nil, warnings
 	}
 
 	fastcgiPass := "fastcgi_pass 127.0.0.1:" + fmt.Sprint(fpm.port) + ";"

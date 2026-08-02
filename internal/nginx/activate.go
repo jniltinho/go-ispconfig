@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"go-ispconfig/internal/engine"
 	"go-ispconfig/internal/web"
@@ -15,11 +16,18 @@ func vhostFileName(domain string) string { return domain + ".vhost" }
 
 // copyFile duplicates src to dst with mode 0644.
 func copyFile(src, dst string) error {
+	return copyFileMode(src, dst, 0o644)
+}
+
+// copyFileMode duplicates src to dst with an explicit mode. SSL private keys
+// must never be copied at 0644 (world-readable): the ~ backup and .err
+// quarantine of a key use 0600.
+func copyFileMode(src, dst string, mode os.FileMode) error {
 	data, err := os.ReadFile(src)
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(dst, data, 0o644)
+	return os.WriteFile(dst, data, mode)
 }
 
 // removeIfLink removes path when it is a symlink.
@@ -149,13 +157,18 @@ func (p *Plugin) rollbackVhost(s site, vhostFile, backup string, hadPrevious boo
 
 	if s.sslChanged {
 		for _, f := range sslFilePaths(s.new) {
+			// Keys keep 0600 through quarantine and restore.
+			mode := os.FileMode(0o644)
+			if strings.HasSuffix(f, ".key") {
+				mode = 0o600
+			}
 			if _, err := os.Stat(f); err == nil {
-				if err := copyFile(f, f+".err"); err != nil {
+				if err := copyFileMode(f, f+".err", mode); err != nil {
 					p.log.Warn("nginx: could not quarantine ssl file", "file", f, "error", err)
 				}
 			}
 			if _, err := os.Stat(f + "~"); err == nil {
-				if err := copyFile(f+"~", f); err != nil {
+				if err := copyFileMode(f+"~", f, mode); err != nil {
 					return fmt.Errorf("restoring ssl file %s: %w", f, err)
 				}
 			}

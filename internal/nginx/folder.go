@@ -35,8 +35,25 @@ func folderAuthPath(website row, folderPath string) (string, error) {
 	return full, nil
 }
 
+// validHtpasswdField rejects newlines/carriage returns (which would inject
+// extra .htpasswd lines) and, for the username, a colon (the field
+// separator). username and password come from the panel, so this is a trust
+// boundary the daemon enforces even though the API also validates.
+func validHtpasswdField(user, password string) error {
+	if strings.ContainsAny(user, ":\r\n") {
+		return fmt.Errorf("nginx: invalid auth username %q", user)
+	}
+	if strings.ContainsAny(password, "\r\n") {
+		return fmt.Errorf("nginx: invalid auth password for user %q", user)
+	}
+	return nil
+}
+
 // upsertHtpasswdLine adds or replaces the user's line in an .htpasswd file.
 func upsertHtpasswdLine(file, user, password string) error {
+	if err := validHtpasswdField(user, password); err != nil {
+		return err
+	}
 	lines, err := readLines(file)
 	if err != nil {
 		return err
@@ -177,6 +194,10 @@ func (p *Plugin) webFolderUpdate(ctx context.Context, _ string, data engine.Data
 	}
 	if err := os.MkdirAll(newPath, 0o755); err != nil {
 		return fmt.Errorf("nginx: creating %s: %w", newPath, err)
+	}
+	if err := p.chown(ctx, strings.TrimSuffix(newPath, "/"),
+		website.str("system_user"), website.str("system_group"), false); err != nil {
+		return err
 	}
 	if old.str("path") != new.str("path") && old.str("path") != "" {
 		oldPath, err := folderAuthPath(website, old.str("path"))
