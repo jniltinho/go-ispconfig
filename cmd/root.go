@@ -42,7 +42,10 @@ Available commands:
 	// help, completion) still work with a broken config in the cwd.
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		switch cmd.Name() {
-		case "init", "version", "help", "completion", cobra.ShellCompRequestCmd, cobra.ShellCompNoDescRequestCmd:
+		// install/uninstall read no config.toml (the installer writes it):
+		// a broken config in the cwd must not block them.
+		case "init", "version", "help", "completion", "install", "uninstall",
+			cobra.ShellCompRequestCmd, cobra.ShellCompNoDescRequestCmd:
 			return nil
 		}
 		return config.Init(cfgFile)
