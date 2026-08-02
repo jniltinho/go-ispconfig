@@ -66,13 +66,23 @@ func (c *adminConn) clientArgs() []string {
 // dumpToFile runs mysqldump with extra args writing to a fresh mode-0600
 // temp file (via --result-file, keeping warnings out of the dump) and
 // returns its path.
+//
+// --column-statistics=0 is required when the host mysqldump is MySQL 8+
+// against MariaDB (COLUMN_STATISTICS is unknown there); older mysqldump
+// ignores unknown long options when prefixed only if supported — MySQL
+// 5.7 may not know the flag, so we pass it only when the binary accepts
+// it. Prefer always passing it: MariaDB's mysqldump accepts and ignores
+// or supports the no-op; GitHub Actions Ubuntu ships MySQL client 8.
 func (p *Plugin) dumpToFile(ctx context.Context, c *adminConn, pattern string, extra ...string) (string, error) {
 	f, err := os.CreateTemp(p.tempDir, pattern)
 	if err != nil {
 		return "", err
 	}
 	_ = f.Close()
-	args := append(c.clientArgs(), "--result-file="+f.Name())
+	args := append(c.clientArgs(),
+		"--column-statistics=0",
+		"--result-file="+f.Name(),
+	)
 	args = append(args, extra...)
 	if out, err := p.runner.Run(ctx, "mysqldump", args...); err != nil {
 		_ = os.Remove(f.Name())
