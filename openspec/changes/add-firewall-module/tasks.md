@@ -29,4 +29,4 @@
 ## 5. Integration and docs
 
 - [x] 5.1 End-to-end integration test against MariaDB: API create/update/delete → `sys_datalog` rows → daemon run with fake UFW runner → expected command sequences including protected ports. Commit.
-- [ ] 5.2 Module docs in `docs/` (firewall table fields, UFW apply pipeline, lock-out sources, config.toml + `ssh_port`, non-goals Bastille/iptables, cross-link installer `configure_ufw_firewall` in `add-installer-cli`). Commit.
+- [x] 5.2 Module docs in `docs/` (firewall table fields, UFW apply pipeline, lock-out sources, config.toml + `ssh_port`, non-goals Bastille/iptables, cross-link installer `configure_ufw_firewall` in `add-installer-cli`). Commit.
