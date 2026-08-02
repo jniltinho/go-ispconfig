@@ -108,12 +108,72 @@ type DNSConfig struct {
 	DNSSECResignDays string `ini:"dnssec_resign_days"`
 }
 
-// ServerConfig is the parsed server.config of one server: the typed [web]
-// and [dns] sections plus the raw section map for keys not (yet) typed.
+// MailConfig is the typed [mail] section of server.config (design D13
+// of add-mail-module). Values are strings exactly as ISPConfig stores
+// them; key names follow server.ini.master.
+type MailConfig struct {
+	Module                   string `ini:"module"`
+	MaildirPath              string `ini:"maildir_path"`
+	HomedirPath              string `ini:"homedir_path"`
+	MaildirFormat            string `ini:"maildir_format"`
+	DKIMPath                 string `ini:"dkim_path"`
+	DKIMStrength             string `ini:"dkim_strength"`
+	ContentFilter            string `ini:"content_filter"`
+	RspamdPassword           string `ini:"rspamd_password"`
+	RspamdURL                string `ini:"rspamd_url"`
+	POP3IMAPDaemon           string `ini:"pop3_imap_daemon"`
+	MailFilterSyntax         string `ini:"mail_filter_syntax"`
+	MailuserUID              string `ini:"mailuser_uid"`
+	MailuserGID              string `ini:"mailuser_gid"`
+	MailuserName             string `ini:"mailuser_name"`
+	MailuserGroup            string `ini:"mailuser_group"`
+	MailboxVirtualUidgidMaps string `ini:"mailbox_virtual_uidgid_maps"`
+	Relayhost                string `ini:"relayhost"`
+	RelayhostUser            string `ini:"relayhost_user"`
+	RelayhostPassword        string `ini:"relayhost_password"`
+	MailboxSizeLimit         string `ini:"mailbox_size_limit"`
+	MessageSizeLimit         string `ini:"message_size_limit"`
+	// MailboxSoftDelete is 0 (off) or the retention days for soft-deleted
+	// maildirs.
+	MailboxSoftDelete string `ini:"mailbox_soft_delete"`
+	SendmailPath      string `ini:"sendmail_path"`
+}
+
+// DefaultMailConfig returns the Debian/Ubuntu defaults of this port:
+// Dovecot + Rspamd (never courier/amavis), matching the installer seed.
+// GetServerConfig applies them before decoding, so servers without a
+// [mail] section (or with partial keys) behave sanely.
+func DefaultMailConfig() MailConfig {
+	return MailConfig{
+		Module:                   "postfix_mysql",
+		MaildirPath:              "/var/vmail/[domain]/[localpart]",
+		HomedirPath:              "/var/vmail",
+		MaildirFormat:            "maildir",
+		DKIMPath:                 "/var/lib/rspamd/dkim",
+		DKIMStrength:             "2048",
+		ContentFilter:            "rspamd",
+		POP3IMAPDaemon:           "dovecot",
+		MailFilterSyntax:         "sieve",
+		MailuserUID:              "5000",
+		MailuserGID:              "5000",
+		MailuserName:             "vmail",
+		MailuserGroup:            "vmail",
+		MailboxVirtualUidgidMaps: "n",
+		MailboxSizeLimit:         "0",
+		MessageSizeLimit:         "0",
+		MailboxSoftDelete:        "0",
+		SendmailPath:             "/usr/sbin/sendmail",
+	}
+}
+
+// ServerConfig is the parsed server.config of one server: the typed
+// [web], [dns] and [mail] sections plus the raw section map for keys not
+// (yet) typed.
 type ServerConfig struct {
-	Web WebConfig
-	DNS DNSConfig
-	Raw Sections
+	Web  WebConfig
+	DNS  DNSConfig
+	Mail MailConfig
+	Raw  Sections
 }
 
 // ErrNotFound is returned when a requested server, sys_ini row or sys_config
@@ -133,9 +193,10 @@ func GetServerConfig(db *gorm.DB, serverID uint32) (*ServerConfig, error) {
 		return nil, fmt.Errorf("loading server %d config: %w", serverID, err)
 	}
 	raw := ParseINI(StripSlashes(server.Config))
-	cfg := &ServerConfig{Raw: raw}
+	cfg := &ServerConfig{Raw: raw, Mail: DefaultMailConfig()}
 	decodeSection(raw["web"], &cfg.Web)
 	decodeSection(raw["dns"], &cfg.DNS)
+	decodeSection(raw["mail"], &cfg.Mail)
 	return cfg, nil
 }
 

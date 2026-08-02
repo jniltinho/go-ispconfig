@@ -87,3 +87,23 @@ func TestStripSlashes(t *testing.T) {
 	// stripslashes("trailing\") == "trailing").
 	assert.Equal(t, "trailing", StripSlashes(`trailing\`))
 }
+
+func TestMailConfigDefaultsAndDecode(t *testing.T) {
+	// Defaults survive a missing [mail] section entirely.
+	cfg := DefaultMailConfig()
+	assert.Equal(t, "/var/vmail", cfg.HomedirPath)
+	assert.Equal(t, "dovecot", cfg.POP3IMAPDaemon)
+	assert.Equal(t, "rspamd", cfg.ContentFilter)
+	assert.Equal(t, "2048", cfg.DKIMStrength)
+	assert.Equal(t, "vmail", cfg.MailuserName)
+	assert.Equal(t, "0", cfg.MailboxSoftDelete)
+
+	// Present keys override; absent keys keep the default.
+	raw := ParseINI("[mail]\nhomedir_path=/srv/vmail\nmailbox_soft_delete=30\ndkim_path=/etc/dkim\n")
+	decodeSection(raw["mail"], &cfg)
+	assert.Equal(t, "/srv/vmail", cfg.HomedirPath)
+	assert.Equal(t, "30", cfg.MailboxSoftDelete)
+	assert.Equal(t, "/etc/dkim", cfg.DKIMPath)
+	assert.Equal(t, "dovecot", cfg.POP3IMAPDaemon, "default kept for absent key")
+	assert.Equal(t, "5000", cfg.MailuserUID)
+}
