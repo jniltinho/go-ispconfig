@@ -56,6 +56,42 @@ func NewPlugin(runner engine.CommandRunner, serverID uint32, panelPort int, log 
 // Name identifies the plugin in logs and the registry.
 func (*Plugin) Name() string { return "ufw" }
 
+// OnLoad subscribes the plugin to the three firewall module events
+// (port of firewall_plugin.inc.php onLoad). Insert shares the update
+// path (PHP insert → update).
+func (p *Plugin) OnLoad(r *engine.Registry) error {
+	subs := []struct {
+		event string
+		fn    engine.EventFunc
+	}{
+		{"firewall_insert", p.onInsert},
+		{"firewall_update", p.onUpdate},
+		{"firewall_delete", p.onDelete},
+	}
+	for _, s := range subs {
+		if err := r.RegisterEvent(s.event, s.fn); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// onInsert handles firewall_insert (PHP parity: same path as update,
+// with the insert baseline branch inside ufwUpdate).
+func (p *Plugin) onInsert(ctx context.Context, event string, data engine.Data) error {
+	return p.ufwUpdate(ctx, event, data)
+}
+
+// onUpdate handles firewall_update.
+func (p *Plugin) onUpdate(ctx context.Context, event string, data engine.Data) error {
+	return p.ufwUpdate(ctx, event, data)
+}
+
+// onDelete handles firewall_delete.
+func (p *Plugin) onDelete(ctx context.Context, event string, data engine.Data) error {
+	return p.ufwDelete(ctx, event, data)
+}
+
 // payloadServerID returns the server_id from new (preferred) or old
 // (delete path) payload fields.
 func payloadServerID(data engine.Data) uint32 {

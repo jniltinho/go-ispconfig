@@ -10,7 +10,7 @@
 
 - [x] 2.1 Implement `internal/firewall` Module: announce `firewall_insert`/`firewall_update`/`firewall_delete`, register table hook for `firewall`, map datalog `i`/`u`/`d` → events; gate on `server.firewall_server=1` + config.toml enablement; unit tests with fake registries. Commit.
 - [x] 2.2 Implement UFW version/install probe and `ufw_update` apply path (insert baseline reset + defaults, differential allow/delete for tcp/udp, active → enable/reload/disable) via the foundation command runner; skip when not local `server_id`; tests with recording runner. Commit.
-- [ ] 2.3 Implement `ufw_delete` (force reset + disable) and wire plugin handlers to the three events; tests. Commit.
+- [x] 2.3 Implement `ufw_delete` (force reset + disable) and wire plugin handlers to the three events; tests. Commit.
 - [ ] 2.4 Implement lock-out guard: protected TCP ports from `config.toml` `server.port` (fallback 8080) and `server.config` `[server] ssh_port` (fallback 22); `EffectivePorts` union; never delete/omit protected ports while UFW ends enabled; mandatory unit tests covering insert-empty, update-removes-ssh, custom panel port, delete path. Commit.
 - [ ] 2.5 Register the firewall module/plugin in the daemon bootstrap next to web/dns; document the config.toml enablement key. Commit.
 

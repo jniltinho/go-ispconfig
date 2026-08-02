@@ -149,6 +149,29 @@ func (p *Plugin) ensureUFW(ctx context.Context) error {
 	return nil
 }
 
+// ufwDelete is the delete apply path (port of firewall_plugin::ufw_delete):
+// force reset then disable. Non-local server_id is a no-op; missing/old
+// UFW logs a warning and returns without error (PHP parity).
+func (p *Plugin) ufwDelete(ctx context.Context, event string, data engine.Data) error {
+	if !p.isLocal(data) {
+		p.log.Debug("firewall: skipping non-local server_id",
+			"event", event, "local", p.serverID, "payload", payloadServerID(data))
+		return nil
+	}
+	if err := p.ensureUFW(ctx); err != nil {
+		p.log.Warn("firewall: UFW not available, delete skipped", "error", err)
+		return nil
+	}
+	if _, err := p.runner.Run(ctx, "ufw", "--force", "reset"); err != nil {
+		return fmt.Errorf("firewall: ufw --force reset: %w", err)
+	}
+	if _, err := p.runner.Run(ctx, "ufw", "disable"); err != nil {
+		return fmt.Errorf("firewall: ufw disable: %w", err)
+	}
+	p.log.Debug("firewall: stopped UFW after record delete")
+	return nil
+}
+
 // parseUFWVersion extracts the version token from `ufw --version` output
 // (first line typically "ufw 0.36.1").
 func parseUFWVersion(out string) (string, error) {
