@@ -37,8 +37,13 @@ Created via the DNS wizard (template "Default") on both panels:
 
 ## Email (legacy only, excluded from parity)
 
-- Not applicable: the legacy VM is provisioned with `--no-mail` (no mail
-  stack), recorded as such in the parity report.
+- The legacy VM now runs the full mail stack (postfix/dovecot/rspamd +
+  Roundcube, openspec add-legacy-test-lab); its mail fixtures live in
+  `vagrant/lab/dataset.md` and stay out of parity scope until the
+  go-ispconfig mail module ships.
+- The legacy VM also carries the standing-lab entities (lab clients,
+  sites, zones — `vagrant/lab/`); the parity suite scopes its queries to
+  the parity records (`pclient%` / `parity%`) and ignores them.
 - Baseline DB dump of the legacy record set (client, web_domain, dns_soa,
   dns_rr, mail_*): `vagrant/parity/baseline-legacy.sql.gz` (gitignored,
   regenerate with mysqldump on the legacy guest).

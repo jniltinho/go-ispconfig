@@ -45,14 +45,17 @@ compare() { # $1: label, $2: query
 : > /tmp/parity-diff-details.txt
 
 # --- shared-schema column parity --------------------------------------------
+# Scoped to the canonical parity dataset (vagrant/parity/dataset.md): the
+# legacy VM intentionally carries extra standing-lab fixtures (vagrant/lab/)
+# that have no go-ispconfig counterpart yet and are not compared.
 compare "client (contact, username, email)" \
-  "SELECT contact_name, username, email FROM client ORDER BY username"
+  "SELECT contact_name, username, email FROM client WHERE username LIKE 'pclient%' ORDER BY username"
 
 compare "web_domain (domain, type, active, subdomain, vhost_type)" \
-  "SELECT domain, type, active, subdomain, vhost_type FROM web_domain ORDER BY domain"
+  "SELECT domain, type, active, subdomain, vhost_type FROM web_domain WHERE domain LIKE 'parity%' ORDER BY domain"
 
 compare "dns_soa (origin, ns, mbox, refresh, retry, expire, minimum, ttl, active)" \
-  "SELECT origin, ns, mbox, refresh, retry, expire, minimum, ttl, active FROM dns_soa ORDER BY origin"
+  "SELECT origin, ns, mbox, refresh, retry, expire, minimum, ttl, active FROM dns_soa WHERE origin LIKE 'parity%' ORDER BY origin"
 
 # A-record data holds each panel's own server IP (.20 legacy, .10 go-ispconfig)
 # by design — normalize both to SERVER_IP so only real divergences surface.
@@ -60,7 +63,8 @@ compare "dns_rr (zone origin, name, type, data, aux, ttl, active)" \
   "SELECT s.origin, r.name, r.type,
           REPLACE(REPLACE(r.data,'$LEGACY_IP','SERVER_IP'),'$GOISP_IP','SERVER_IP'),
           r.aux, r.ttl, r.active
-     FROM dns_rr r JOIN dns_soa s ON s.id = r.zone ORDER BY s.origin, r.type, r.name, r.data"
+     FROM dns_rr r JOIN dns_soa s ON s.id = r.zone
+    WHERE s.origin LIKE 'parity%' ORDER BY s.origin, r.type, r.name, r.data"
 
 # --- generated configs -------------------------------------------------------
 check() { # $1: label, $2: vm, $3: command
@@ -96,8 +100,9 @@ done
   echo "# Parity report — legacy PHP ISPConfig vs go-ispconfig"
   echo
   echo "Generated: $(date -u +%FT%TZ)"
-  echo "Scope: clients + sites + DNS (emails are legacy-only baseline, not compared)."
-  echo "Email accounts: not applicable — legacy VM provisioned with --no-mail (no mail stack)."
+  echo "Scope: clients + sites + DNS, parity dataset only (vagrant/parity/dataset.md)."
+  echo "The legacy VM's standing-lab fixtures (vagrant/lab/) and its mail stack are"
+  echo "excluded from parity until the corresponding go-ispconfig modules ship."
   echo
   echo "## Intended differences (allowlisted)"
   echo
