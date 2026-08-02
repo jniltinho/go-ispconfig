@@ -8,7 +8,7 @@
 
 ## 2. Mail module (daemon events + services)
 
-- [ ] 2.1 Implement `internal/modules/mail` Module: announce in-scope events, register table hooks for `mail_domain`, `mail_user`, `mail_forwarding`, `mail_transport`, `mail_access`, `spamfilter_users`, `spamfilter_wblist`, map datalog `i/u/d` → events; gate on `server.mail_server=1` + config.toml; unit tests with fake registries. Commit.
+- [x] 2.1 Implement `internal/modules/mail` Module: announce in-scope events, register table hooks for `mail_domain`, `mail_user`, `mail_forwarding`, `mail_transport`, `mail_access`, `spamfilter_users`, `spamfilter_wblist`, map datalog `i/u/d` → events; gate on `server.mail_server=1` + config.toml; unit tests with fake registries. Commit.
 - [ ] 2.2 Register services `postfix`, `dovecot`, `rspamd` (reload/restart, delayed dedup); do not register amavis; test unit resolution and restart-wins-reload. Commit.
 
 ## 3. mail plugin — maildir lifecycle

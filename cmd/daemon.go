@@ -21,6 +21,7 @@ import (
 	"go-ispconfig/internal/dns"
 	"go-ispconfig/internal/engine"
 	"go-ispconfig/internal/getconf"
+	"go-ispconfig/internal/mail"
 	"go-ispconfig/internal/nginx"
 	"go-ispconfig/internal/queue"
 	"go-ispconfig/internal/web"
@@ -69,6 +70,11 @@ var daemonCmd = &cobra.Command{
 		// datalog rows broadcast with server_id = 0 to every node.
 		modules := []engine.Module{web.NewModule(), clientModule}
 		plugins := []engine.Plugin{nginxPlugin}
+		// Mail module: only on mail servers (mail-module-events spec:
+		// server.mail_server = 1).
+		if srv.MailServer == 1 {
+			modules = append(modules, mail.NewModule())
+		}
 		var dnsPlugin *dns.Plugin
 		if srv.DNSServer == 1 {
 			dnsPlugin = dns.NewPlugin(db, services, runner, cfg.Templates.CustomDir, srv.ServerID, logger)
