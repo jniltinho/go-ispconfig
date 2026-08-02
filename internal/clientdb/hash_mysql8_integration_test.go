@@ -41,11 +41,13 @@ func TestHashesAcceptedByMySQL8(t *testing.T) {
 
 	sha2, err := Sha2PasswordHash("s3cret-pw")
 	require.NoError(t, err)
+	// Salt alphabet can include single quotes; escape for SQL string literals.
+	sha2SQL := strings.ReplaceAll(sha2, "'", "''")
 	mysqlExec := func(stmt string) {
 		out, err := exec.Command("docker", "exec", name, "mysql", "-uroot", "-proot", "-e", stmt).CombinedOutput()
 		require.NoError(t, err, "%s: %s", stmt, out)
 	}
-	mysqlExec("CREATE USER 'sha2u'@'%' IDENTIFIED WITH caching_sha2_password AS '" + sha2 + "'")
+	mysqlExec("CREATE USER 'sha2u'@'%' IDENTIFIED WITH caching_sha2_password AS '" + sha2SQL + "'")
 
 	db, err := sql.Open("mysql", "sha2u:s3cret-pw@tcp("+addr+")/")
 	require.NoError(t, err)

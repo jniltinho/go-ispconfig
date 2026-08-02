@@ -139,22 +139,44 @@ func (p *Plugin) renameDatabase(ctx context.Context, c *adminConn, data engine.D
 		}
 	}
 
-	// Save views.
-	var viewDump string
+	// Save views via SHOW CREATE VIEW (no mysqldump). MySQL 8 clients against
+	// MariaDB choke on COLUMN_STATISTICS; pure SQL is the portable path.
+	type viewDef struct {
+		name, create string
+	}
+	var viewDefs []viewDef
 	if len(views) > 0 {
-		var err error
-		viewDump, err = p.dumpToFile(ctx, c, "clientdb-*.views", append([]string{oldName}, views...)...)
-		if err != nil {
-			p.log.Error("clientdb: unable to dump views, rename aborted", "database", oldName, "error", err)
-			return false
+		for _, v := range views {
+			var table, createSQL, csClient, collConn string
+			err := c.QueryRowContext(ctx, "SHOW CREATE VIEW "+quoteName(oldName)+"."+quoteName(v)).
+				Scan(&table, &createSQL, &csClient, &collConn)
+			if err != nil {
+				// MariaDB may return only two columns.
+				err = c.QueryRowContext(ctx, "SHOW CREATE VIEW "+quoteName(oldName)+"."+quoteName(v)).
+					Scan(&table, &createSQL)
+			}
+			if err != nil {
+				p.log.Error("clientdb: unable to read view definition, rename aborted",
+					"database", oldName, "view", v, "error", err)
+				return false
+			}
+			// Rewrite CREATE VIEW to target the new schema name.
+			// SHOW CREATE VIEW returns "CREATE ... VIEW `name` AS ...".
+			rewritten := rewriteViewCreate(createSQL, oldName, newName)
+			if rewritten == "" {
+				p.log.Error("clientdb: unable to rewrite view definition, rename aborted",
+					"database", oldName, "view", v)
+				return false
+			}
+			viewDefs = append(viewDefs, viewDef{name: v, create: rewritten})
 		}
 	}
+	// Keep legacy dump path vars empty so removeDumps is a no-op for views.
+	var viewDump string
+	_ = viewDump
 	removeDumps := func() {
 		if triggerDump != "" {
 			_ = os.Remove(triggerDump)
-		}
-		if viewDump != "" {
-			_ = os.Remove(viewDump)
 		}
 	}
 
@@ -201,15 +223,69 @@ func (p *Plugin) renameDatabase(ctx context.Context, c *adminConn, data engine.D
 			triggerDump = ""
 		}
 	}
-	if len(views) > 0 {
-		if err := p.importFile(ctx, c, newName, viewDump); err != nil {
-			p.log.Error("clientdb: unable to import views", "database", newName, "error", err)
-		} else {
-			_ = os.Remove(viewDump)
-			viewDump = ""
+	for _, vd := range viewDefs {
+		// Drop any residual view of the same name in the new schema, then create.
+		_, _ = c.ExecContext(ctx, "DROP VIEW IF EXISTS "+quoteName(newName)+"."+quoteName(vd.name))
+		if _, err := c.ExecContext(ctx, vd.create); err != nil {
+			p.log.Error("clientdb: unable to recreate view", "database", newName, "view", vd.name, "error", err)
+			// Keep going; tables already moved. Caller still sees true when tables moved.
 		}
 	}
 
 	p.deleteDatabase(ctx, c, row(data.Old))
 	return true
+}
+
+// rewriteViewCreate rewrites a SHOW CREATE VIEW statement so the view is
+// created in newSchema. The CREATE string typically looks like:
+//
+//	CREATE ALGORITHM=... DEFINER=`u`@`h` SQL SECURITY DEFINER VIEW `v` AS SELECT ...
+//
+// We strip DEFINER (privilege-sensitive across rename) and qualify the
+// view name with newSchema. References to oldSchema.`table` inside the
+// SELECT are left alone when tables have already been RENAME'd into
+// newSchema — SHOW CREATE usually uses unqualified table names within
+// the same database.
+func rewriteViewCreate(createSQL, oldSchema, newSchema string) string {
+	s := createSQL
+	// Drop DEFINER=`user`@`host` clause (MySQL allows omitting it).
+	if i := strings.Index(strings.ToUpper(s), " DEFINER="); i >= 0 {
+		rest := s[i+1:] // starts with DEFINER=
+		j := strings.Index(strings.ToUpper(rest), " SQL SECURITY")
+		if j < 0 {
+			j = strings.Index(strings.ToUpper(rest), " VIEW ")
+		}
+		if j > 0 {
+			s = s[:i] + rest[j:]
+		}
+	}
+	// Qualify VIEW name: " VIEW `name`" -> " VIEW `newSchema`.`name`"
+	up := strings.ToUpper(s)
+	idx := strings.Index(up, " VIEW ")
+	if idx < 0 {
+		return ""
+	}
+	after := s[idx+len(" VIEW "):]
+	var viewIdent string
+	var rest string
+	if strings.HasPrefix(after, "`") {
+		end := strings.Index(after[1:], "`")
+		if end < 0 {
+			return ""
+		}
+		viewIdent = after[:end+2]
+		rest = after[end+2:]
+	} else {
+		parts := strings.Fields(after)
+		if len(parts) == 0 {
+			return ""
+		}
+		viewIdent = parts[0]
+		rest = after[len(viewIdent):]
+	}
+	// After RENAME TABLE the base tables live in newSchema; rewrite any
+	// qualified references to the old schema in the view body.
+	rest = strings.ReplaceAll(rest, "`"+oldSchema+"`.", "`"+newSchema+"`.")
+	rest = strings.ReplaceAll(rest, oldSchema+".", newSchema+".")
+	return s[:idx] + " VIEW " + quoteName(newSchema) + "." + viewIdent + rest
 }

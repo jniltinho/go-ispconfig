@@ -30,7 +30,8 @@ func Sha2PasswordHash(password string) (string, error) {
 }
 
 // genSalt returns size random bytes constrained to MySQL's salt alphabet:
-// 7-bit, no control chars, never '$' (port of db_mysql genSalt).
+// 7-bit, no control chars, never '$' or "'" (port of db_mysql genSalt;
+// quote is also excluded so authentication strings embed cleanly in SQL).
 func genSalt(size int) ([]byte, error) {
 	salt := make([]byte, size)
 	if _, err := rand.Read(salt); err != nil {
@@ -41,7 +42,7 @@ func genSalt(size int) ([]byte, error) {
 		if b < 32 {
 			b += 32
 		}
-		if b == '$' {
+		if b == '$' || b == '\'' {
 			b++
 		}
 		salt[i] = b
