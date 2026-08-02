@@ -74,6 +74,7 @@ var daemonCmd = &cobra.Command{
 		// server.mail_server = 1).
 		if srv.MailServer == 1 {
 			modules = append(modules, mail.NewModule())
+			mail.RegisterServices(services)
 		}
 		var dnsPlugin *dns.Plugin
 		if srv.DNSServer == 1 {
