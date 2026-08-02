@@ -41,18 +41,37 @@ func (packagesStep) Run(ctx context.Context, st *State) error {
 			missing = append(missing, pkg)
 		}
 	}
-	if len(missing) == 0 {
-		return Skip("all packages already installed")
+	if len(missing) > 0 {
+		st.logf("  installing: %s", strings.Join(missing, " "))
+		if _, err := st.Exec.Run(ctx, aptEnv, "apt-get", append(aptOptions, "update", "-q")...); err != nil {
+			return fmt.Errorf("apt-get update: %w", err)
+		}
+		args := append(append([]string{}, aptOptions...), "install", "-y", "-q")
+		args = append(args, missing...)
+		if _, err := st.Exec.Run(ctx, aptEnv, "apt-get", args...); err != nil {
+			return fmt.Errorf("apt-get install: %w", err)
+		}
 	}
 
-	st.logf("  installing: %s", strings.Join(missing, " "))
-	if _, err := st.Exec.Run(ctx, aptEnv, "apt-get", append(aptOptions, "update", "-q")...); err != nil {
-		return fmt.Errorf("apt-get update: %w", err)
+	// Debian postinst normally enables+starts these, but a reused host may
+	// have them disabled/stopped; later steps (mariadb socket, nginx/bind
+	// reload) need them running. enable --now is idempotent.
+	p := st.Profile
+	services := []string{p.MySQLService, p.RedisService}
+	if st.Answers.EnableWeb {
+		services = append(services, p.NginxService)
 	}
-	args := append(append([]string{}, aptOptions...), "install", "-y", "-q")
-	args = append(args, missing...)
-	if _, err := st.Exec.Run(ctx, aptEnv, "apt-get", args...); err != nil {
-		return fmt.Errorf("apt-get install: %w", err)
+	if st.Answers.EnableDNS {
+		services = append(services, p.BindService)
+	}
+	if st.Answers.InstallPHPFPM {
+		services = append(services, p.PHPFPMService)
+	}
+	if _, err := st.Exec.Run(ctx, nil, "systemctl", append([]string{"enable", "--now"}, services...)...); err != nil {
+		return fmt.Errorf("enabling services: %w", err)
+	}
+	if len(missing) == 0 {
+		return Skip("all packages already installed; services ensured active")
 	}
 	return nil
 }

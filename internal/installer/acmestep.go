@@ -39,8 +39,17 @@ func (acmeStep) Run(ctx context.Context, st *State) error {
 		return nil
 	}
 
+	// A minimal host may lack curl (the acme.sh installer needs it).
+	if _, err := st.Exec.LookPath("curl"); err != nil {
+		args := append(append([]string{}, aptOptions...), "install", "-y", "-q", "curl")
+		if _, err := st.Exec.Run(ctx, aptEnv, "apt-get", args...); err != nil {
+			return fmt.Errorf("installing curl for acme.sh: %w", err)
+		}
+	}
 	install := "curl -fsSL https://get.acme.sh | sh -s"
 	if st.Answers.AdminEmail != "" {
+		// AdminEmail is validated by ResolveAnswers against a shell-inert
+		// pattern; nothing else may be interpolated here.
 		install += " email=" + st.Answers.AdminEmail
 	}
 	if _, err := st.Exec.Run(ctx, nil, "sh", "-c", install); err != nil {

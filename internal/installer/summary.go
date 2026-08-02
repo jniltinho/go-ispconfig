@@ -36,6 +36,10 @@ func (summaryStep) Run(_ context.Context, st *State) error {
 		if err := os.WriteFile(st.CredentialsFile, []byte(summary+"\n"), 0o600); err != nil {
 			return fmt.Errorf("writing %s: %w", st.CredentialsFile, err)
 		}
+		// WriteFile does not chmod an existing file; re-assert 0600.
+		if err := os.Chmod(st.CredentialsFile, 0o600); err != nil {
+			return fmt.Errorf("chmod %s: %w", st.CredentialsFile, err)
+		}
 		summary += "\n  Credentials written to " + st.CredentialsFile + " — delete this file after storing them."
 	}
 	st.logf("%s", summary)

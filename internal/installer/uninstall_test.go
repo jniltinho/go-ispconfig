@@ -33,9 +33,13 @@ func TestUninstallRemovesUnitsConfigsAndConfigDir(t *testing.T) {
 	st, mock, _ := testState(t)
 	unitFile, include, _ := fakeInstalled(t, st)
 
+	require.NoError(t, os.MkdirAll(filepath.Dir(st.BinPath), 0o755))
+	require.NoError(t, os.WriteFile(st.BinPath, []byte("BIN"), 0o755))
+
 	require.NoError(t, Uninstall(context.Background(), st, UninstallOptions{}))
 	assert.NoFileExists(t, unitFile)
 	assert.NoFileExists(t, include)
+	assert.NoFileExists(t, st.BinPath, "installed binary removed")
 	assert.NoDirExists(t, st.ConfigDir)
 	assert.True(t, mock.called("systemctl disable --now go-ispconfig-serve.service go-ispconfig-daemon.service"))
 	assert.True(t, mock.called("systemctl daemon-reload"))

@@ -5,8 +5,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
+	"regexp"
 )
+
+// sitesEnabledIncludeRe matches an active (uncommented) include of the
+// sites-enabled dir in nginx.conf; a commented-out include must not count.
+var sitesEnabledIncludeRe = regexp.MustCompile(`(?m)^[^#\n]*include[^#\n]*sites-enabled`)
 
 // nginxBaseStep prepares the directories and include the web module
 // (internal/nginx) expects: sites-available/sites-enabled, the website
@@ -36,7 +40,7 @@ func (nginxBaseStep) Run(ctx context.Context, st *State) error {
 		return fmt.Errorf("reading nginx.conf: %w", err)
 	}
 	includeFile := filepath.Join(p.NginxConfigDir, "conf.d", "go-ispconfig-sites.conf")
-	if strings.Contains(string(nginxConf), "sites-enabled") {
+	if sitesEnabledIncludeRe.Match(nginxConf) {
 		return Skip("nginx.conf already includes sites-enabled")
 	}
 

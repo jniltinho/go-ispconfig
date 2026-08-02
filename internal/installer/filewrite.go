@@ -43,8 +43,10 @@ func writeFileBackup(path string, content []byte, mode os.FileMode) (changed boo
 	if err := os.WriteFile(path, content, mode); err != nil {
 		return false, nil, fmt.Errorf("writing %s: %w", path, err)
 	}
-	// Re-assert mode: os.WriteFile does not chmod an existing file.
+	// Re-assert mode: os.WriteFile does not chmod an existing file. On
+	// failure undo the write so no file is left with the wrong mode.
 	if err := os.Chmod(path, mode); err != nil {
+		_ = restore()
 		return false, nil, fmt.Errorf("chmod %s: %w", path, err)
 	}
 	return true, restore, nil

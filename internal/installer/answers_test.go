@@ -67,6 +67,20 @@ func TestResolveAnswersValidation(t *testing.T) {
 
 	_, err = ResolveAnswers(ResolveOptions{AnswersFile: "does/not/exist.toml"})
 	require.ErrorContains(t, err, "answers file")
+
+	// Shell metacharacters must never pass into the acme sh -c line.
+	_, err = ResolveAnswers(ResolveOptions{Flags: map[string]string{
+		"hostname": "h.example", "admin-email": "x@y.com;rm -rf /"}})
+	require.ErrorContains(t, err, "--admin-email")
+
+	_, err = ResolveAnswers(ResolveOptions{Flags: map[string]string{
+		"hostname": "h.example", "admin-email": "$(id)@y.com"}})
+	require.ErrorContains(t, err, "--admin-email")
+
+	// Privileged ports cannot be bound by the unprivileged serve unit.
+	_, err = ResolveAnswers(ResolveOptions{Flags: map[string]string{
+		"hostname": "h.example", "panel-port": "443"}})
+	require.ErrorContains(t, err, "unprivileged")
 }
 
 func TestResolveAnswersFileBooleans(t *testing.T) {

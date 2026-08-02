@@ -137,6 +137,11 @@ func ResolveAnswers(opts ResolveOptions) (*Answers, error) {
 	if err != nil || port < 1 || port > 65535 {
 		return nil, fmt.Errorf("invalid --panel-port %q: must be 1-65535", values["panel-port"])
 	}
+	// Ports below 1024 cannot be bound by the serve unit (User=go-ispconfig,
+	// empty CapabilityBoundingSet).
+	if port < 1024 {
+		return nil, fmt.Errorf("invalid --panel-port %d: the panel runs unprivileged, use a port >= 1024", port)
+	}
 	a.PanelPort = port
 	for key, dst := range map[string]*bool{
 		"web": &a.EnableWeb, "dns": &a.EnableDNS,
@@ -158,11 +163,20 @@ func ResolveAnswers(opts ResolveOptions) (*Answers, error) {
 			return nil, fmt.Errorf("invalid --%s %q: only letters, digits and _ are allowed", key, v)
 		}
 	}
+	// The admin email reaches an sh -c line in the acme step: only accept a
+	// plain address (no shell metacharacters can pass this pattern).
+	if a.AdminEmail != "" && !emailRe.MatchString(a.AdminEmail) {
+		return nil, fmt.Errorf("invalid --admin-email %q", a.AdminEmail)
+	}
 	return a, nil
 }
 
 // identRe matches a safe MariaDB identifier (database/user name).
 var identRe = regexp.MustCompile(`^[A-Za-z0-9_]+$`)
+
+// emailRe accepts a conservative email shape whose characters are all
+// shell-inert (used unquoted in the acme.sh install line).
+var emailRe = regexp.MustCompile(`^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$`)
 
 // promptAnswer asks one question showing the default (port of free_query):
 // empty input keeps the default.

@@ -31,11 +31,13 @@ var rootCmd = &cobra.Command{
 managing nginx (web) and Bind (DNS) with a database schema identical to ISPConfig3.
 
 Available commands:
-  init      Create a default configuration file
-  serve     Start the panel web server (API + embedded SPA)
-  daemon    Start the config-apply daemon (sys_datalog consumer)
-  migrate   Create or validate the database schema
-  version   Show version information`,
+  install    Install and configure go-ispconfig on this host
+  uninstall  Remove go-ispconfig units and configs from this host
+  init       Create a default configuration file
+  serve      Start the panel web server (API + embedded SPA)
+  daemon     Start the config-apply daemon (sys_datalog consumer)
+  migrate    Create or validate the database schema
+  version    Show version information`,
 	SilenceErrors: true,
 	// Config is loaded here instead of cobra.OnInitialize so that commands
 	// that must not depend on an existing/valid config.toml (init, version,

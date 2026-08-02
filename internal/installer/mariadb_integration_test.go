@@ -80,4 +80,20 @@ func TestMariaDBStepIntegration(t *testing.T) {
 	var n int64
 	require.NoError(t, st2.DB.Model(&model.ServerIP{}).Count(&n).Error)
 	assert.EqualValues(t, 2, n, "no duplicate rows on re-run")
+
+	// uninstall --purge-db drops database and user.
+	st3 := integrationState(t, addr, configDir)
+	require.NoError(t, os.MkdirAll(st3.Profile.NginxConfigDir, 0o755))
+	require.NoError(t, Uninstall(ctx, st3, UninstallOptions{PurgeDB: true}))
+	root, err := connectRoot(st3)
+	require.NoError(t, err)
+	defer closeDB(root)
+	var dbs int64
+	require.NoError(t, root.Raw(
+		"SELECT COUNT(*) FROM information_schema.schemata WHERE schema_name = 'dbispconfig'").Scan(&dbs).Error)
+	assert.Zero(t, dbs, "database dropped by --purge-db")
+	var users int64
+	require.NoError(t, root.Raw(
+		"SELECT COUNT(*) FROM mysql.user WHERE user = 'ispconfig'").Scan(&users).Error)
+	assert.Zero(t, users, "db user dropped by --purge-db")
 }

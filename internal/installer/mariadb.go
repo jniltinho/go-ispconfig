@@ -91,17 +91,27 @@ func (mariadbStep) Run(_ context.Context, st *State) error {
 	return nil
 }
 
+// rootDSN builds a root DSN through mysql.Config so an operator-supplied
+// password with DSN metacharacters (@ : / ...) survives the round trip.
+func rootDSN(passwd, net, addr string) string {
+	cfg := mysql.NewConfig()
+	cfg.User = "root"
+	cfg.Passwd = passwd
+	cfg.Net = net
+	cfg.Addr = addr
+	cfg.Params = map[string]string{"charset": "utf8mb4"}
+	return cfg.FormatDSN()
+}
+
 // connectRoot opens a root MariaDB session: unix socket without password
 // first (Debian/Ubuntu default auth), then the --db-root-password answer
 // over socket and TCP.
 func connectRoot(st *State) (*gorm.DB, error) {
-	dsns := []string{
-		fmt.Sprintf("root@unix(%s)/?charset=utf8mb4", st.MySQLSocket),
-	}
+	dsns := []string{rootDSN("", "unix", st.MySQLSocket)}
 	if pw := st.Answers.DBRootPassword; pw != "" {
 		dsns = append(dsns,
-			fmt.Sprintf("root:%s@unix(%s)/?charset=utf8mb4", pw, st.MySQLSocket),
-			fmt.Sprintf("root:%s@tcp(%s)/?charset=utf8mb4", pw, st.DBAddr),
+			rootDSN(pw, "unix", st.MySQLSocket),
+			rootDSN(pw, "tcp", st.DBAddr),
 		)
 	}
 	var lastErr error

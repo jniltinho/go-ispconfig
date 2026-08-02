@@ -31,6 +31,9 @@ func Uninstall(ctx context.Context, st *State, opts UninstallOptions) error {
 			return err
 		}
 	}
+	if err := removeIfExists(st.BinPath); err != nil {
+		return err
+	}
 	if _, err := st.Exec.Run(ctx, nil, "systemctl", "daemon-reload"); err != nil {
 		return fmt.Errorf("systemctl daemon-reload: %w", err)
 	}

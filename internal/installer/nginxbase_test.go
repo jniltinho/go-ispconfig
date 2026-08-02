@@ -31,7 +31,8 @@ func TestNginxBaseStockDebianSkips(t *testing.T) {
 
 func TestNginxBaseWritesMissingIncludeAndReloads(t *testing.T) {
 	st, mock, _ := testState(t)
-	writeNginxConf(t, st, "http {\n}\n")
+	// A commented-out include must not count as present.
+	writeNginxConf(t, st, "http {\n\t# include /etc/nginx/sites-enabled/*;\n}\n")
 
 	require.NoError(t, nginxBaseStep{}.Run(context.Background(), st))
 	include := filepath.Join(st.Profile.NginxConfigDir, "conf.d", "go-ispconfig-sites.conf")
