@@ -64,23 +64,37 @@ function goTo(page: number) {
             {{ t('table.actions') }}
           </th>
         </tr>
-        <!-- Inline filter row (signature ISPConfig trait) -->
+        <!-- Inline filter row (signature ISPConfig trait). The filter
+             button also renders on tables without an actions column. -->
         <tr>
-          <th v-for="col in columns" :key="col.key" class="px-2 py-1.5">
-            <input
-              v-if="col.filterable !== false"
-              v-model="filters[col.key]"
-              type="text"
-              class="w-full border border-border bg-surface px-2 py-1 text-xs font-normal text-text outline-none"
-              @keyup.enter="applyFilters"
-            />
+          <th v-for="(col, idx) in columns" :key="col.key" class="px-2 py-1.5">
+            <div class="flex items-center gap-1">
+              <input
+                v-if="col.filterable !== false"
+                v-model="filters[col.key]"
+                type="text"
+                :aria-label="`${t('table.filter')}: ${col.label}`"
+                class="w-full border border-border bg-surface px-2 py-1 text-xs font-normal text-text outline-none focus:border-link"
+                @keyup.enter="applyFilters"
+              />
+              <button
+                v-if="!hasActions && idx === columns.length - 1"
+                type="button"
+                :title="t('table.filter')"
+                :aria-label="t('table.filter')"
+                class="border border-border bg-surface p-1 text-text transition-colors duration-150 hover:bg-info"
+                @click="applyFilters"
+              >
+                <component :is="utilityIcons.filter" :size="14" />
+              </button>
+            </div>
           </th>
           <th v-if="hasActions" class="px-2 py-1.5 text-right">
             <button
               type="button"
               :title="t('table.filter')"
               :aria-label="t('table.filter')"
-              class="border border-border bg-surface p-1 text-text hover:bg-info"
+              class="border border-border bg-surface p-1 text-text transition-colors duration-150 hover:bg-info"
               @click="applyFilters"
             >
               <component :is="utilityIcons.filter" :size="14" />
