@@ -62,8 +62,8 @@ func bumpZoneSerial(tx *gorm.DB, zoneID uint32, username string) error {
 	return datalog.LogUpdate(tx, &old, &soa, username)
 }
 
-// recordToMap renders a DNSRr as a JSON object keyed by DB column.
-func recordToMap(ctx context.Context, db *gorm.DB, rec *model.DNSRr) map[string]any {
+// modelToMap renders a GORM model as a JSON object keyed by DB column.
+func modelToMap(ctx context.Context, db *gorm.DB, rec any) map[string]any {
 	s, err := schema.Parse(rec, entitySchemaCache, db.NamingStrategy)
 	if err != nil {
 		return nil
@@ -179,7 +179,7 @@ func listDNSRecords(d *Deps) echo.HandlerFunc {
 		}
 		items := make([]map[string]any, len(recs))
 		for i := range recs {
-			items[i] = recordToMap(ctx, d.DB, &recs[i])
+			items[i] = modelToMap(ctx, d.DB, &recs[i])
 		}
 		return c.JSON(http.StatusOK, items)
 	}
@@ -256,7 +256,7 @@ func createDNSRecord(d *Deps) echo.HandlerFunc {
 		if err != nil {
 			return err
 		}
-		return c.JSON(http.StatusCreated, recordToMap(ctx, d.DB, rr))
+		return c.JSON(http.StatusCreated, modelToMap(ctx, d.DB, rr))
 	}
 }
 
@@ -308,7 +308,7 @@ func updateDNSRecord(d *Deps) echo.HandlerFunc {
 				return &ValidationError{Fields: fields}
 			}
 			if reflect.DeepEqual(&old, &rr) {
-				out = recordToMap(ctx, d.DB, &rr)
+				out = modelToMap(ctx, d.DB, &rr)
 				return nil // nothing changed: no UPDATE, no datalog, no bump
 			}
 			if err := tx.Model(&model.DNSRr{}).Where("id = ?", old.ID).
@@ -324,7 +324,7 @@ func updateDNSRecord(d *Deps) echo.HandlerFunc {
 					return err
 				}
 			}
-			out = recordToMap(ctx, d.DB, &rr)
+			out = modelToMap(ctx, d.DB, &rr)
 			return nil
 		})
 		if err != nil {
