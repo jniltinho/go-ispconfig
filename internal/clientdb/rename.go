@@ -163,13 +163,23 @@ func (p *Plugin) renameDatabase(ctx context.Context, c *adminConn, data engine.D
 		}
 	}
 
-	// Move base tables.
+	// Move base tables. A partial move must never drop the old database:
+	// the remaining tables would be lost (stricter than PHP, which
+	// dropped regardless).
+	renameFailed := false
 	for _, table := range tables {
 		query := "RENAME TABLE " + quoteName(oldName) + "." + quoteName(table) +
 			" TO " + quoteName(newName) + "." + quoteName(table)
 		if _, err := c.ExecContext(ctx, query); err != nil {
 			p.log.Error("clientdb: rename table failed", "table", table, "error", err)
+			renameFailed = true
 		}
+	}
+	if renameFailed {
+		p.log.Error("clientdb: rename aborted after partial table move, keeping old database",
+			"from", oldName, "to", newName)
+		removeDumps()
+		return false
 	}
 
 	// Replay triggers/routines/events and views into the new schema.

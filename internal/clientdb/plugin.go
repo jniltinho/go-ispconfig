@@ -8,7 +8,7 @@ import (
 	"slices"
 	"strings"
 
-	_ "github.com/go-sql-driver/mysql" // admin connection driver
+	mysqldriver "github.com/go-sql-driver/mysql"
 	"gorm.io/gorm"
 
 	"go-ispconfig/internal/engine"
@@ -30,6 +30,14 @@ func deniedUser(name string) bool {
 func deniedDatabase(name string) bool {
 	return slices.Contains(denylistDatabase, strings.ToLower(name))
 }
+
+// DeniedUser exposes the daemon user denylist so the API layer rejects
+// the same names it would refuse to provision.
+func DeniedUser(name string) bool { return deniedUser(name) }
+
+// DeniedDatabase exposes the daemon database denylist so the API layer
+// rejects the same names it would refuse to provision.
+func DeniedDatabase(name string) bool { return deniedDatabase(name) }
 
 // quoteName wraps a schema object name in backticks with embedded
 // backticks doubled, for identifier positions (CREATE DATABASE `x`).
@@ -131,7 +139,14 @@ func (p *Plugin) connect(ctx context.Context) (*adminConn, error) {
 	if err != nil {
 		return nil, err
 	}
-	db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s:%d)/", cfg.User, cfg.Password, cfg.Host, cfg.Port))
+	// FormatDSN escapes the credentials — a password with '@' or '/'
+	// must never corrupt the DSN.
+	dsnCfg := mysqldriver.NewConfig()
+	dsnCfg.User = cfg.User
+	dsnCfg.Passwd = cfg.Password
+	dsnCfg.Net = "tcp"
+	dsnCfg.Addr = fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)
+	db, err := sql.Open("mysql", dsnCfg.FormatDSN())
 	if err != nil {
 		return nil, fmt.Errorf("opening client-DB admin connection: %w", err)
 	}

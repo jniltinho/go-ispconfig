@@ -156,10 +156,11 @@ func checkRemoteIPList(_ *validator.Context, value string) string {
 	return ""
 }
 
-// databaseNameBlacklisted ports the database_edit.php blacklist: the
-// panel's own database and 'mysql' are never valid client DB names.
+// databaseNameBlacklisted rejects the daemon's system-schema denylist
+// (mysql, information_schema, performance_schema) plus the panel's own
+// database — the API refuses what the daemon would never provision.
 func databaseNameBlacklisted(name, panelDBName string) bool {
-	return name == "mysql" || (panelDBName != "" && name == panelDBName)
+	return clientdb.DeniedDatabase(name) || (panelDBName != "" && name == panelDBName)
 }
 
 // --- database-user validators (task 4.4, port of
@@ -177,6 +178,18 @@ func databaseUserRules() []validator.Rule {
 	}
 }
 
+// nativeHashRe matches an already-hashed mysql_native_password value
+// submitted instead of a plaintext (remote API parity).
+var nativeHashRe = regexp.MustCompile(`^\*[0-9A-F]{40}$`)
+
+// Character classes of the validate_password strength score.
+var (
+	strengthLowerRe   = regexp.MustCompile(`[a-z]`)
+	strengthUpperRe   = regexp.MustCompile(`[A-Z]`)
+	strengthDigitRe   = regexp.MustCompile(`[0-9]`)
+	strengthSpecialRe = regexp.MustCompile("[`~!@#$%^&*()_+|\\\\=\\-\\[\\]}{';:/?.>,<\" ]")
+)
+
 // passwordStrength ports validate_password::_get_password_strength: a
 // 1–5 score from length and character-class diversity.
 func passwordStrength(password string) int {
@@ -185,18 +198,18 @@ func passwordStrength(password string) int {
 		return 1
 	}
 	points, different := 0, 0
-	if regexp.MustCompile(`[a-z]`).MatchString(password) {
+	if strengthLowerRe.MatchString(password) {
 		different++
 	}
-	if regexp.MustCompile(`[A-Z]`).MatchString(password) {
+	if strengthUpperRe.MatchString(password) {
 		points++
 		different++
 	}
-	if regexp.MustCompile(`[0-9]`).MatchString(password) {
+	if strengthDigitRe.MatchString(password) {
 		points++
 		different++
 	}
-	if regexp.MustCompile("[`~!@#$%^&*()_+|\\\\=\\-\\[\\]}{';:/?.>,<\" ]").MatchString(password) {
+	if strengthSpecialRe.MatchString(password) {
 		points++
 		different++
 	}
@@ -314,6 +327,11 @@ func sitesDatabaseUserPrepare(c *echo.Context, d *Deps, id *repository.Identity,
 		// Empty on update: leave the stored hashes untouched.
 		delete(body, "database_password")
 		delete(body, "database_password_sha2")
+	case nativeHashRe.MatchString(pw):
+		// Pre-hashed native password (remote API parity): store as-is;
+		// no sha2 counterpart can be derived from a hash.
+		body["database_password"] = pw
+		body["database_password_sha2"] = ""
 	default:
 		if key := checkPasswordPolicy(d.DB, pw); key != "" {
 			fields["database_password"] = append(fields["database_password"], key)
@@ -333,10 +351,11 @@ func sitesDatabaseUserPrepare(c *echo.Context, d *Deps, id *repository.Identity,
 	return nil
 }
 
-// databaseUserBlacklisted ports the database_user_edit.php blacklist:
-// root, mysql and the panel's own DB user are never valid client users.
+// databaseUserBlacklisted rejects the daemon's account denylist (root,
+// debian-sys-maint, mysql.infoschema) plus mysql and the panel's own DB
+// user (database_user_edit.php blacklist).
 func databaseUserBlacklisted(name, panelUser string) bool {
-	return name == "root" || name == "mysql" || (panelUser != "" && name == panelUser)
+	return clientdb.DeniedUser(name) || name == "mysql" || (panelUser != "" && name == panelUser)
 }
 
 // panelDBUser extracts the panel's own database user from the configured

@@ -6,6 +6,8 @@ package clientdb
 
 import (
 	"fmt"
+	"log/slog"
+	"os"
 
 	"github.com/spf13/viper"
 )
@@ -37,6 +39,10 @@ type Config struct {
 // never logged by this package; callers must not log the returned Config
 // verbatim.
 func LoadConfig(path string) (Config, error) {
+	if info, err := os.Stat(path); err == nil && info.Mode().Perm()&0o077 != 0 {
+		slog.Warn("clientdb: credentials file should be mode 0600",
+			"path", path, "mode", info.Mode().Perm().String())
+	}
 	v := viper.New()
 	v.SetConfigFile(path)
 	v.SetConfigType("toml")
