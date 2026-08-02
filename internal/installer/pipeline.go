@@ -40,9 +40,13 @@ type State struct {
 	// WriteCredentials persists the summary to CredentialsFile (default off).
 	WriteCredentials bool
 
+	// Euid is the effective uid (preflight root gate); tests set 0.
+	Euid int
+
 	// Paths, overridable in tests (defaults set by NewState).
 	ConfigDir       string // /etc/go-ispconfig
 	SystemdDir      string // /etc/systemd/system
+	SystemdMarker   string // /run/systemd/system (systemd presence check)
 	BinPath         string // /usr/local/bin/go-ispconfig
 	CredentialsFile string // /root/.go-ispconfig-credentials
 	LegacyMarker    string // PHP ISPConfig3 install marker
@@ -65,8 +69,10 @@ func NewState(profile *Profile, answers *Answers) *State {
 		Answers:         answers,
 		Exec:            execRunner{},
 		Out:             os.Stdout,
+		Euid:            os.Geteuid(),
 		ConfigDir:       "/etc/go-ispconfig",
 		SystemdDir:      "/etc/systemd/system",
+		SystemdMarker:   "/run/systemd/system",
 		BinPath:         "/usr/local/bin/go-ispconfig",
 		CredentialsFile: "/root/.go-ispconfig-credentials",
 		LegacyMarker:    "/usr/local/ispconfig/server/lib/config.inc.php",
