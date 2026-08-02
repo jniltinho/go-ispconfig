@@ -227,3 +227,62 @@ func TestMailboxAPI(t *testing.T) {
 		assert.EqualValues(t, 2097152, after.Quota)
 	})
 }
+
+func TestMailForwardingAndTransportAPI(t *testing.T) {
+	db, srv, cookie, csrf := newMailTestEnv(t)
+	_ = db
+	// Primary domain for the forwardings.
+	status, data := call(t, srv, http.MethodPost, "/api/mail/domains", cookie, csrf,
+		map[string]any{"server_id": 1, "domain": "fwd.example", "active": "y", "dkim": "n"})
+	require.Equal(t, http.StatusCreated, status, "%s", data)
+
+	t.Run("alias forces type and is type-filtered", func(t *testing.T) {
+		status, data := call(t, srv, http.MethodPost, "/api/mail/aliases", cookie, csrf,
+			map[string]any{"server_id": 1, "source": "alias@fwd.example",
+				"destination": "user@fwd.example", "active": "y", "type": "catchall"})
+		require.Equal(t, http.StatusCreated, status, "%s", data)
+		var rec map[string]any
+		require.NoError(t, json.Unmarshal(data, &rec))
+		assert.Equal(t, "alias", rec["type"], "type forced server-side despite the body")
+
+		// Listing aliases shows it; listing catchalls does not.
+		status, data = call(t, srv, http.MethodGet, "/api/mail/aliases", cookie, "", nil)
+		require.Equal(t, http.StatusOK, status)
+		assert.Contains(t, string(data), "alias@fwd.example")
+		status, data = call(t, srv, http.MethodGet, "/api/mail/catchalls", cookie, "", nil)
+		require.Equal(t, http.StatusOK, status)
+		assert.NotContains(t, string(data), "alias@fwd.example")
+
+		// The by-id route is type-scoped: fetching the alias as a catchall 404s.
+		fid := int(rec["forwarding_id"].(float64))
+		status, _ = call(t, srv, http.MethodGet, fmt.Sprintf("/api/mail/catchalls/%d", fid), cookie, "", nil)
+		require.Equal(t, http.StatusNotFound, status)
+		status, _ = call(t, srv, http.MethodGet, fmt.Sprintf("/api/mail/aliases/%d", fid), cookie, "", nil)
+		require.Equal(t, http.StatusOK, status)
+	})
+
+	t.Run("alias requires email source", func(t *testing.T) {
+		status, data := call(t, srv, http.MethodPost, "/api/mail/aliases", cookie, csrf,
+			map[string]any{"server_id": 1, "source": "not-an-email", "destination": "user@fwd.example"})
+		require.Equal(t, http.StatusUnprocessableEntity, status, "%s", data)
+		require.Contains(t, string(data), "email_error_isemail")
+	})
+
+	t.Run("transport unique per server and maildomain collision", func(t *testing.T) {
+		status, data := call(t, srv, http.MethodPost, "/api/mail/transports", cookie, csrf,
+			map[string]any{"server_id": 1, "domain": "relay.test", "transport": "smtp:[10.0.0.9]", "active": "y"})
+		require.Equal(t, http.StatusCreated, status, "%s", data)
+
+		// Duplicate (server_id, domain).
+		status, data = call(t, srv, http.MethodPost, "/api/mail/transports", cookie, csrf,
+			map[string]any{"server_id": 1, "domain": "relay.test", "transport": "smtp:[10.0.0.10]"})
+		require.Equal(t, http.StatusUnprocessableEntity, status, "%s", data)
+		require.Contains(t, string(data), "domain_error_unique")
+
+		// Collision with an existing mail_domain.
+		status, data = call(t, srv, http.MethodPost, "/api/mail/transports", cookie, csrf,
+			map[string]any{"server_id": 1, "domain": "fwd.example", "transport": "smtp:x"})
+		require.Equal(t, http.StatusUnprocessableEntity, status, "%s", data)
+		require.Contains(t, string(data), "domain_is_maildomain")
+	})
+}

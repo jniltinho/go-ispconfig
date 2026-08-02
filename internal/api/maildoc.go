@@ -231,3 +231,110 @@ func mailboxDeleteDoc() {}
 //	@Security		CookieAuth
 //	@Security		BearerAuth
 func mailboxByClientDoc() {}
+
+// Swaggo annotations for the forwarding + transport endpoints. All four
+// forwarding surfaces share the mail_forwarding table (type forced
+// server-side); one representative doc set is provided per verb per
+// surface via generic descriptions.
+var _ = []any{
+	mailAliasListDoc, mailAliasCreateDoc, mailForwardCreateDoc,
+	mailCatchallCreateDoc, mailAliasDomainCreateDoc, mailTransportCreateDoc,
+	mailTransportListDoc,
+}
+
+// mailAliasListDoc documents GET /api/mail/aliases.
+//
+//	@Summary		List email aliases
+//	@Description	mail_forwarding rows with type=alias (type-filtered). forwards/catchalls/alias-domains have the same shape under /api/mail/{forwards,catchalls,alias-domains}.
+//	@Tags			mail-forwarding
+//	@Produce		json
+//	@Success		200	{object}	ListResponse
+//	@Failure		401	{object}	ErrorResponse
+//	@Router			/mail/aliases [get]
+//	@Security		CookieAuth
+//	@Security		BearerAuth
+func mailAliasListDoc() {}
+
+// mailAliasCreateDoc documents POST /api/mail/aliases.
+//
+//	@Summary		Create an email alias
+//	@Description	Creates a mail_forwarding row with type=alias (source and destination are email addresses). Datalog insert written.
+//	@Tags			mail-forwarding
+//	@Accept			json
+//	@Produce		json
+//	@Param			record	body		model.MailForwarding	true	"source/destination emails"
+//	@Success		201		{object}	model.MailForwarding
+//	@Failure		422		{object}	ErrorResponse
+//	@Router			/mail/aliases [post]
+//	@Security		CookieAuth
+//	@Security		BearerAuth
+func mailAliasCreateDoc() {}
+
+// mailForwardCreateDoc documents POST /api/mail/forwards.
+//
+//	@Summary		Create a forwarding
+//	@Description	mail_forwarding type=forward (source and destination emails).
+//	@Tags			mail-forwarding
+//	@Accept			json
+//	@Produce		json
+//	@Param			record	body		model.MailForwarding	true	"source/destination"
+//	@Success		201		{object}	model.MailForwarding
+//	@Router			/mail/forwards [post]
+//	@Security		CookieAuth
+//	@Security		BearerAuth
+func mailForwardCreateDoc() {}
+
+// mailCatchallCreateDoc documents POST /api/mail/catchalls.
+//
+//	@Summary		Create a catchall
+//	@Description	mail_forwarding type=catchall (source is a @domain form, destination an email).
+//	@Tags			mail-forwarding
+//	@Accept			json
+//	@Produce		json
+//	@Param			record	body		model.MailForwarding	true	"source @domain, destination email"
+//	@Success		201		{object}	model.MailForwarding
+//	@Router			/mail/catchalls [post]
+//	@Security		CookieAuth
+//	@Security		BearerAuth
+func mailCatchallCreateDoc() {}
+
+// mailAliasDomainCreateDoc documents POST /api/mail/alias-domains.
+//
+//	@Summary		Create an alias domain
+//	@Description	mail_forwarding type=aliasdomain (source and destination are @domain forms).
+//	@Tags			mail-forwarding
+//	@Accept			json
+//	@Produce		json
+//	@Param			record	body		model.MailForwarding	true	"source/destination @domain"
+//	@Success		201		{object}	model.MailForwarding
+//	@Router			/mail/alias-domains [post]
+//	@Security		CookieAuth
+//	@Security		BearerAuth
+func mailAliasDomainCreateDoc() {}
+
+// mailTransportListDoc documents GET /api/mail/transports.
+//
+//	@Summary	List mail transports
+//	@Tags		mail-transports
+//	@Produce	json
+//	@Success	200	{object}	ListResponse
+//	@Failure	401	{object}	ErrorResponse
+//	@Router		/mail/transports [get]
+//	@Security	CookieAuth
+//	@Security	BearerAuth
+func mailTransportListDoc() {}
+
+// mailTransportCreateDoc documents POST /api/mail/transports.
+//
+//	@Summary		Create a mail transport
+//	@Description	Unique (server_id, domain); the domain may not collide with a mail_domain on the same server.
+//	@Tags			mail-transports
+//	@Accept			json
+//	@Produce		json
+//	@Param			record	body		model.MailTransport	true	"domain, transport, sort_order"
+//	@Success		201		{object}	model.MailTransport
+//	@Failure		422		{object}	ErrorResponse	"Duplicate domain or maildomain collision"
+//	@Router			/mail/transports [post]
+//	@Security		CookieAuth
+//	@Security		BearerAuth
+func mailTransportCreateDoc() {}

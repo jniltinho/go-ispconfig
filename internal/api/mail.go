@@ -29,6 +29,12 @@ func registerMailEntities(g *echo.Group, d *Deps) error {
 	if err := RegisterEntity[model.MailUser](mg, d, mailboxEntity(d)); err != nil {
 		return err
 	}
+	if err := registerForwardingEntities(mg, d); err != nil {
+		return err
+	}
+	if err := registerMailTransportEntity(mg, d); err != nil {
+		return err
+	}
 	registerMailDomainRoutes(mg, d)
 	registerMailboxRoutes(mg, d)
 	return nil

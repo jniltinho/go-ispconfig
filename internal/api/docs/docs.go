@@ -2893,6 +2893,170 @@ const docTemplate = `{
                 }
             }
         },
+        "/mail/alias-domains": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "mail_forwarding type=aliasdomain (source and destination are @domain forms).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "mail-forwarding"
+                ],
+                "summary": "Create an alias domain",
+                "parameters": [
+                    {
+                        "description": "source/destination @domain",
+                        "name": "record",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.MailForwarding"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/model.MailForwarding"
+                        }
+                    }
+                }
+            }
+        },
+        "/mail/aliases": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "mail_forwarding rows with type=alias (type-filtered). forwards/catchalls/alias-domains have the same shape under /api/mail/{forwards,catchalls,alias-domains}.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "mail-forwarding"
+                ],
+                "summary": "List email aliases",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.ListResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Creates a mail_forwarding row with type=alias (source and destination are email addresses). Datalog insert written.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "mail-forwarding"
+                ],
+                "summary": "Create an email alias",
+                "parameters": [
+                    {
+                        "description": "source/destination emails",
+                        "name": "record",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.MailForwarding"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/model.MailForwarding"
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/mail/catchalls": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "mail_forwarding type=catchall (source is a @domain form, destination an email).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "mail-forwarding"
+                ],
+                "summary": "Create a catchall",
+                "parameters": [
+                    {
+                        "description": "source @domain, destination email",
+                        "name": "record",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.MailForwarding"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/model.MailForwarding"
+                        }
+                    }
+                }
+            }
+        },
         "/mail/domains": {
             "get": {
                 "security": [
@@ -3312,6 +3476,48 @@ const docTemplate = `{
                 }
             }
         },
+        "/mail/forwards": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "mail_forwarding type=forward (source and destination emails).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "mail-forwarding"
+                ],
+                "summary": "Create a forwarding",
+                "parameters": [
+                    {
+                        "description": "source/destination",
+                        "name": "record",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.MailForwarding"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/model.MailForwarding"
+                        }
+                    }
+                }
+            }
+        },
         "/mail/mailboxes": {
             "get": {
                 "security": [
@@ -3620,6 +3826,85 @@ const docTemplate = `{
                     },
                     "403": {
                         "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/mail/transports": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "mail-transports"
+                ],
+                "summary": "List mail transports",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.ListResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Unique (server_id, domain); the domain may not collide with a mail_domain on the same server.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "mail-transports"
+                ],
+                "summary": "Create a mail transport",
+                "parameters": [
+                    {
+                        "description": "domain, transport, sort_order",
+                        "name": "record",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.MailTransport"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/model.MailTransport"
+                        }
+                    },
+                    "422": {
+                        "description": "Duplicate domain or maildomain collision",
                         "schema": {
                             "$ref": "#/definitions/api.ErrorResponse"
                         }
@@ -7303,6 +7588,88 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "sysUserID": {
+                    "type": "integer"
+                }
+            }
+        },
+        "model.MailForwarding": {
+            "type": "object",
+            "properties": {
+                "active": {
+                    "type": "string"
+                },
+                "allowSendAs": {
+                    "type": "string"
+                },
+                "destination": {
+                    "type": "string"
+                },
+                "forwardingID": {
+                    "type": "integer"
+                },
+                "greylisting": {
+                    "type": "string"
+                },
+                "serverID": {
+                    "type": "integer"
+                },
+                "source": {
+                    "type": "string"
+                },
+                "sysGroupID": {
+                    "type": "integer"
+                },
+                "sysPermGroup": {
+                    "type": "string"
+                },
+                "sysPermOther": {
+                    "type": "string"
+                },
+                "sysPermUser": {
+                    "type": "string"
+                },
+                "sysUserID": {
+                    "type": "integer"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.MailTransport": {
+            "type": "object",
+            "properties": {
+                "active": {
+                    "type": "string"
+                },
+                "domain": {
+                    "type": "string"
+                },
+                "serverID": {
+                    "type": "integer"
+                },
+                "sortOrder": {
+                    "type": "integer"
+                },
+                "sysGroupID": {
+                    "type": "integer"
+                },
+                "sysPermGroup": {
+                    "type": "string"
+                },
+                "sysPermOther": {
+                    "type": "string"
+                },
+                "sysPermUser": {
+                    "type": "string"
+                },
+                "sysUserID": {
+                    "type": "integer"
+                },
+                "transport": {
+                    "type": "string"
+                },
+                "transportID": {
                     "type": "integer"
                 }
             }
