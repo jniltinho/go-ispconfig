@@ -130,6 +130,32 @@ job removes soft-deleted trees older than the retention window.
 - Enable/disable per node with `server.mail_server` and
   `[daemon] disable_mail_module` in `config.toml`.
 
+## Validated against the lab
+
+The module was compared against a live legacy ISPConfig 3.2 mail stack
+(lab VMs, Postfix 3.8.6 / Dovecot 2.3.21 / Rspamd, nginx and apache2
+variants) using the standing fixture dataset:
+
+- **Sieve**: the Go render of `user1` (plain, alias-expanded vacation
+  identity list) and `user2` (autoresponder with date window and empty
+  subject) is **byte-identical** to the `.ispconfig-before.sieve` /
+  `.ispconfig.sieve` files PHP wrote on both VMs, for the exact
+  `mail_user` rows from the legacy database.
+- **Maildir layout**: `<maildir>/Maildir/{cur,new,tmp}` with
+  `.Sent/.Drafts/.Trash/.Junk` and a `subscriptions` file listing
+  `Sent, Drafts, Trash, Junk` in that order, plus the vestigial
+  `sieve/` directory — matches this port's provisioning exactly.
+- **Rspamd server snippets**: the lab's `dkim_signing.conf` and
+  `options.inc` (empty `local_addrs` loop — the lab has no `server_ip`
+  rows) match the embedded template outputs; `dkim_domains.map` /
+  `dkim_selectors.map` are empty on the lab (no DKIM fixture domain)
+  and absent-until-needed here.
+- No `local.d/users/` directory exists on the lab (no
+  `spamfilter_users` fixtures) — consistent with the no-policy no-file
+  behavior of this port.
+
+No divergences were found beyond the deliberate ones listed below.
+
 ## Deliberate divergences from PHP
 
 - DKIM TXT is withdrawn on disable/rename/delete (PHP left orphans);
