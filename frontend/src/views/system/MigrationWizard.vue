@@ -414,27 +414,27 @@ const secondaryButtonClass = 'border border-border bg-surface px-6 py-1.5 text-x
     >
       <div class="space-y-4 px-3 py-6">
         <div class="flex items-start gap-4">
-          <label for="mig-url" class="w-48 shrink-0 pt-1.5 text-right text-sm font-medium after:content-[':']">
+          <label for="mig-url" class="w-48 shrink-0 pt-1.5 text-right text-sm font-semibold after:content-[':']">
             {{ t('migration.connect.url') }}
           </label>
           <input id="mig-url" v-model="form.url" type="text" required
             placeholder="https://legacy.example.com:8080" :class="inputClass" data-test="mig-url" />
         </div>
         <div class="flex items-start gap-4">
-          <label for="mig-user" class="w-48 shrink-0 pt-1.5 text-right text-sm font-medium after:content-[':']">
+          <label for="mig-user" class="w-48 shrink-0 pt-1.5 text-right text-sm font-semibold after:content-[':']">
             {{ t('migration.connect.username') }}
           </label>
           <input id="mig-user" v-model="form.username" type="text" required :class="inputClass" data-test="mig-user" />
         </div>
         <div class="flex items-start gap-4">
-          <label for="mig-pass" class="w-48 shrink-0 pt-1.5 text-right text-sm font-medium after:content-[':']">
+          <label for="mig-pass" class="w-48 shrink-0 pt-1.5 text-right text-sm font-semibold after:content-[':']">
             {{ t('migration.connect.password') }}
           </label>
           <input id="mig-pass" v-model="form.password" type="password" required
             autocomplete="new-password" :class="inputClass" data-test="mig-pass" />
         </div>
         <div class="flex items-center gap-4">
-          <span class="w-48 shrink-0 text-right text-sm font-medium after:content-[':']">
+          <span class="w-48 shrink-0 text-right text-sm font-semibold after:content-[':']">
             {{ t('migration.connect.insecure') }}
           </span>
           <label class="flex items-center gap-2 text-sm">
@@ -495,7 +495,7 @@ const secondaryButtonClass = 'border border-border bg-surface px-6 py-1.5 text-x
         </table>
 
         <div class="space-y-1 text-sm">
-          <p class="font-medium">{{ t('migration.inventory.select') }}:</p>
+          <p class="font-semibold">{{ t('migration.inventory.select') }}:</p>
           <label class="flex items-center gap-2">
             <input v-model="selection.clients" type="checkbox" data-test="mig-sel-clients" />
             {{ t('migration.inventory.sel_clients') }}
@@ -515,7 +515,7 @@ const secondaryButtonClass = 'border border-border bg-surface px-6 py-1.5 text-x
         </div>
 
         <div class="flex items-center gap-4 text-sm">
-          <label for="mig-target" class="font-medium">{{ t('migration.inventory.target_server') }}:</label>
+          <label for="mig-target" class="font-semibold">{{ t('migration.inventory.target_server') }}:</label>
           <input id="mig-target" v-model.number="targetServerId" type="number" min="0"
             class="w-24 border border-border bg-surface px-2 py-1 text-sm outline-none" />
           <span class="text-xs text-text-muted">{{ t('migration.inventory.target_server_hint') }}</span>
@@ -612,7 +612,7 @@ const secondaryButtonClass = 'border border-border bg-surface px-6 py-1.5 text-x
 
     <!-- Step 4: execution progress -->
     <div v-if="step === 'execute'" class="max-w-2xl border border-border bg-surface px-3 py-6">
-      <p class="mb-3 text-sm font-medium">{{ t('migration.execute.running') }}</p>
+      <p class="mb-3 text-sm font-semibold">{{ t('migration.execute.running') }}</p>
       <div class="space-y-2" data-test="mig-progress">
         <div v-for="p in Object.values(progress)" :key="p.entity" class="text-sm">
           <div class="mb-0.5 flex justify-between font-mono text-xs">

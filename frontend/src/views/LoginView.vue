@@ -37,7 +37,7 @@ async function submit() {
           {{ t(auth.error) }}
         </div>
         <div>
-          <label class="mb-1 block text-sm font-medium" for="login-username">
+          <label class="mb-1 block text-sm font-semibold" for="login-username">
             {{ t('login.username') }}
           </label>
           <input
@@ -51,7 +51,7 @@ async function submit() {
           />
         </div>
         <div>
-          <label class="mb-1 block text-sm font-medium" for="login-password">
+          <label class="mb-1 block text-sm font-semibold" for="login-password">
             {{ t('login.password') }}
           </label>
           <input

@@ -109,7 +109,7 @@ watch(
           <div v-for="field in tab.fields" :key="field.name" class="flex items-start gap-4">
             <label
               :for="`field-${field.name}`"
-              class="w-48 shrink-0 pt-1.5 text-right text-sm font-medium after:content-[':']"
+              class="w-48 shrink-0 pt-1.5 text-right text-sm font-semibold after:content-[':']"
             >
               {{ field.label }}
             </label>

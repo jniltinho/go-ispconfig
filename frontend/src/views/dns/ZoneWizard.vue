@@ -90,7 +90,7 @@ async function create() {
     <form class="max-w-2xl border border-border bg-surface" @submit.prevent="create">
       <div class="space-y-4 px-3 py-6">
         <div class="flex items-start gap-4">
-          <label for="wizard-template" class="w-48 shrink-0 pt-1.5 text-right text-sm font-medium after:content-[':']">
+          <label for="wizard-template" class="w-48 shrink-0 pt-1.5 text-right text-sm font-semibold after:content-[':']">
             {{ t('dns.wizard.template') }}
           </label>
           <select
@@ -109,7 +109,7 @@ async function create() {
           <div v-if="currentFields.has(input.field)" class="flex items-start gap-4">
             <label
               :for="`wizard-${input.key}`"
-              class="w-48 shrink-0 pt-1.5 text-right text-sm font-medium after:content-[':']"
+              class="w-48 shrink-0 pt-1.5 text-right text-sm font-semibold after:content-[':']"
             >
               {{ t(input.label) }}
             </label>
@@ -129,7 +129,7 @@ async function create() {
         </div>
 
         <div v-if="currentFields.has('DNSSEC')" class="flex items-center gap-4">
-          <span class="w-48 shrink-0 text-right text-sm font-medium after:content-[':']">
+          <span class="w-48 shrink-0 text-right text-sm font-semibold after:content-[':']">
             {{ t('dns.wizard.dnssec') }}
           </span>
           <input id="wizard-dnssec" v-model="dnssec" type="checkbox" />

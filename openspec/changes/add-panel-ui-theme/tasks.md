@@ -3,7 +3,7 @@
 ## 1. Foundation: tokens, fonts, icons
 
 - [x] 1.1 Create the Tailwind v4 `@theme` block with all semantic light-scheme tokens (brand, bg, surface, text, link, success, border, info, danger, thead, dashlet) and all radius tokens set to 0; commit
-- [ ] 1.2 Download Inter woff2 (Latin, 400/600/700) into `web/static/fonts`, add local `@font-face` with system fallback and 14px base size; verify build produces no external URL; commit
+- [x] 1.2 Download Inter woff2 (Latin, 400/600/700) into `web/static/fonts`, add local `@font-face` with system fallback and 14px base size; verify build produces no external URL; commit
 - [ ] 1.3 Add `lucide-vue-next` and create the central icon mapping module (modules: dashboard, sites, dns, mail, client, monitor, system, tools, help; utility: search, filter, edit, delete, external-link, stats, login-as, calendar); commit
 - [ ] 1.4 Add `.dark` variable overrides derived from the original dark scheme reference, checking each text/background pair for WCAG AA (4.5:1); commit
 

@@ -295,7 +295,7 @@ async function toggleActive(row: RecordRow) {
         </div>
         <form class="space-y-3 px-4 py-4" @submit.prevent="save">
           <div class="flex items-start gap-3">
-            <label for="rr-type" class="w-32 shrink-0 pt-1.5 text-right text-sm font-medium after:content-[':']">
+            <label for="rr-type" class="w-32 shrink-0 pt-1.5 text-right text-sm font-semibold after:content-[':']">
               {{ t('dns.col.rr_type') }}
             </label>
             <select
@@ -309,7 +309,7 @@ async function toggleActive(row: RecordRow) {
             </select>
           </div>
           <div class="flex items-start gap-3">
-            <label for="rr-name" class="w-32 shrink-0 pt-1.5 text-right text-sm font-medium after:content-[':']">
+            <label for="rr-name" class="w-32 shrink-0 pt-1.5 text-right text-sm font-semibold after:content-[':']">
               {{ t('dns.col.rr_name') }}
             </label>
             <div class="flex-1">
@@ -327,7 +327,7 @@ async function toggleActive(row: RecordRow) {
             </div>
           </div>
           <div class="flex items-start gap-3">
-            <label for="rr-data" class="w-32 shrink-0 pt-1.5 text-right text-sm font-medium after:content-[':']">
+            <label for="rr-data" class="w-32 shrink-0 pt-1.5 text-right text-sm font-semibold after:content-[':']">
               {{ currentType ? t(currentType.data_label) : t('dns.col.rr_data') }}
             </label>
             <div class="flex-1">
@@ -344,7 +344,7 @@ async function toggleActive(row: RecordRow) {
             </div>
           </div>
           <div v-if="currentType?.aux_used" class="flex items-start gap-3">
-            <label for="rr-aux" class="w-32 shrink-0 pt-1.5 text-right text-sm font-medium after:content-[':']">
+            <label for="rr-aux" class="w-32 shrink-0 pt-1.5 text-right text-sm font-semibold after:content-[':']">
               {{ currentType?.aux_label ? t(currentType.aux_label) : t('dns.col.rr_priority') }}
             </label>
             <div class="flex-1">
@@ -361,7 +361,7 @@ async function toggleActive(row: RecordRow) {
             </div>
           </div>
           <div class="flex items-start gap-3">
-            <label for="rr-ttl" class="w-32 shrink-0 pt-1.5 text-right text-sm font-medium after:content-[':']">
+            <label for="rr-ttl" class="w-32 shrink-0 pt-1.5 text-right text-sm font-semibold after:content-[':']">
               {{ t('dns.col.rr_ttl') }}
             </label>
             <div class="flex-1">
@@ -378,7 +378,7 @@ async function toggleActive(row: RecordRow) {
             </div>
           </div>
           <div class="flex items-center gap-3">
-            <span class="w-32 shrink-0 text-right text-sm font-medium after:content-[':']">
+            <span class="w-32 shrink-0 text-right text-sm font-semibold after:content-[':']">
               {{ t('active_txt') }}
             </span>
             <input v-model="form.active" type="checkbox" />
