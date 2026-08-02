@@ -36,18 +36,18 @@ Conventional commit after each finished + validated task.
 
 ## 6. Sites REST API
 
-- [ ] 6.1 Define the web-domain form descriptor (tabs/fields/validators/defaults port of `web_vhost_domain.tform.php`) on the foundation form framework; unit tests for validators and defaulting (document_root, system_user/group derivation)
-- [ ] 6.2 Implement `/api/sites/web-domains` CRUD with riud scoping + transactional datalog writes; swaggo annotations; handler tests: create/update/delete happy path, 422 validation, cross-client denial
-- [ ] 6.3 Implement `/api/sites/web-folders` and `/api/sites/web-folder-users` CRUD (crypted passwords); swaggo; tests
-- [ ] 6.4 Implement form-metadata endpoint (access-level filtered) and datalog pending/error state on domain reads; swaggo; tests; regenerate swagger (`swag init`), CI check green
+- [x] 6.1 Define the web-domain form descriptor (tabs/fields/validators/defaults port of `web_vhost_domain.tform.php`) on the foundation form framework; unit tests for validators and defaulting (document_root, system_user/group derivation)
+- [x] 6.2 Implement `/api/sites/web-domains` CRUD with riud scoping + transactional datalog writes; swaggo annotations; handler tests: create/update/delete happy path, 422 validation, cross-client denial
+- [x] 6.3 Implement `/api/sites/web-folders` and `/api/sites/web-folder-users` CRUD (crypted passwords); swaggo; tests
+- [x] 6.4 Implement form-metadata endpoint (access-level filtered) and datalog pending/error state on domain reads; swaggo; tests; regenerate swagger (`swag init`), CI check green
 
 ## 7. Sites UI (Vue)
 
-- [ ] 7.1 Add Sites module skeleton: route, topbar/sidebar entries, Pinia store, en i18n catalog entries
-- [ ] 7.2 Domain list view on the foundation DataTable (server-side paging/sort/filter, pending/error indicators, Add button)
-- [ ] 7.3 Metadata-driven tabbed form (six tabs, field renderers per formtype, inline 422 mapping, stay-on-offending-tab)
-- [ ] 7.4 SSL tab actions (create/save/del, Let's Encrypt toggle) and folder/folder-user management views
-- [ ] 7.5 agent-browser E2E: login → create domain → see pending → edit SSL tab → delete; screenshots to docs/prints, curated ones to docs/screenshots
+- [x] 7.1 Add Sites module skeleton: route, topbar/sidebar entries, Pinia store, en i18n catalog entries
+- [x] 7.2 Domain list view on the foundation DataTable (server-side paging/sort/filter, pending/error indicators, Add button)
+- [x] 7.3 Metadata-driven tabbed form (six tabs, field renderers per formtype, inline 422 mapping, stay-on-offending-tab)
+- [x] 7.4 SSL tab actions (create/save/del, Let's Encrypt toggle) and folder/folder-user management views
+- [x] 7.5 agent-browser E2E: login → create domain → see pending → edit SSL tab → delete; screenshots to docs/prints, curated ones to docs/screenshots
 
 ## 8. Integration and docs
 
