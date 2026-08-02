@@ -256,6 +256,7 @@ async function toggleActive(row: RecordRow) {
                 type="checkbox"
                 :checked="row.active === 'Y'"
                 :title="t('active_txt')"
+                :aria-label="t('active_txt')"
                 @change="toggleActive(row)"
               />
             </td>
@@ -263,6 +264,7 @@ async function toggleActive(row: RecordRow) {
               <button
                 type="button"
                 :title="t('sites.edit')"
+                :aria-label="t('sites.edit')"
                 class="border border-border bg-surface p-1 hover:bg-info"
                 @click="openEdit(row)"
               >
@@ -271,6 +273,7 @@ async function toggleActive(row: RecordRow) {
               <button
                 type="button"
                 :title="t('sites.delete')"
+                :aria-label="t('sites.delete')"
                 data-test="delete-record"
                 class="ml-1 border border-danger-border bg-danger p-1 text-danger-text"
                 @click="remove(row)"

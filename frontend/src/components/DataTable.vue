@@ -79,6 +79,7 @@ function goTo(page: number) {
             <button
               type="button"
               :title="t('table.filter')"
+              :aria-label="t('table.filter')"
               class="border border-border bg-surface p-1 text-text hover:bg-info"
               @click="applyFilters"
             >

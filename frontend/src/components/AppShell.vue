@@ -33,6 +33,19 @@ watch(
   () => ui.closeSidebar(),
 )
 
+// Drawer a11y: Escape closes it and the page behind stops scrolling.
+function onKeydown(ev: KeyboardEvent) {
+  if (ev.key === 'Escape') ui.closeSidebar()
+}
+watch(
+  () => ui.sidebarOpen,
+  (open) => {
+    document.body.classList.toggle('overflow-hidden', open)
+    if (open) window.addEventListener('keydown', onKeydown)
+    else window.removeEventListener('keydown', onKeydown)
+  },
+)
+
 async function logout() {
   await auth.logout()
   router.push({ name: 'login' })
@@ -47,6 +60,8 @@ async function logout() {
           type="button"
           data-test="sidebar-toggle"
           :aria-label="t('sidebar.toggle')"
+          :aria-expanded="ui.sidebarOpen"
+          aria-controls="module-sidebar"
           class="border border-border bg-surface p-2 text-text hover:bg-info lg:hidden"
           @click="ui.toggleSidebar"
         >
@@ -58,7 +73,7 @@ async function logout() {
         </RouterLink>
 
         <!-- Module tabs: 32px icon over bold title (original top-nav) -->
-        <nav class="flex flex-1 justify-center">
+        <nav class="flex min-w-0 flex-1 justify-center overflow-x-auto">
           <RouterLink
             v-for="mod in modules"
             :key="mod.id"
@@ -73,10 +88,11 @@ async function logout() {
 
         <!-- Global search + logout -->
         <div class="flex items-center gap-3">
-          <div class="flex items-center border border-border bg-surface focus-within:border-link">
+          <div class="flex items-center border border-border bg-surface focus-within:border-link max-md:hidden">
             <input
               v-model="search"
               type="search"
+              :aria-label="t('topbar.search_placeholder')"
               :placeholder="t('topbar.search_placeholder')"
               class="w-40 bg-surface px-2 py-1.5 text-sm text-text outline-none"
             />
@@ -94,7 +110,7 @@ async function logout() {
           </button>
           <button
             type="button"
-            class="bg-brand px-4 py-2 text-xs font-bold text-white hover:opacity-90"
+            class="bg-brand px-4 py-2 text-xs font-bold text-white transition-colors duration-150 hover:bg-brand-dark"
             @click="logout"
           >
             {{ t('topbar.logout', { username: auth.username }) }}
@@ -113,9 +129,10 @@ async function logout() {
       />
       <!-- Per-module sidebar: static >= lg, off-canvas drawer below -->
       <aside
+        id="module-sidebar"
         data-test="sidebar"
         class="w-[215px] shrink-0 border-r border-border bg-surface max-lg:fixed max-lg:inset-y-0 max-lg:left-0 max-lg:z-40 max-lg:transition-transform max-lg:duration-150"
-        :class="ui.sidebarOpen ? '' : 'max-lg:-translate-x-full'"
+        :class="ui.sidebarOpen ? '' : 'max-lg:invisible max-lg:-translate-x-full'"
       >
         <div class="border-b border-border bg-info px-4 py-2.5 text-sm font-bold text-info-text">
           {{ t(`module.${activeModule.id}`) }}

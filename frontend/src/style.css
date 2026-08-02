@@ -1,6 +1,6 @@
 /* Theme tokens ported from the ISPConfig3 default theme
-   (docs/research/ispconfig3-theme.md). Minimal set only — visual polish
-   (dark mode, shadows, dashlets) belongs to the add-panel-ui-theme change. */
+   (docs/research/ispconfig3-theme.md): full semantic set, light scheme in
+   @theme and the dark scheme as .dark variable overrides below. */
 @import 'tailwindcss';
 
 /* Vendored Inter (web/static/fonts, copied into the build via publicDir).
@@ -37,16 +37,21 @@
   --color-surface: #ffffff;
   --color-text: #3c444b;
   --color-link: #2371ca;
-  --color-success: #3cb355;
+  /* AA correction: the original #3CB355 gives white button text only
+     2.7:1; #27853C (same hue family) reaches 4.66:1. */
+  --color-success: #27853c;
   --color-border: #d3d7da;
   --color-info: #dfeaf6;
   --color-info-border: #cedded;
-  --color-info-text: #698296;
+  /* AA correction: original #698296 on info bg is 3.3:1; this is 4.8:1. */
+  --color-info-text: #50677a;
   --color-danger: #f7dfdf;
   --color-danger-border: #dcb2b3;
-  --color-danger-text: #95686b;
+  /* AA correction: original #95686B on danger bg is 3.7:1; this is 5.4:1. */
+  --color-danger-text: #7d4d51;
   --color-thead: #3e474e;
   --color-dashlet: #e1e4e9;
+  --color-text-muted: #5f6b76;
   --font-sans: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
   /* Square corners everywhere (ISPConfig3 port requirement): the radius
      namespace is cleared so no rounded-* utility exists, and --radius is 0
@@ -75,6 +80,7 @@
   --color-danger-text: #f0b9bc;
   --color-thead: #1c394e;
   --color-dashlet: #1b2836;
+  --color-text-muted: #9aa7b0;
   color-scheme: dark;
 }
 
@@ -82,6 +88,10 @@ html,
 body,
 #app {
   height: 100%;
+}
+
+:root {
+  color-scheme: light;
 }
 
 body {

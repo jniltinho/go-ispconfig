@@ -7,9 +7,15 @@ import { ref } from 'vue'
 
 const STORAGE_KEY = 'theme'
 
-/** prefersDark reports the current effective preference. */
+/** prefersDark reports the current effective preference.
+ * Mirrored by the inline no-flash script in index.html — keep in sync. */
 function prefersDark(): boolean {
-  const stored = localStorage.getItem(STORAGE_KEY)
+  let stored: string | null = null
+  try {
+    stored = localStorage.getItem(STORAGE_KEY)
+  } catch {
+    // Restricted storage: fall through to the OS preference.
+  }
   if (stored === 'dark') return true
   if (stored === 'light') return false
   return window.matchMedia('(prefers-color-scheme: dark)').matches
@@ -26,6 +32,24 @@ export function applyTheme(): void {
 /** toggleTheme flips the scheme and persists the explicit choice. */
 export function toggleTheme(): void {
   isDark.value = !isDark.value
-  localStorage.setItem(STORAGE_KEY, isDark.value ? 'dark' : 'light')
+  try {
+    localStorage.setItem(STORAGE_KEY, isDark.value ? 'dark' : 'light')
+  } catch {
+    // Restricted storage: the choice still applies for this session.
+  }
   applyTheme()
 }
+
+// Without a stored choice, follow live OS scheme changes.
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (ev) => {
+  let stored: string | null = null
+  try {
+    stored = localStorage.getItem(STORAGE_KEY)
+  } catch {
+    // ignore
+  }
+  if (stored !== 'dark' && stored !== 'light') {
+    isDark.value = ev.matches
+    applyTheme()
+  }
+})

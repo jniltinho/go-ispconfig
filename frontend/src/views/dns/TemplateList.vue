@@ -97,6 +97,7 @@ async function remove(row: Row) {
         <button
           type="button"
           :title="t('sites.edit')"
+          :aria-label="t('sites.edit')"
           class="border border-border bg-surface p-1 hover:bg-info"
           @click="open(row)"
         >
@@ -105,6 +106,7 @@ async function remove(row: Row) {
         <button
           type="button"
           :title="t('sites.delete')"
+          :aria-label="t('sites.delete')"
           data-test="delete"
           class="ml-1 border border-danger-border bg-danger p-1 text-danger-text"
           @click="remove(row)"
