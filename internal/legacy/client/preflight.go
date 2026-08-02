@@ -11,6 +11,7 @@ import (
 var RequiredFunctions = []string{
 	"client_get",
 	"client_get_all",
+	"client_get_id",
 	"sites_web_domain_get",
 	"sites_web_folder_get",
 	"sites_web_folder_user_get",

@@ -340,3 +340,25 @@ func TestPlanRiudCopiedVerbatim(t *testing.T) {
 	require.Equal(t, "ri", dom.rec.(*model.WebDomain).SysPermGroup)
 	require.Equal(t, "riud", dom.rec.(*model.WebDomain).SysPermUser)
 }
+
+func TestPlanModernAdminOwnedClientsResolveViaUserClient(t *testing.T) {
+	// ISPConfig 3.3.x panels write admin-created clients' own records
+	// with sys_userid=1/sys_groupid=1, so client rows alone cannot map
+	// entity owner groups. The snapshot's client_get_id resolution
+	// (UserClient) must close the mapping and the whole plan must be
+	// conflict-free on an empty local panel.
+	snap := testSnapshot()
+	for _, rec := range snap.Clients {
+		rec["sys_userid"], rec["sys_groupid"] = "1", "1"
+	}
+	snap.UserClient = map[int]int{2: 1, 3: 2}
+
+	plan, err := buildPlan(snap, newLocalState(), Options{
+		Selection:      Selection{Clients: true, Sites: true, DNS: true},
+		TargetServerID: 1,
+	})
+	require.NoError(t, err)
+	for _, it := range plan.Items {
+		require.NotEqual(t, ActionConflict, it.Action, "%s %s: %s", it.Table, it.Key, it.Reason)
+	}
+}

@@ -91,6 +91,10 @@ type Server struct {
 	Servers []Rec
 	// ServerConfig maps section name to the config served by server_get.
 	ServerConfig map[string]Rec
+	// UserClients maps sys_userid to client_id (client_get_id). When a
+	// userid is absent here, the handler falls back to the client record
+	// whose own sys_userid matches; otherwise it faults like the panel.
+	UserClients map[int]int
 }
 
 // DefaultFunctions is the grant list of the default fixture remote_user:
@@ -99,6 +103,7 @@ var DefaultFunctions = []string{
 	"get_function_list",
 	"client_get",
 	"client_get_all",
+	"client_get_id",
 	"sites_web_domain_get",
 	"sites_web_folder_get",
 	"sites_web_folder_user_get",
@@ -380,6 +385,21 @@ func (s *Server) handle(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		respond(w, "ok", "", rec)
+	case "client_get_id":
+		uid := paramInt(params["sys_userid"])
+		if cid, ok := s.UserClients[uid]; ok {
+			respond(w, "ok", "", cid)
+			return
+		}
+		// Same fallback relation as the real panel (sys_user.client_id):
+		// a client record owned by its own panel user maps that userid.
+		for id, rec := range s.Clients {
+			if paramInt(rec["sys_userid"]) == uid {
+				respond(w, "ok", "", id)
+				return
+			}
+		}
+		fault(w, "There is no sys_user account with this userid.")
 	case "sites_web_domain_get":
 		s.getData(w, s.Domains, "domain_id", params["primary_id"])
 	case "sites_web_folder_get":

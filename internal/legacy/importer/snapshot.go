@@ -46,6 +46,12 @@ type Snapshot struct {
 	Templates []client.Record
 	// Servers is the legacy server list (server_get_all rows).
 	Servers []client.Record
+	// UserClient maps a legacy sys_userid to its client_id
+	// (client_get_id), resolved for every owner userid seen on fetched
+	// site/DNS records. Needed because 3.3.x panels leave admin-created
+	// clients' own records owned by admin (sys_groupid 1), so the client
+	// rows alone cannot map entity owner groups to clients.
+	UserClient map[int]int
 	// Selection records what was fetched for the sites/dns entities.
 	Selection Selection
 }
@@ -58,9 +64,10 @@ var domainTypes = []string{"vhost", "vhostsubdomain", "vhostalias"}
 // panel. It uses only *_get calls.
 func FetchSnapshot(ctx context.Context, c *client.Client, sel Selection) (*Snapshot, error) {
 	snap := &Snapshot{
-		Clients:   map[int]client.Record{},
-		RRs:       map[int][]client.Record{},
-		Selection: sel,
+		Clients:    map[int]client.Record{},
+		RRs:        map[int][]client.Record{},
+		UserClient: map[int]int{},
+		Selection:  sel,
 	}
 
 	servers, err := c.ServerGetAll(ctx)
@@ -116,6 +123,24 @@ func FetchSnapshot(ctx context.Context, c *client.Client, sel Selection) (*Snaps
 		}
 		if snap.Templates, err = c.DNSTemplateZoneGetAll(ctx); err != nil {
 			return nil, fmt.Errorf("fetching legacy zone templates: %w", err)
+		}
+	}
+
+	// Resolve entity owner userids to clients (see Snapshot.UserClient).
+	for _, recs := range [][]client.Record{snap.Domains, snap.Folders, snap.FolderUsers, snap.Zones, snap.Slaves} {
+		for _, rec := range recs {
+			uid := rec.Int("sys_userid")
+			if uid <= 1 {
+				continue // admin-owned; resolveOwner maps group<=1 itself
+			}
+			if _, done := snap.UserClient[uid]; done {
+				continue
+			}
+			cid, err := c.ClientGetID(ctx, uid)
+			if err != nil {
+				return nil, fmt.Errorf("resolving owner of legacy sys_userid %d (client_get_id): %w", uid, err)
+			}
+			snap.UserClient[uid] = cid
 		}
 	}
 

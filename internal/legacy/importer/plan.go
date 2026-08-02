@@ -317,6 +317,21 @@ func buildPlan(snap *Snapshot, local *localState, opts Options) (*Plan, error) {
 			p.plan.groupOwner[gid] = legacyID
 		}
 	}
+	// 3.3.x panels leave admin-created clients' own records owned by
+	// admin (sys_groupid 1), so the loop above cannot map their groups.
+	// Entity records carry the owning client's user AND group; the
+	// snapshot's client_get_id resolution closes the mapping.
+	for _, recs := range [][]client.Record{snap.Domains, snap.Folders, snap.FolderUsers, snap.Zones, snap.Slaves} {
+		for _, rec := range recs {
+			gid := rec.Int("sys_groupid")
+			if gid <= 1 || p.plan.groupOwner[gid] != 0 {
+				continue
+			}
+			if cid := snap.UserClient[rec.Int("sys_userid")]; cid > 0 {
+				p.plan.groupOwner[gid] = cid
+			}
+		}
+	}
 
 	if err := p.planClients(opts.Selection.Clients); err != nil {
 		return nil, err

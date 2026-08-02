@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
 )
@@ -37,6 +38,23 @@ func (c *Client) ClientGet(ctx context.Context, clientID int) (Record, error) {
 		return nil, fmt.Errorf("legacy: client_get: no record for client %d", clientID)
 	}
 	return rec, nil
+}
+
+// ClientGetID maps a legacy sys_user userid to its client_id
+// (client_get_id). A legacy fault (no sys_user for that id, or a
+// userid without a client) resolves to 0 — the caller treats 0 as
+// "not owned by any client".
+func (c *Client) ClientGetID(ctx context.Context, sysUserID int) (int, error) {
+	var id flexInt
+	err := c.call(ctx, "client_get_id", map[string]any{"sys_userid": sysUserID}, &id)
+	if err != nil {
+		var f *Fault
+		if errors.As(err, &f) {
+			return 0, nil
+		}
+		return 0, err
+	}
+	return int(id), nil
 }
 
 // SitesWebDomainGet returns all web domain records matching filter

@@ -26,7 +26,9 @@ On the **legacy** ISPConfig panel, as admin:
 2. **Create a remote user** — System → Remote Users → Add new user. Grant the
    **read** function groups; the import needs exactly these functions:
 
-   - `client_get`, `client_get_all`
+   - `client_get`, `client_get_all`, `client_get_id` (resolves entity
+     owners on 3.3.x panels, where admin-created clients' own records are
+     owned by admin)
    - `sites_web_domain_get`, `sites_web_folder_get`, `sites_web_folder_user_get`
    - `dns_zone_get` (also covers records and slave zones), `dns_rr_get_all_by_zone`, `dns_slave_get`
    - `dns_templatezone_get_all`
