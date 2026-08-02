@@ -132,6 +132,42 @@ func resolveRule(entity string, body map[string]any) (limitRule, bool) {
 			limit: func(c *model.Client) int32 { return c.LimitDNSRecord },
 			count: countByGroup("dns_rr", ""),
 		}, true
+	case "mail-domains":
+		return limitRule{
+			key:   "error.limit_maildomain",
+			limit: func(c *model.Client) int32 { return c.LimitMaildomain },
+			count: countByGroup("mail_domain", ""),
+		}, true
+	case "mailboxes":
+		return limitRule{
+			key:   "error.limit_mailbox",
+			limit: func(c *model.Client) int32 { return c.LimitMailbox },
+			count: countByGroup("mail_user", ""),
+		}, true
+	case "aliases":
+		return limitRule{
+			key:   "error.limit_mailalias",
+			limit: func(c *model.Client) int32 { return c.LimitMailalias },
+			count: countByGroup("mail_forwarding", "type = ?", "alias"),
+		}, true
+	case "alias-domains":
+		return limitRule{
+			key:   "error.limit_mailaliasdomain",
+			limit: func(c *model.Client) int32 { return c.LimitMailaliasdomain },
+			count: countByGroup("mail_forwarding", "type = ?", "aliasdomain"),
+		}, true
+	case "forwards":
+		return limitRule{
+			key:   "error.limit_mailforward",
+			limit: func(c *model.Client) int32 { return c.LimitMailforward },
+			count: countByGroup("mail_forwarding", "type = ?", "forward"),
+		}, true
+	case "catchalls":
+		return limitRule{
+			key:   "error.limit_mailcatchall",
+			limit: func(c *model.Client) int32 { return c.LimitMailcatchall },
+			count: countByGroup("mail_forwarding", "type = ?", "catchall"),
+		}, true
 	case "clients", "resellers":
 		// PHP counts child clients by the reseller's group ownership
 		// (client rows under a reseller are re-owned to its group).

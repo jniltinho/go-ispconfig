@@ -100,9 +100,11 @@ func mailboxPrepare(c *echo.Context, d *Deps, _ *repository.Identity, body map[s
 	ctx := c.Request().Context()
 	isUpdate := c.Request().Method == http.MethodPut
 
-	// Derived/system columns are owned by the server, never the client.
-	for _, k := range []string{"maildir", "maildir_format", "homedir", "server_id", "uid", "gid"} {
-		if isUpdate {
+	// Server-owned columns the client may never set directly. maildir/
+	// homedir/server_id are re-derived below from the email when it
+	// changes, so they are dropped from the raw body first either way.
+	if isUpdate {
+		for _, k := range []string{"maildir", "maildir_format", "homedir", "server_id", "uid", "gid"} {
 			delete(body, k)
 		}
 	}
@@ -131,36 +133,51 @@ func mailboxPrepare(c *echo.Context, d *Deps, _ *repository.Identity, body map[s
 		body["email"] = email
 	}
 
-	// On create the domain must exist as a primary mail_domain.
-	if !isUpdate {
-		local, domain, ok := strings.Cut(email, "@")
-		if !ok || local == "" || domain == "" {
-			return &ValidationError{Fields: map[string][]string{"email": {"email_error_isemail"}}}
+	// Create always derives the server-owned columns; update re-derives
+	// them only when the email (and thus maildir) changes — PHP
+	// mail_user_edit recomputes maildir on every submit.
+	if !isUpdate || email != "" {
+		if err := deriveMailboxColumns(ctx, d, email, body, isUpdate); err != nil {
+			return err
 		}
-		var md model.MailDomain
-		err := d.DB.WithContext(ctx).Where("domain = ?", domain).Take(&md).Error
-		if err != nil {
-			return &ValidationError{Fields: map[string][]string{"email": {"mail_domain_does_not_exist"}}}
-		}
-		if body["login"] == nil || body["login"] == "" {
-			body["login"] = email
-		}
-		mailCfg := getconf.DefaultMailConfig()
-		if sc, err := getconf.GetServerConfig(d.DB, md.ServerID); err == nil {
-			mailCfg = sc.Mail
-		}
-		maildir := strings.ReplaceAll(mailCfg.MaildirPath, "[domain]", domain)
-		maildir = strings.ReplaceAll(maildir, "[localpart]", local)
-		body["maildir"] = maildir
-		body["maildir_format"] = mailCfg.MaildirFormat
-		body["homedir"] = mailCfg.HomedirPath
-		body["server_id"] = md.ServerID
-		if mailCfg.MailboxVirtualUidgidMaps == "y" {
-			body["uid"], body["gid"] = -1, -1
-		} else {
-			body["uid"], _ = strconv.Atoi(mailCfg.MailuserUID)
-			body["gid"], _ = strconv.Atoi(mailCfg.MailuserGID)
-		}
+	}
+	return nil
+}
+
+// deriveMailboxColumns looks up the primary mail_domain of the email and
+// fills maildir/maildir_format/homedir/server_id/uid/gid (and login on
+// create). On update it leaves uid/gid/format untouched (the daemon
+// forbids format changes) but refreshes the path for an email rename.
+func deriveMailboxColumns(ctx context.Context, d *Deps, email string, body map[string]any, isUpdate bool) error {
+	local, domain, ok := strings.Cut(email, "@")
+	if !ok || local == "" || domain == "" {
+		return &ValidationError{Fields: map[string][]string{"email": {"email_error_isemail"}}}
+	}
+	var md model.MailDomain
+	if err := d.DB.WithContext(ctx).Where("domain = ?", domain).Take(&md).Error; err != nil {
+		return &ValidationError{Fields: map[string][]string{"email": {"mail_domain_does_not_exist"}}}
+	}
+	mailCfg := getconf.DefaultMailConfig()
+	if sc, err := getconf.GetServerConfig(d.DB, md.ServerID); err == nil {
+		mailCfg = sc.Mail
+	}
+	maildir := strings.ReplaceAll(mailCfg.MaildirPath, "[domain]", domain)
+	maildir = strings.ReplaceAll(maildir, "[localpart]", local)
+	body["maildir"] = maildir
+	body["homedir"] = mailCfg.HomedirPath
+	body["server_id"] = md.ServerID
+	if isUpdate {
+		return nil
+	}
+	if body["login"] == nil || body["login"] == "" {
+		body["login"] = email
+	}
+	body["maildir_format"] = mailCfg.MaildirFormat
+	if mailCfg.MailboxVirtualUidgidMaps == "y" {
+		body["uid"], body["gid"] = -1, -1
+	} else {
+		body["uid"], _ = strconv.Atoi(mailCfg.MailuserUID)
+		body["gid"], _ = strconv.Atoi(mailCfg.MailuserGID)
 	}
 	return nil
 }

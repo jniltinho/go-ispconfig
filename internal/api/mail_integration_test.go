@@ -226,6 +226,17 @@ func TestMailboxAPI(t *testing.T) {
 		assert.Equal(t, "User One", after.Name)
 		assert.EqualValues(t, 2097152, after.Quota)
 	})
+
+	t.Run("email rename re-derives the maildir", func(t *testing.T) {
+		status, data := call(t, srv, http.MethodPut,
+			fmt.Sprintf("/api/mail/mailboxes/%d", int(mailuserID)), cookie, csrf,
+			map[string]any{"email": "renamed@box.example", "password": ""})
+		require.Equal(t, http.StatusOK, status, "%s", data)
+		var after model.MailUser
+		require.NoError(t, db.Take(&after, mailuserID).Error)
+		assert.Equal(t, "renamed@box.example", after.Email)
+		assert.Equal(t, "/var/vmail/box.example/renamed", after.Maildir, "maildir follows the email")
+	})
 }
 
 func TestMailForwardingAndTransportAPI(t *testing.T) {

@@ -100,10 +100,11 @@ func mailDomainDecorate() func(ctx context.Context, db *gorm.DB, items []map[str
 		names := make([]string, 0, len(items))
 		for _, it := range items {
 			delete(it, "dkim_private")
+			delete(it, "relay_pass")
 			if it["dkim"] == "y" {
 				name := mail.DKIMRecordName(fmt.Sprint(it["dkim_selector"]), fmt.Sprint(it["domain"]))
 				data := mail.DKIMTXTValue(fmt.Sprint(it["dkim_public"]))
-				it["suggested_record"] = name + " 3600 IN TXT " + data
+				it["suggested_record"] = name + ` 3600 IN TXT "` + data + `"`
 				it["dns_published"] = false
 				names = append(names, name)
 			}
@@ -200,7 +201,7 @@ func mailDomainPrepare(c *echo.Context, d *Deps, _ *repository.Identity, body ma
 		return nil
 	}
 	// DKIM enabled without a key: generate one at the configured strength.
-	privPEM, pubPEM, err := mail.GenerateDKIMKey(dkimStrength(c, d))
+	privPEM, pubPEM, err := mail.GenerateDKIMKey(dkimStrength(c, d, uint32(bodyInt(body, "server_id"))))
 	if err != nil {
 		return err
 	}
@@ -211,9 +212,12 @@ func mailDomainPrepare(c *echo.Context, d *Deps, _ *repository.Identity, body ma
 
 // dkimStrength reads dkim_strength from the domain's server mail config
 // (default 2048).
-func dkimStrength(c *echo.Context, d *Deps) int {
+func dkimStrength(_ *echo.Context, d *Deps, serverID uint32) int {
+	if serverID == 0 {
+		serverID = 1
+	}
 	cfg := getconf.DefaultMailConfig()
-	if sc, err := getconf.GetServerConfig(d.DB, 1); err == nil {
+	if sc, err := getconf.GetServerConfig(d.DB, serverID); err == nil {
 		cfg = sc.Mail
 	}
 	if n, err := strconv.Atoi(cfg.DKIMStrength); err == nil && n >= 1024 {
