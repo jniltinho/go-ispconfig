@@ -52,10 +52,9 @@ var daemonCmd = &cobra.Command{
 		}, logger)
 
 		reg := engine.NewRegistry(logger)
+		nginxPlugin := nginx.NewPlugin(db, services, runner, cfg.Templates.CustomDir, logger)
 		modules := []engine.Module{web.NewModule()}
-		plugins := []engine.Plugin{
-			nginx.NewPlugin(db, services, runner, cfg.Templates.CustomDir, logger),
-		}
+		plugins := []engine.Plugin{nginxPlugin}
 		if err := reg.Load(modules, plugins); err != nil {
 			return err
 		}
@@ -82,6 +81,9 @@ var daemonCmd = &cobra.Command{
 		web.RegisterServices(services, append(fpmUnits, phpUnits...)...)
 		sched := engine.NewScheduler(db, logger)
 		if err := sched.RegisterDatalogPruning(daemon.ServerID(), cfg.Daemon.DatalogRetentionDays); err != nil {
+			return err
+		}
+		if err := nginxPlugin.RegisterRenewal(sched); err != nil {
 			return err
 		}
 
