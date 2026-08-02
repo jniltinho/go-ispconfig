@@ -22,6 +22,15 @@ func TestUserStepSkipsWhenExists(t *testing.T) {
 	err := userStep{}.Run(context.Background(), st)
 	require.ErrorContains(t, err, "exists")
 	assert.False(t, mock.called("useradd"))
+	assert.False(t, mock.called("groupadd"), "existing sshusers group is kept")
+}
+
+func TestUserStepCreatesSshusersGroupWhenMissing(t *testing.T) {
+	st, mock, _ := testState(t)
+	mock.fail["getent group sshusers"] = "no such group"
+	err := userStep{}.Run(context.Background(), st)
+	require.ErrorContains(t, err, "exists") // panel user present -> skip
+	assert.True(t, mock.called("groupadd sshusers"))
 }
 
 func TestConfigTomlWriteAndRerun(t *testing.T) {

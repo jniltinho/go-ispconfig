@@ -17,8 +17,16 @@ type userStep struct{}
 // Name identifies the step in the pipeline log.
 func (userStep) Name() string { return "panel-user" }
 
-// Run creates the system user when absent.
+// Run creates the system user and the sshusers group when absent.
 func (userStep) Run(ctx context.Context, st *State) error {
+	// The web module adds site shell users to the sshusers group
+	// (server_config add_web_users_to_sshusers_group=y); the PHP installer
+	// creates it unconditionally (installer_base groupadd sshusers).
+	if _, err := st.Exec.Run(ctx, nil, "getent", "group", "sshusers"); err != nil {
+		if _, err := st.Exec.Run(ctx, nil, "groupadd", "sshusers"); err != nil {
+			return fmt.Errorf("creating group sshusers: %w", err)
+		}
+	}
 	if _, err := st.Exec.Run(ctx, nil, "id", "-u", PanelUser); err == nil {
 		return Skip("user " + PanelUser + " exists")
 	}
