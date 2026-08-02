@@ -7,6 +7,7 @@ import { api, setCsrfToken, type SessionInfo } from '../api'
 
 interface LoginResponse {
   username?: string
+  typ?: string
   csrf_token?: string
 }
 
@@ -46,6 +47,7 @@ export const useAuthStore = defineStore('auth', {
         })
         if (res?.csrf_token) setCsrfToken(res.csrf_token)
         this.username = res?.username ?? username
+        this.typ = res?.typ ?? ''
       } catch {
         this.error = 'login.failed'
         return false
