@@ -15,6 +15,7 @@ const username = ref('')
 const password = ref('')
 const stayLoggedIn = ref(false)
 const submitting = ref(false)
+const showLostHint = ref(false)
 
 async function submit() {
   submitting.value = true
@@ -71,6 +72,18 @@ async function submit() {
           >
             {{ t('login.submit') }}
           </button>
+        </div>
+        <div class="border-t border-border pt-3 text-sm">
+          <a
+            href="#"
+            data-test="password-lost"
+            @click.prevent="showLostHint = !showLostHint"
+          >
+            {{ t('login.password_lost') }}
+          </a>
+          <UiAlert v-if="showLostHint" variant="info" class="mt-2">
+            {{ t('login.password_lost_hint') }}
+          </UiAlert>
         </div>
       </form>
     </div>
