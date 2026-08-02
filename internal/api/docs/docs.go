@@ -3139,6 +3139,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "dnssecinitialized": {
+                    "description": "DNSSECInitialized is daemon-managed; the default tag keeps a zero\nvalue out of API inserts (the column is a strict-mode enum).",
                     "type": "string"
                 },
                 "dnsseclastSigned": {

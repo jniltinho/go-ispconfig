@@ -192,8 +192,8 @@ func listDNSRecords(d *Deps) echo.HandlerFunc {
 //	@Tags			dns
 //	@Accept			json
 //	@Produce		json
-//	@Param			id		path		int				true	"zone id"
-//	@Param			record	body		model.DNSRr		true	"type, name, data, aux, ttl, active plus the optional update_serial flag"
+//	@Param			id		path		int			true	"zone id"
+//	@Param			record	body		model.DNSRr	true	"type, name, data, aux, ttl, active plus the optional update_serial flag"
 //	@Success		201		{object}	model.DNSRr
 //	@Failure		401		{object}	ErrorResponse
 //	@Failure		403		{object}	ErrorResponse	"Zone not updatable by the caller"
@@ -341,9 +341,9 @@ func updateDNSRecord(d *Deps) echo.HandlerFunc {
 //	@Tags			dns
 //	@Param			id				path	int		true	"record id"
 //	@Param			update_serial	query	bool	false	"Bump the SOA serial (default true)"
-//	@Success		204	"Deleted"
-//	@Failure		401	{object}	ErrorResponse
-//	@Failure		403	{object}	ErrorResponse	"Record not accessible"
+//	@Success		204				"Deleted"
+//	@Failure		401				{object}	ErrorResponse
+//	@Failure		403				{object}	ErrorResponse	"Record not accessible"
 //	@Router			/dns/records/{id} [delete]
 //	@Security		CookieAuth
 //	@Security		BearerAuth
