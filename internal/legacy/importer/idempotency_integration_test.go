@@ -73,7 +73,7 @@ func TestExistingClientAdoptsPendingParent(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, plan.Conflicts())
 
-	_, err = importer.Apply(ctx, db, plan)
+	_, err = importer.Apply(ctx, db, plan, nil)
 	require.NoError(t, err)
 
 	var reseller, child model.Client
@@ -114,7 +114,7 @@ func TestImporterDryRunAndIdempotency(t *testing.T) {
 	t.Run("first apply imports everything", func(t *testing.T) {
 		plan, err := importer.BuildPlan(ctx, db, fetch(), opts)
 		require.NoError(t, err)
-		_, err = importer.Apply(ctx, db, plan)
+		_, err = importer.Apply(ctx, db, plan, nil)
 		require.NoError(t, err)
 		afterFirst = rowCounts(t, db)
 		require.EqualValues(t, 1201, afterFirst["web_domain"])
@@ -129,7 +129,7 @@ func TestImporterDryRunAndIdempotency(t *testing.T) {
 				it.Table, it.Key, it.Action, it.Reason)
 		}
 
-		counts, err := importer.Apply(ctx, db, plan)
+		counts, err := importer.Apply(ctx, db, plan, nil)
 		require.NoError(t, err)
 		for table, tally := range counts {
 			require.Zero(t, tally.Created, "%s created on re-run", table)
@@ -155,7 +155,7 @@ func TestImporterDryRunAndIdempotency(t *testing.T) {
 		}
 		require.Equal(t, 1, updates)
 
-		counts, err := importer.Apply(ctx, db, plan)
+		counts, err := importer.Apply(ctx, db, plan, nil)
 		require.NoError(t, err)
 		require.Equal(t, 1, counts["web_domain"].Updated)
 

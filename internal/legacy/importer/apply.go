@@ -31,11 +31,38 @@ var applyPhases = [][]string{
 	{"dns_template"},
 }
 
+// Progress is one apply progress event: Done of Total items of Entity
+// have been processed (skips and conflicts included).
+type Progress struct {
+	// Entity is the local table being applied.
+	Entity string `json:"entity"`
+	// Done counts processed items of the entity.
+	Done int `json:"done"`
+	// Total is the entity's item count in the plan.
+	Total int `json:"total"`
+}
+
+// ProgressFunc receives apply progress events; nil disables reporting.
+type ProgressFunc func(Progress)
+
 // Apply executes the plan: per-entity transactions writing every insert
 // and update through the foundation's datalog writer (sys_datalog rows
 // with {old,new} JSON, correct dbtable/dbidx/action/server_id), skipping
-// conflicts. It returns the per-table tally of what was done.
-func Apply(ctx context.Context, db *gorm.DB, plan *Plan) (map[string]EntityCount, error) {
+// conflicts. It returns the per-table tally of what was done, reporting
+// progress through the optional callback.
+func Apply(ctx context.Context, db *gorm.DB, plan *Plan, progress ProgressFunc) (map[string]EntityCount, error) {
+	totals := map[string]int{}
+	done := map[string]int{}
+	for _, it := range plan.Items {
+		totals[it.Table]++
+	}
+	report := func(table string) {
+		done[table]++
+		if progress != nil {
+			progress(Progress{Entity: table, Done: done[table], Total: totals[table]})
+		}
+	}
+
 	counts := map[string]EntityCount{}
 	for _, tables := range applyPhases {
 		items := itemsOf(plan, tables)
@@ -48,9 +75,9 @@ func Apply(ctx context.Context, db *gorm.DB, plan *Plan) (map[string]EntityCount
 		nctx, flush := datalog.NotifyAfterCommit(ctx)
 		err := db.WithContext(nctx).Transaction(func(tx *gorm.DB) error {
 			if tables[0] == "client" {
-				return applyClientCluster(tx, plan, items, phase)
+				return applyClientCluster(tx, plan, items, phase, report)
 			}
-			return applyItems(tx, plan, items, phase)
+			return applyItems(tx, plan, items, phase, report)
 		})
 		if err != nil {
 			return counts, fmt.Errorf("applying %s: %w", tables[0], err)
@@ -105,7 +132,7 @@ func count(counts map[string]EntityCount, it *Item) {
 // client row is re-owned by its own recreated user/group before its
 // datalog insert row is written — so the journaled record carries the
 // final values.
-func applyClientCluster(tx *gorm.DB, plan *Plan, items []*Item, counts map[string]EntityCount) error {
+func applyClientCluster(tx *gorm.DB, plan *Plan, items []*Item, counts map[string]EntityCount, report func(string)) error {
 	var createdClients []*Item
 	created := map[int]bool{} // legacy client ids created in this run
 
@@ -150,6 +177,7 @@ func applyClientCluster(tx *gorm.DB, plan *Plan, items []*Item, counts map[strin
 			}
 		}
 		count(counts, it)
+		report(it.Table)
 	}
 
 	for _, it := range items {
@@ -172,6 +200,7 @@ func applyClientCluster(tx *gorm.DB, plan *Plan, items []*Item, counts map[strin
 			return err
 		}
 		count(counts, it)
+		report(it.Table)
 	}
 
 	for _, it := range items {
@@ -198,6 +227,7 @@ func applyClientCluster(tx *gorm.DB, plan *Plan, items []*Item, counts map[strin
 			return err
 		}
 		count(counts, it)
+		report(it.Table)
 	}
 
 	// Re-own created client rows by their recreated user/group and only
@@ -246,7 +276,7 @@ func adoptFreeRow(tx *gorm.DB, plan *Plan, it *Item, created map[int]bool, table
 
 // applyItems applies one non-client phase: creates (with pending FK/owner
 // resolution) and updates, journaling each through the datalog writer.
-func applyItems(tx *gorm.DB, plan *Plan, items []*Item, counts map[string]EntityCount) error {
+func applyItems(tx *gorm.DB, plan *Plan, items []*Item, counts map[string]EntityCount, report func(string)) error {
 	for _, it := range items {
 		switch it.Action {
 		case ActionCreate:
@@ -270,6 +300,7 @@ func applyItems(tx *gorm.DB, plan *Plan, items []*Item, counts map[string]Entity
 			}
 		}
 		count(counts, it)
+		report(it.Table)
 	}
 	return nil
 }

@@ -24,7 +24,7 @@
 
 ## 4. CLI (`migrate-from`)
 
-- [ ] 4.1 Add Cobra command `migrate-from` with `--url`, `--user`, `--password` (hidden interactive prompt when omitted), `--dry-run`, `--only clients,sites,dns`, `--insecure`; wire connect → preflight → inventory → plan → apply; inventory table, plan/conflict summary, progress lines, final report output. Commit.
+- [x] 4.1 Add Cobra command `migrate-from` with `--url`, `--user`, `--password` (hidden interactive prompt when omitted), `--dry-run`, `--only clients,sites,dns`, `--insecure`; wire connect → preflight → inventory → plan → apply; inventory table, plan/conflict summary, progress lines, final report output. Commit.
 - [ ] 4.2 Exit codes and failure paths: non-zero on login/preflight failure (naming fault code or missing grants, before any fetch), on multi-server legacy without the explicit map-to-single-server confirmation flag, on dry-run conflicts, on any entity failure; insecure/http warnings printed and repeated in report; redaction in verbose output. Integration tests against the mock. Commit.
 - [ ] 4.3 Bulk password-reset flow in the CLI: prominent reset-required list in the report + one-time reset-token generation for all flagged users (flag or follow-up command), never printing plaintext passwords. Tests. Commit.
 

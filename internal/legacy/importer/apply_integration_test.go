@@ -51,7 +51,7 @@ func TestApplyEndToEnd(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, plan.Conflicts())
 
-	counts, err := importer.Apply(ctx, db, plan)
+	counts, err := importer.Apply(ctx, db, plan, nil)
 	require.NoError(t, err)
 	require.Equal(t, 3, counts["client"].Created)
 	require.Equal(t, 3, counts["sys_group"].Created)
