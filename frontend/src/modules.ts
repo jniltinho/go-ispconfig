@@ -17,8 +17,7 @@ export const modules: ModuleDef[] = [
     path: '/sites',
     sections: [
       { labelKey: 'sidebar.sites.websites', path: '/sites' },
-      { labelKey: 'sidebar.sites.subdomains', path: '/sites' },
-      { labelKey: 'sidebar.sites.aliasdomains', path: '/sites' },
+      { labelKey: 'sidebar.sites.folders', path: '/sites/folders' },
     ],
   },
   {

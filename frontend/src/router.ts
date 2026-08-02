@@ -18,6 +18,7 @@ export const router = createRouter({
       children: [
         { path: 'dashboard', name: 'dashboard', component: DashboardView },
         { path: 'sites', name: 'sites', component: ModulePlaceholder },
+        { path: 'sites/folders', name: 'sites-folders', component: ModulePlaceholder },
         { path: 'dns', name: 'dns', component: ModulePlaceholder },
         { path: 'system', name: 'system', component: ModulePlaceholder },
       ],
