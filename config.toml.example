@@ -46,6 +46,13 @@ tick_seconds = 10
 # Processed sys_datalog rows older than this many days are removed by the
 # daily pruning job (03:00, internal scheduler).
 datalog_retention_days = 30
+# Module enablement gates (also require the matching server.*_server = 1
+# flag on the local server row). Default false = module loads when the
+# server role is set.
+# disable_mail_module = false
+# disable_firewall_module = false
+# Emergency: stop client_delete teardown events.
+# disable_client_events = false
 
 [queue]
 # Redis/Valkey backing the asynq task queue (scheduler jobs, instant datalog

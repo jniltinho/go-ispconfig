@@ -63,6 +63,7 @@ export const modules: ModuleDef[] = [
     sections: [
       { labelKey: 'sidebar.system.server_config', path: '/system' },
       { labelKey: 'sidebar.system.users', path: '/system' },
+      { labelKey: 'sidebar.system.firewall', path: '/system/firewall', adminOnly: true },
       { labelKey: 'sidebar.system.migration', path: '/system/migration', adminOnly: true },
     ],
   },

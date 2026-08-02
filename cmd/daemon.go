@@ -9,17 +9,21 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
+	"gorm.io/gorm"
 
 	"go-ispconfig/internal/clients"
 	"go-ispconfig/internal/config"
 	"go-ispconfig/internal/database"
 	"go-ispconfig/internal/dns"
 	"go-ispconfig/internal/engine"
+	"go-ispconfig/internal/firewall"
 	"go-ispconfig/internal/getconf"
 	"go-ispconfig/internal/mail"
 	"go-ispconfig/internal/nginx"
@@ -88,6 +92,17 @@ var daemonCmd = &cobra.Command{
 			modules = append(modules, dns.NewModule())
 			plugins = append(plugins, dnsPlugin)
 			dns.RegisterServices(services)
+		}
+		// Firewall module: only on firewall servers with the module
+		// enabled in config.toml (firewall-module-events / design D3:
+		// server.firewall_server = 1 and !disable_firewall_module).
+		if srv.FirewallServer == 1 && !cfg.Daemon.DisableFirewallModule {
+			fwPlugin := firewall.NewPlugin(runner, srv.ServerID, cfg.Server.Port, logger)
+			fwPlugin.LoadSSHPort = func(ctx context.Context) int {
+				return firewallSSHPort(ctx, db, srv.ServerID)
+			}
+			modules = append(modules, firewall.NewModule())
+			plugins = append(plugins, fwPlugin)
 		}
 		if err := reg.Load(modules, plugins); err != nil {
 			return err
@@ -162,4 +177,26 @@ var daemonCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(daemonCmd)
+}
+
+// firewallSSHPort reads server.config [server] ssh_port for the lock-out
+// guard (design D6). Missing/invalid values fall back to
+// firewall.DefaultSSHPort (22).
+func firewallSSHPort(_ context.Context, db *gorm.DB, serverID uint32) int {
+	cfg, err := getconf.GetServerConfig(db, serverID)
+	if err != nil {
+		return firewall.DefaultSSHPort
+	}
+	raw := ""
+	if sec := cfg.Raw["server"]; sec != nil {
+		raw = sec["ssh_port"]
+	}
+	if raw == "" {
+		return firewall.DefaultSSHPort
+	}
+	n, err := strconv.Atoi(strings.TrimSpace(raw))
+	if err != nil || n <= 0 || n > 65535 {
+		return firewall.DefaultSSHPort
+	}
+	return n
 }

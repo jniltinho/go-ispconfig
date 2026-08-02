@@ -464,6 +464,36 @@ export const router = createRouter({
         },
         { path: 'system', name: 'system', component: ModulePlaceholder },
         {
+          path: 'system/firewall',
+          name: 'system-firewall',
+          component: MailList,
+          meta: { adminOnly: true },
+          props: {
+            apiBase: '/api/firewall', idField: 'firewall_id', formBase: '/system/firewall',
+            columns: [
+              { key: 'active', label: 'Active' },
+              { key: 'server_id', label: 'Server' },
+              { key: 'tcp_port', label: 'Open TCP ports' },
+              { key: 'udp_port', label: 'Open UDP ports' },
+            ],
+            titleKey: 'firewall.firewalls_title', addKey: 'firewall.add_firewall',
+          },
+        },
+        {
+          path: 'system/firewall/new',
+          name: 'system-firewall-new',
+          component: EntityForm,
+          meta: { adminOnly: true },
+          props: { entity: 'firewall', apiBase: '/api/firewall', backTo: '/system/firewall' },
+        },
+        {
+          path: 'system/firewall/:id(\\d+)',
+          name: 'system-firewall-edit',
+          component: EntityForm,
+          meta: { adminOnly: true },
+          props: (route) => ({ entity: 'firewall', apiBase: '/api/firewall', backTo: '/system/firewall', id: String(route.params.id), readonlyFields: ['server_id'] }),
+        },
+        {
           path: 'system/migration',
           name: 'system-migration',
           component: MigrationWizard,
