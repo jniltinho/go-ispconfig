@@ -24,7 +24,7 @@
 - [x] 4.2 Reseller endpoints (dedicated or filtered surface documented in swagger) with nesting guard and `limit_client` rules; tests. Commit.
 - [x] 4.3 Template CRUD + additional-template assign/list/remove with materialization; countries list; tests. Commit.
 - [x] 4.4 Message-template CRUD + send-message endpoint; optional SMTP transport behind config; welcome-on-create hook; tests with fake transport (no network). Commit.
-- [ ] 4.5 Regenerate swagger (`make swagger` / `swag init`), verify Swagger UI lists all client endpoints, CI staleness check green. Commit.
+- [x] 4.5 Regenerate swagger (`make swagger` / `swag init`), verify Swagger UI lists all client endpoints, CI staleness check green. Commit.
 
 ## 5. Panel UI (Vue)
 
