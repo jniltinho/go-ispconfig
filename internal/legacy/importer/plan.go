@@ -57,6 +57,11 @@ type Item struct {
 	rec     any      // desired model pointer
 	localID uint32   // existing local pk (update/skip)
 	cols    []string // changed columns (update)
+
+	// Pending references resolved during apply (create items only; zero
+	// when the value was already rewritten at plan time).
+	legacyParent     int // legacy id of the parent record (per-table entity)
+	legacyOwnerGroup int // legacy sys_groupid still needing owner resolution
 }
 
 // Plan is the full dry-run/apply plan: every fetched record classified,
@@ -446,6 +451,7 @@ func (p *planner) planClients(doImport bool) {
 				mapped.ParentClientID = id
 			} else if p.plan.isPending("client", legacyParent) {
 				mapped.ParentClientID = 0 // resolved during apply
+				item.legacyParent = legacyParent
 			} else {
 				item.Action = ActionConflict
 				item.Reason = fmt.Sprintf("parent client (legacy id %d) is not imported and not present locally", legacyParent)
@@ -618,9 +624,13 @@ func (p *planner) planSites() error {
 		if !exists {
 			item.Action = ActionCreate
 			item.rec = mapped
-			// Owner/parent stay legacy ids when pending; apply resolves.
 			if state == ownerOK {
 				mapped.SysUserID, mapped.SysGroupID = user, group
+			} else { // pending: apply resolves the owner
+				item.legacyOwnerGroup = rec.Int("sys_groupid")
+			}
+			if parentPending {
+				item.legacyParent = legacyParent
 			}
 			p.plan.setPending("web_domain", legacyID)
 			p.plan.Items = append(p.plan.Items, item)
@@ -721,6 +731,11 @@ func (p *planner) planChildRecord(rec client.Record, table string) error {
 		}
 		if state == ownerOK {
 			mapped.SysUserID, mapped.SysGroupID = int32(user), int32(group)
+		} else {
+			item.legacyOwnerGroup = rec.Int("sys_groupid")
+		}
+		if !parentOK {
+			item.legacyParent = legacyParent
 		}
 		item.Action = ActionCreate
 		item.rec = mapped
@@ -752,6 +767,11 @@ func (p *planner) planChildRecord(rec client.Record, table string) error {
 	}
 	if state == ownerOK {
 		mapped.SysUserID, mapped.SysGroupID = int32(user), int32(group)
+	} else {
+		item.legacyOwnerGroup = rec.Int("sys_groupid")
+	}
+	if !parentOK {
+		item.legacyParent = legacyParent
 	}
 	item.Action = ActionCreate
 	item.rec = mapped
@@ -791,6 +811,8 @@ func (p *planner) planDNS() error {
 		if !exists {
 			if state == ownerOK {
 				mapped.SysUserID, mapped.SysGroupID = user, group
+			} else {
+				item.legacyOwnerGroup = rec.Int("sys_groupid")
 			}
 			item.Action = ActionCreate
 			item.rec = mapped
@@ -815,6 +837,13 @@ func (p *planner) planDNS() error {
 		p.plan.Items = append(p.plan.Items, item)
 	}
 
+	// zoneGroup remembers each zone's legacy owner group so its records
+	// can inherit it when their own owner cannot be resolved.
+	zoneGroup := map[int]int{}
+	for _, rec := range p.snap.Zones {
+		zoneGroup[rec.Int("id")] = rec.Int("sys_groupid")
+	}
+
 	for legacyZone, rrs := range p.snap.RRs {
 		for _, rec := range rrs {
 			mapped, err := MapDNSRr(rec)
@@ -834,9 +863,17 @@ func (p *planner) planDNS() error {
 				continue
 			}
 
-			// RR owner follows its resolution; unknown owners inherit the
-			// zone's owner during apply.
-			user, group, state, _ := p.plan.resolveOwner(rec.Int("sys_groupid"))
+			// RR owner; unknown owners inherit the zone's owner, and the
+			// orphan-to-admin option applies zone-wide.
+			ownerGroup := rec.Int("sys_groupid")
+			user, group, state, _ := p.plan.resolveOwner(ownerGroup)
+			if state == ownerMissing {
+				ownerGroup = zoneGroup[legacyZone]
+				user, group, state, _ = p.plan.resolveOwner(ownerGroup)
+			}
+			if state == ownerMissing && p.plan.opts.AssignOrphanZonesToAdmin {
+				user, group, state = 1, 1, ownerOK
+			}
 
 			if zoneOK {
 				mapped.Zone = zoneID
@@ -850,9 +887,13 @@ func (p *planner) planDNS() error {
 					p.plan.Items = append(p.plan.Items, item)
 					continue
 				}
+			} else {
+				item.legacyParent = legacyZone
 			}
 			if state == ownerOK {
 				mapped.SysUserID, mapped.SysGroupID = user, group
+			} else {
+				item.legacyOwnerGroup = ownerGroup
 			}
 			item.Action = ActionCreate
 			item.rec = mapped
@@ -886,6 +927,8 @@ func (p *planner) planDNS() error {
 		if !exists {
 			if state == ownerOK {
 				mapped.SysUserID, mapped.SysGroupID = user, group
+			} else {
+				item.legacyOwnerGroup = rec.Int("sys_groupid")
 			}
 			item.Action = ActionCreate
 			item.rec = mapped

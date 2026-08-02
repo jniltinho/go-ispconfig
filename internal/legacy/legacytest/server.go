@@ -137,27 +137,22 @@ func defaultFixtures() *Server {
 		Functions: append([]string{}, DefaultFunctions...),
 		Sessions:  map[string]bool{},
 		Clients: map[int]Rec{
-			1: {
+			1: clientRec(Rec{
 				"client_id": "1", "username": "reseller1", "contact_name": "Reseller One",
 				"company_name": "Reseller One Ltd", "email": "reseller1@example.com",
 				"parent_client_id": "0", "limit_client": "10",
 				"sys_userid": "2", "sys_groupid": "3",
-				"sys_perm_user": "riud", "sys_perm_group": "riud", "sys_perm_other": "",
-			},
-			2: {
+			}),
+			2: clientRec(Rec{
 				"client_id": "2", "username": "client2", "contact_name": "Client Two",
-				"company_name": "", "email": "client2@example.com",
-				"parent_client_id": "1", "limit_client": "0",
+				"email": "client2@example.com", "parent_client_id": "1",
 				"sys_userid": "3", "sys_groupid": "4",
-				"sys_perm_user": "riud", "sys_perm_group": "riud", "sys_perm_other": "",
-			},
-			3: {
+			}),
+			3: clientRec(Rec{
 				"client_id": "3", "username": "client3", "contact_name": "Client Three",
-				"company_name": "", "email": "client3@example.com",
-				"parent_client_id": "0", "limit_client": "0",
+				"email": "client3@example.com", "parent_client_id": "0",
 				"sys_userid": "4", "sys_groupid": "5",
-				"sys_perm_user": "riud", "sys_perm_group": "riud", "sys_perm_other": "",
-			},
+			}),
 		},
 		Folders: []Rec{
 			{"web_folder_id": "1", "server_id": "1", "parent_domain_id": "1", "path": "protected", "active": "y",
@@ -172,28 +167,36 @@ func defaultFixtures() *Server {
 			{"id": "1", "server_id": "1", "origin": "example.com.", "ns": "ns1.example.com.",
 				"mbox": "hostmaster.example.com.", "serial": "2024010101", "refresh": "7200", "retry": "540",
 				"expire": "604800", "minimum": "3600", "ttl": "3600", "active": "Y",
+				"dnssec_wanted": "N", "dnssec_algo": "ECDSAP256SHA256",
 				"sys_userid": "3", "sys_groupid": "4", "sys_perm_user": "riud", "sys_perm_group": "riud", "sys_perm_other": ""},
 			{"id": "2", "server_id": "1", "origin": "example.org.", "ns": "ns1.example.com.",
 				"mbox": "hostmaster.example.org.", "serial": "2024010102", "refresh": "7200", "retry": "540",
 				"expire": "604800", "minimum": "3600", "ttl": "3600", "active": "Y",
+				"dnssec_wanted": "N", "dnssec_algo": "ECDSAP256SHA256",
 				"sys_userid": "4", "sys_groupid": "5", "sys_perm_user": "riud", "sys_perm_group": "riud", "sys_perm_other": ""},
 		},
 		RRs: map[int][]Rec{
 			1: {
-				{"id": "1", "server_id": "1", "zone": "1", "name": "www", "type": "A", "data": "192.0.2.10", "ttl": "3600", "active": "Y"},
-				{"id": "2", "server_id": "1", "zone": "1", "name": "", "type": "MX", "data": "mail.example.com.", "aux": "10", "ttl": "3600", "active": "Y"},
-				{"id": "3", "server_id": "1", "zone": "1", "name": "", "type": "TXT", "data": "v=spf1 mx -all", "ttl": "3600", "active": "Y"},
+				{"id": "1", "server_id": "1", "zone": "1", "name": "www", "type": "A", "data": "192.0.2.10", "aux": "0", "ttl": "3600", "active": "Y",
+					"sys_userid": "3", "sys_groupid": "4", "sys_perm_user": "riud", "sys_perm_group": "riud", "sys_perm_other": ""},
+				{"id": "2", "server_id": "1", "zone": "1", "name": "", "type": "MX", "data": "mail.example.com.", "aux": "10", "ttl": "3600", "active": "Y",
+					"sys_userid": "3", "sys_groupid": "4", "sys_perm_user": "riud", "sys_perm_group": "riud", "sys_perm_other": ""},
+				{"id": "3", "server_id": "1", "zone": "1", "name": "", "type": "TXT", "data": "v=spf1 mx -all", "aux": "0", "ttl": "3600", "active": "Y",
+					"sys_userid": "3", "sys_groupid": "4", "sys_perm_user": "riud", "sys_perm_group": "riud", "sys_perm_other": ""},
 			},
 			2: {
-				{"id": "4", "server_id": "1", "zone": "2", "name": "www", "type": "A", "data": "192.0.2.20", "ttl": "3600", "active": "Y"},
+				{"id": "4", "server_id": "1", "zone": "2", "name": "www", "type": "A", "data": "192.0.2.20", "aux": "0", "ttl": "3600", "active": "Y",
+					"sys_userid": "4", "sys_groupid": "5", "sys_perm_user": "riud", "sys_perm_group": "riud", "sys_perm_other": ""},
 			},
 		},
 		Slaves: []Rec{
 			{"id": "1", "server_id": "1", "origin": "slave.example.net.", "ns": "192.0.2.53", "active": "Y",
 				"sys_userid": "1", "sys_groupid": "1", "sys_perm_user": "riud", "sys_perm_group": "riud", "sys_perm_other": ""},
 		},
+		// Named distinctly from the "Default" template the local schema
+		// dump seeds, so a fresh import plans it as create.
 		Templates: []Rec{
-			{"template_id": "1", "name": "Default", "visible": "Y",
+			{"template_id": "1", "name": "Legacy Custom", "visible": "Y",
 				"fields": "DOMAIN,IP,NS1,NS2,EMAIL", "template": "[ZONE]\norigin={DOMAIN}."},
 		},
 		Servers: []Rec{
@@ -208,30 +211,73 @@ func defaultFixtures() *Server {
 	for i := 1; i <= 1200; i++ {
 		owner := owners[i%len(owners)]
 		domain := fmt.Sprintf("site%d.example.com", i)
-		rec := Rec{
-			"domain_id": strconv.Itoa(i), "server_id": "1", "parent_domain_id": "0",
-			"domain": domain, "type": "vhost", "active": "y",
+		rec := domainRec(Rec{
+			"domain_id": strconv.Itoa(i), "domain": domain, "type": "vhost",
 			"document_root": "/var/www/clients/client" + owner.groupid + "/web" + strconv.Itoa(i),
 			"system_user":   "web" + strconv.Itoa(i), "system_group": "client" + owner.groupid,
-			"ssl": "n", "ssl_letsencrypt": "n",
 			"sys_userid": owner.userid, "sys_groupid": owner.groupid,
-			"sys_perm_user": "riud", "sys_perm_group": "riud", "sys_perm_other": "",
-		}
+		})
 		if i == 1 {
 			rec["ssl"] = "y"
 			rec["ssl_letsencrypt"] = "y"
 		}
 		s.Domains = append(s.Domains, rec)
 	}
-	s.Domains = append(s.Domains, Rec{
-		"domain_id": "1201", "server_id": "1", "parent_domain_id": "1",
-		"domain": "sub.site1.example.com", "type": "vhostsubdomain", "active": "y",
-		"document_root": "/var/www/clients/client3/web1", "system_user": "web1", "system_group": "client3",
-		"ssl": "n", "ssl_letsencrypt": "n",
+	s.Domains = append(s.Domains, domainRec(Rec{
+		"domain_id": "1201", "parent_domain_id": "1",
+		"domain": "sub.site1.example.com", "type": "vhostsubdomain",
+		"document_root": "/var/www/clients/client3/web1",
+		"system_user":   "web1", "system_group": "client3",
 		"sys_userid": "2", "sys_groupid": "3",
-		"sys_perm_user": "riud", "sys_perm_group": "riud", "sys_perm_other": "",
-	})
+	}))
 	return s
+}
+
+// clientRec builds a full client record like the real json.php does
+// (SELECT * serializes every column): enum columns carry their schema
+// defaults, overridden by the given fields.
+func clientRec(overrides Rec) Rec {
+	rec := Rec{
+		"company_name": "", "gender": "", "language": "en", "country": "US",
+		"limit_cgi": "n", "limit_ssi": "n", "limit_perl": "n", "limit_ruby": "n",
+		"limit_python": "n", "force_suexec": "y", "limit_hterror": "n",
+		"limit_wildcard": "n", "limit_ssl": "y", "limit_ssl_letsencrypt": "y",
+		"limit_cron_type": "url", "locked": "n", "canceled": "n",
+		"can_use_api": "n", "validation_status": "accept",
+		"limit_mail_backup": "y", "limit_relayhost": "n", "limit_backup": "y",
+		"limit_directive_snippets": "n", "limit_xmpp_muc": "n", "limit_xmpp_anon": "n",
+		"limit_xmpp_vjud": "n", "limit_xmpp_proxy": "n", "limit_xmpp_status": "n",
+		"limit_xmpp_pastebin": "n", "limit_xmpp_httparchive": "n",
+		"limit_client": "0", "limit_web_domain": "-1", "limit_dns_zone": "-1",
+		"sys_perm_user": "riud", "sys_perm_group": "riud", "sys_perm_other": "",
+	}
+	for k, v := range overrides {
+		rec[k] = v
+	}
+	return rec
+}
+
+// domainRec builds a full web_domain record with every enum column at its
+// schema default, overridden by the given fields.
+func domainRec(overrides Rec) Rec {
+	rec := Rec{
+		"server_id": "1", "parent_domain_id": "0", "active": "y",
+		"cgi": "n", "ssi": "n", "suexec": "y", "subdomain": "www",
+		"ruby": "n", "python": "n", "perl": "n", "php": "php-fpm",
+		"ssl": "n", "ssl_letsencrypt": "n", "ssl_letsencrypt_exclude": "n",
+		"rewrite_to_https": "n", "php_fpm_use_socket": "y", "enable_pagespeed": "n",
+		"php_fpm_chroot": "n", "pm": "ondemand", "backup_encrypt": "n",
+		"traffic_quota_lock": "n", "proxy_protocol": "n",
+		"delete_unused_jailkit": "n", "disable_symlinknotowner": "n",
+		"hd_quota": "-1", "traffic_quota": "-1",
+		"vhost_type": "name", "ip_address": "*", "ipv6_address": "",
+		"allow_override": "All", "http_port": "80", "https_port": "443",
+		"sys_perm_user": "riud", "sys_perm_group": "riud", "sys_perm_other": "",
+	}
+	for k, v := range overrides {
+		rec[k] = v
+	}
+	return rec
 }
 
 // respond writes one JSON envelope.
