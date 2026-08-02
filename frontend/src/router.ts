@@ -9,6 +9,8 @@ import ModulePlaceholder from './views/ModulePlaceholder.vue'
 import WebDomainList from './views/sites/WebDomainList.vue'
 import WebFolderList from './views/sites/WebFolderList.vue'
 import WebFolderUserList from './views/sites/WebFolderUserList.vue'
+import DatabaseList from './views/sites/DatabaseList.vue'
+import DatabaseUserList from './views/sites/DatabaseUserList.vue'
 import EntityForm from './views/sites/EntityForm.vue'
 import MailList from './views/mail/MailList.vue'
 import DomainForm from './views/mail/DomainForm.vue'
@@ -402,6 +404,53 @@ export const router = createRouter({
             apiBase: '/api/sites/web-folder-users',
             backTo: `/sites/folders/${route.params.folderId}/users`,
             id: String(route.params.id),
+          }),
+        },
+        { path: 'sites/databases', name: 'sites-databases', component: DatabaseList },
+        {
+          path: 'sites/databases/new',
+          name: 'sites-database-new',
+          component: EntityForm,
+          props: {
+            entity: 'databases',
+            apiBase: '/api/sites/databases',
+            backTo: '/sites/databases',
+          },
+        },
+        {
+          path: 'sites/databases/:id',
+          name: 'sites-database-edit',
+          component: EntityForm,
+          props: (route) => ({
+            entity: 'databases',
+            apiBase: '/api/sites/databases',
+            backTo: '/sites/databases',
+            id: String(route.params.id),
+            // server and charset are immutable once created (API guards).
+            readonlyFields: ['server_id', 'database_charset', 'database_name_prefix'],
+          }),
+        },
+        { path: 'sites/database-users', name: 'sites-database-users', component: DatabaseUserList },
+        {
+          path: 'sites/database-users/new',
+          name: 'sites-database-user-new',
+          component: EntityForm,
+          props: {
+            entity: 'database-users',
+            apiBase: '/api/sites/database-users',
+            backTo: '/sites/database-users',
+          },
+        },
+        {
+          path: 'sites/database-users/:id',
+          name: 'sites-database-user-edit',
+          component: EntityForm,
+          props: (route) => ({
+            entity: 'database-users',
+            apiBase: '/api/sites/database-users',
+            backTo: '/sites/database-users',
+            id: String(route.params.id),
+            readonlyFields: ['server_id', 'database_user_prefix'],
           }),
         },
         { path: 'dns', name: 'dns', component: ZoneList },
