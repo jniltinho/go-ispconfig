@@ -16,7 +16,7 @@
 
 ## 3. REST API
 
-- [ ] 3.1 Register declarative `RegisterEntity[model.Firewall]` under `/api/firewall` with `AdminOnly`, `Policy: admin_allow_firewall_config`, datalog writer, server select limited to servers without a row on create; handler tests for create/list/get/update/delete, 403 for client and non-policy admin, unique server_id, immutable server_id. Commit.
+- [x] 3.1 Register declarative `RegisterEntity[model.Firewall]` under `/api/firewall` with `AdminOnly`, `Policy: admin_allow_firewall_config`, datalog writer, server select limited to servers without a row on create; handler tests for create/list/get/update/delete, 403 for client and non-policy admin, unique server_id, immutable server_id. Commit.
 - [ ] 3.2 Add swaggo annotations for all firewall routes; run `make swagger`; verify Swagger UI lists the endpoints; CI staleness check green. Commit.
 
 ## 4. Panel UI (Vue)

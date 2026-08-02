@@ -90,6 +90,9 @@ func registerEntities(g *echo.Group, d *Deps) error {
 	if err := registerMailEntities(g, d); err != nil {
 		return err
 	}
+	if err := RegisterEntity[model.Firewall](g, d, firewallEntity()); err != nil {
+		return err
+	}
 	return registerDNSEntities(g.Group("/dns"), d)
 }
 
