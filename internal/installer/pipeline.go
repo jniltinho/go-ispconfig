@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"os"
 
 	"gorm.io/gorm"
@@ -57,6 +58,9 @@ type State struct {
 	// DBUserHosts are the MariaDB host parts the ispconfig user is created
 	// for.
 	DBUserHosts []string
+	// HostIPs enumerates the host's global addresses (tests inject fixed
+	// values).
+	HostIPs func() []net.IP
 
 	// Set by the mariadb step, consumed by later steps.
 	DB         *gorm.DB
@@ -86,6 +90,7 @@ func NewState(profile *Profile, answers *Answers) *State {
 		MySQLSocket:     "/run/mysqld/mysqld.sock",
 		DBAddr:          "127.0.0.1:3306",
 		DBUserHosts:     []string{"localhost", "127.0.0.1"},
+		HostIPs:         detectHostIPs,
 	}
 }
 

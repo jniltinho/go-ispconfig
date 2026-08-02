@@ -4,6 +4,7 @@ package installer
 
 import (
 	"context"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"go-ispconfig/internal/database"
+	"go-ispconfig/internal/model"
 )
 
 // integrationState wires a State at a throwaway MariaDB container: root via
@@ -58,4 +60,24 @@ func TestMariaDBStepIntegration(t *testing.T) {
 	require.NoError(t, mariadbStep{}.Run(ctx, st2))
 	assert.Equal(t, st.DBPassword, st2.DBPassword, "existing credentials reused")
 	assert.Empty(t, st2.AdminPassword, "re-run never regenerates the admin password")
+
+	// server-ips step: detected addresses inserted once, re-run skips.
+	st2.HostIPs = func() []net.IP {
+		return []net.IP{net.ParseIP("203.0.113.10"), net.ParseIP("2001:db8::10")}
+	}
+	require.NoError(t, serverIPStep{}.Run(ctx, st2))
+	var rows []model.ServerIP
+	require.NoError(t, st2.DB.Order("ip_address").Find(&rows).Error)
+	require.Len(t, rows, 2)
+	assert.Equal(t, "IPv6", rows[0].IPType)
+	assert.Equal(t, "2001:db8::10", rows[0].IPAddress)
+	assert.Equal(t, "IPv4", rows[1].IPType)
+	assert.Equal(t, "203.0.113.10", rows[1].IPAddress)
+	assert.Equal(t, "y", rows[1].Virtualhost)
+
+	rerunErr := serverIPStep{}.Run(ctx, st2)
+	require.ErrorContains(t, rerunErr, "already recorded", "re-run skips existing IPs")
+	var n int64
+	require.NoError(t, st2.DB.Model(&model.ServerIP{}).Count(&n).Error)
+	assert.EqualValues(t, 2, n, "no duplicate rows on re-run")
 }

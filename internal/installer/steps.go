@@ -7,5 +7,6 @@ func InstallSteps() []Step {
 		preflightStep{},
 		packagesStep{},
 		mariadbStep{},
+		serverIPStep{},
 	}
 }
