@@ -29,8 +29,8 @@
 
 ## 5. Visual validation
 
-- [ ] 5.1 Ensure `docs/prints/` is git-ignored; use agent-browser to capture screenshots of login, dashboard, list view, tabbed form, dark mode, and a narrow-viewport view into `docs/prints/` for human review
-- [ ] 5.2 Iterate on reviewer feedback until approved; copy approved screenshots to `docs/screenshots/` and commit
+- [x] 5.1 Ensure `docs/prints/` is git-ignored; use agent-browser to capture screenshots of login, dashboard, list view, tabbed form, dark mode, and a narrow-viewport view into `docs/prints/` for human review
+- [x] 5.2 Iterate on reviewer feedback until approved; copy approved screenshots to `docs/screenshots/` and commit
 
 ## 6. E2E and verification
 
