@@ -22,7 +22,7 @@
 ## 4. maildeliver plugin — sieve
 
 - [x] 4.1 Embed `sieve_filter.master`; implement pure sieve render vector (autoresponder, move_junk, custom_mailfilter, cc/forward_in_lda, alias address collection from `mail_forwarding`); unit tests. Commit.
-- [ ] 4.2 Produce golden files from PHP maildeliver/tpl for fixtures; byte-identical Go golden tests. Commit.
+- [x] 4.2 Produce golden files from PHP maildeliver/tpl for fixtures; byte-identical Go golden tests. Commit.
 - [ ] 4.3 Implement write/sievec/chown of `.ispconfig-before.sieve` / `.ispconfig.sieve` (+ `.svbin`) and delete cleanup; skip when maildeliver-relevant fields unchanged; tests with stubbed sievec. Commit.
 
 ## 5. DKIM plugin + DNSPublisher

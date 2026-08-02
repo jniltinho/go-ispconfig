@@ -1,0 +1,34 @@
+{
+  "basic-junk": {
+    "move_junk": "y", "imap_prefix": "",
+    "autoresponder": "n", "autoresponder_subject": "Out of office reply",
+    "autoresponder_text": "", "autoresponder_start_date": "", "autoresponder_end_date": "",
+    "custom_mailfilter": "", "forward_in_lda": "n", "cc": "",
+    "addresses": ["user1@example.com"]
+  },
+  "autoresponder-aliases": {
+    "move_junk": "n", "imap_prefix": "INBOX.",
+    "autoresponder": "y",
+    "autoresponder_subject": "I am \"away\" now",
+    "autoresponder_text": "Hello,\nI will reply \"later\".\nBye",
+    "autoresponder_start_date": "2026-08-01 08:00:00",
+    "autoresponder_end_date": "2026-08-15 18:00:00",
+    "custom_mailfilter": "", "forward_in_lda": "n", "cc": "",
+    "addresses": ["user1@example.com", "alias@example.com", "user1@alias-domain.test", "alias@alias-domain.test"]
+  },
+  "cc-custom-filter": {
+    "move_junk": "a", "imap_prefix": "",
+    "autoresponder": "n", "autoresponder_subject": "Out of office reply",
+    "autoresponder_text": "", "autoresponder_start_date": "", "autoresponder_end_date": "",
+    "custom_mailfilter": "require \"fileinto\";\r\nif header :contains \"subject\" \"lists\" {\r\n  fileinto \"Lists\";\r\n}",
+    "forward_in_lda": "y", "cc": "copy@backup.test, second@copy.test",
+    "addresses": ["user2@example.com"]
+  },
+  "all-off": {
+    "move_junk": "n", "imap_prefix": "",
+    "autoresponder": "n", "autoresponder_subject": "",
+    "autoresponder_text": "", "autoresponder_start_date": "", "autoresponder_end_date": "",
+    "custom_mailfilter": "", "forward_in_lda": "n", "cc": "",
+    "addresses": ["plain@example.com"]
+  }
+}
