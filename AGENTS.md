@@ -95,6 +95,27 @@ com usuário full-grant `goisp-lab`), dataset de fixtures idempotente
 | Screenshots | agent-browser → `docs/prints/` (validação humana); aprovados → `docs/screenshots/` |
 | Instalação | `make vagrant-up && make vagrant-test` (VM Ubuntu 24.04, roda `go-ispconfig install --yes` + smoke tests) |
 | API manual | Swagger UI em `/swagger/` |
+| **Lab painel `.10`** | **Redeploy do binário na VM go-ispconfig (ver abaixo) — obrigatório em todo marco de módulo/UI** |
+
+## Redeploy na VM lab `192.168.56.10` (obrigatório)
+
+E2E local (`127.0.0.1:809x`) **não substitui** validação no painel lab final.
+A cada marco que altera o binário embutido (módulo fechado, lote UI/API relevante, archive de change, ou pedido explícito do usuário), o agent DEVE redeployar e checar saúde na VM:
+
+```bash
+# A partir do worktree/clone com o código a validar:
+make build-linux
+cd vagrant
+vagrant upload ../bin/go-ispconfig-linux-amd64 /tmp/go-ispconfig ubuntu
+vagrant ssh ubuntu -c 'sudo install -m 0755 /tmp/go-ispconfig /usr/local/bin/go-ispconfig && sudo systemctl restart go-ispconfig-serve go-ispconfig-daemon && systemctl is-active go-ispconfig-serve go-ispconfig-daemon && /usr/local/bin/go-ispconfig version'
+# Health
+curl -sk -o /dev/null -w '%{http_code}\n' https://192.168.56.10:8080/
+```
+
+- VM: `ubuntu` = **192.168.56.10** (painel novo). Legados `.20`/`.21` só quando o marco for paridade/lab fixtures.
+- Preferir `vagrant ssh ubuntu` (não `ssh root@192.168.56.10` com chave solta).
+- Incluir no relatório/Telegram: commit/version deployado + HTTP code do painel.
+- Se a VM estiver down: `cd vagrant && vagrant up ubuntu` (ou `make vagrant-lab-up`) antes do upload — não pular o redeploy em silêncio.
 
 ## Status ao usuário (Telegram + e-mail) — obrigatório a cada marco
 
@@ -150,6 +171,20 @@ Markdown Telegram. Curto: 1–6 linhas após o cabeçalho. Esquema sugerido:
 ```
 
 Emojis por marco: 🟢 concluído / 🟡 parcial / 🔴 falhou / 🚀 change despachada / 📦 commit / 👀 aguardando revisão.
+
+### Anexos de UI (obrigatório quando o frontend mudar)
+
+Se o marco **alterou ou criou interface** (Vue routes/views/components, tema, formulários, nav, telas novas), o resumo no Telegram **NÃO pode ser só texto** — tem que ir **com imagens**:
+
+1. Capturar screenshots (agent-browser ou painel lab `.10` / E2E local) em `docs/prints/` (nunca commitados).
+2. Preferir 1–4 frames úteis: lista, form vazio, form preenchido, estado pós-save; light e dark se o tema mudou.
+3. Enviar no **mesmo marco** do status:
+   - **Hermes (esta sessão / MCP):** incluir `MEDIA:/caminho/absoluto/arquivo.png` na mensagem (ou um envio por imagem se o bridge limitar).
+   - **Claude Code via `messages_send`:** se a tool aceitar attachment/path, anexar; senão chamar Hermes/`hermes send` com as mídias **logo após** o texto do marco (mesmo grupo `telegram:-1001683954128`).
+4. No corpo do texto, citar o que a imagem mostra (ex.: “System → Firewall — list + form”).
+5. Se a UI **não** mudou (só backend/daemon/docs), imagens são opcionais.
+
+Marcos que **sempre** exigem imagem: tasks de UI (ex. 4.x), tema, E2E de painel aprovado, redeploy na `.10` que estreia tela nova.
 
 ### Exemplos
 
