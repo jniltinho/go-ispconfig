@@ -62,9 +62,11 @@ func dnsZoneIDByOrigin(d *Deps) echo.HandlerFunc {
 	}
 }
 
-// dnsZoneMutate loads the zone under the caller's u-scope, applies mutate,
-// bumps the serial and saves through the permission-checked repository
-// (datalog diff included). mutate returns a *ValidationError to veto.
+// dnsZoneMutate loads the zone under the caller's u-scope, applies mutate
+// and saves through the permission-checked repository (datalog diff
+// included). The serial bump happens inside the update transaction against
+// the locked stored row (design D7). mutate returns a *ValidationError to
+// veto.
 func dnsZoneMutate(c *echo.Context, d *Deps, mutate func(soa *model.DNSSoa) error) error {
 	id := identity(c)
 	if id == nil {
@@ -79,20 +81,18 @@ func dnsZoneMutate(c *echo.Context, d *Deps, mutate func(soa *model.DNSSoa) erro
 	if err := repo.Get(ctx, id, c.Param("id"), &soa); err != nil {
 		return err
 	}
-	if ok, err := repo.CheckPerm(ctx, id, soa.ID, repository.PermUpdate); err != nil {
-		return err
-	} else if !ok {
-		return repository.ErrPermissionDenied
-	}
-	before := soa
 	if err := mutate(&soa); err != nil {
 		return err
 	}
-	if soa == before {
-		return c.JSON(http.StatusOK, modelToMap(ctx, d.DB, &soa))
-	}
-	soa.Serial = NextSerial(soa.Serial, time.Now())
-	if err := repo.Update(ctx, id, &soa); err != nil {
+	err = repo.UpdateFn(ctx, id, &soa, func(_ *gorm.DB, old *model.DNSSoa) error {
+		changed := soa
+		changed.Serial = old.Serial
+		if changed != *old {
+			soa.Serial = NextSerial(old.Serial, time.Now())
+		}
+		return nil
+	})
+	if err != nil {
 		return err
 	}
 	return c.JSON(http.StatusOK, modelToMap(ctx, d.DB, &soa))

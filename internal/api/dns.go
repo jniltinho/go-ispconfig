@@ -1,7 +1,7 @@
 package api
 
 import (
-	"fmt"
+	"context"
 	"net/netip"
 	"strconv"
 	"strings"
@@ -9,7 +9,9 @@ import (
 
 	"github.com/labstack/echo/v5"
 	"golang.org/x/net/idna"
+	"gorm.io/gorm"
 
+	"go-ispconfig/internal/datalog"
 	"go-ispconfig/internal/model"
 	"go-ispconfig/internal/repository"
 	"go-ispconfig/internal/validator"
@@ -130,10 +132,12 @@ const originRegex = `^[a-zA-Z0-9.\-/]{1,255}\.[a-zA-Z0-9\-]{2,63}\.?$`
 // still returned by GET) so request bodies can never overwrite them.
 func dnsZoneEntity() *Entity {
 	return &Entity{
-		Name:     "zones",
-		Title:    "dns_soa_edit_title",
-		Prepare:  dnsZonePrepare,
-		Decorate: datalogStateDecorator("dns_soa", "id"),
+		Name:         "zones",
+		Title:        "dns_soa_edit_title",
+		Prepare:      dnsZonePrepare,
+		BeforeUpdate: dnsZoneBeforeUpdate,
+		BeforeDelete: dnsZoneBeforeDelete,
+		Decorate:     datalogStateDecorator("dns_soa", "id"),
 		Tabs: []Tab{{
 			Name: "dns_soa", Label: "dns_soa_tab_txt",
 			Fields: []Field{
@@ -170,63 +174,6 @@ func dnsZoneEntity() *Entity {
 	}
 }
 
-// zoneBodyFields are the declared dns_soa fields compared against the
-// stored row to decide whether an update really changes the zone (and must
-// bump the serial).
-var zoneBodyFields = []string{"server_id", "origin", "ns", "mbox", "refresh", "retry",
-	"expire", "minimum", "ttl", "xfer", "also_notify", "update_acl", "active",
-	"dnssec_wanted", "dnssec_algo"}
-
-// zoneFieldString renders a stored DNSSoa field in the string form request
-// body values are compared with.
-func zoneFieldString(z *model.DNSSoa, field string) string {
-	switch field {
-	case "server_id":
-		return strconv.FormatInt(int64(z.ServerID), 10)
-	case "origin":
-		return z.Origin
-	case "ns":
-		return z.NS
-	case "mbox":
-		return z.Mbox
-	case "refresh":
-		return strconv.FormatUint(uint64(z.Refresh), 10)
-	case "retry":
-		return strconv.FormatUint(uint64(z.Retry), 10)
-	case "expire":
-		return strconv.FormatUint(uint64(z.Expire), 10)
-	case "minimum":
-		return strconv.FormatUint(uint64(z.Minimum), 10)
-	case "ttl":
-		return strconv.FormatUint(uint64(z.TTL), 10)
-	case "xfer":
-		return z.Xfer
-	case "also_notify":
-		return z.AlsoNotify
-	case "update_acl":
-		return z.UpdateACL
-	case "active":
-		return z.Active
-	case "dnssec_wanted":
-		return z.DNSSECWanted
-	case "dnssec_algo":
-		return z.DNSSECAlgo
-	}
-	return ""
-}
-
-// bodyString renders a JSON body value in comparable string form.
-func bodyString(v any) string {
-	switch n := v.(type) {
-	case string:
-		return n
-	case float64:
-		return strconv.FormatFloat(n, 'f', -1, 64)
-	default:
-		return fmt.Sprintf("%v", v)
-	}
-}
-
 // checkDNSServer verifies the referenced server is DNS-capable
 // (dns_soa.tform.php server_id datasource: dns_server = 1).
 func checkDNSServer(c *echo.Context, d *Deps, body map[string]any) error {
@@ -248,10 +195,10 @@ func checkDNSServer(c *echo.Context, d *Deps, body map[string]any) error {
 
 // dnsZonePrepare normalizes zone body fields before validation (tform
 // IDNTOASCII/TOLOWER save filters on origin/ns/mbox, STRIPTAGS/STRIPNL on
-// update_acl), verifies the target server is DNS-capable and manages the
-// SOA serial (design D7): creates start at <today>01, updates that change
-// any declared field bump the serial unless update_serial=false is passed.
-func dnsZonePrepare(c *echo.Context, d *Deps, id *repository.Identity, body map[string]any) error {
+// update_acl), verifies the target server is DNS-capable and sets the
+// initial serial <today>01 on create (design D7). The update-path serial
+// bump lives in dnsZoneBeforeUpdate, inside the locked transaction.
+func dnsZonePrepare(c *echo.Context, d *Deps, _ *repository.Identity, body map[string]any) error {
 	idnLower(body, "origin")
 	idnLower(body, "ns")
 	idnLower(body, "mbox")
@@ -261,33 +208,55 @@ func dnsZonePrepare(c *echo.Context, d *Deps, id *repository.Identity, body map[
 	if err := checkDNSServer(c, d, body); err != nil {
 		return err
 	}
-
-	updateSerial := true
-	if v, ok := body["update_serial"].(bool); ok {
-		updateSerial = v
-	}
 	if c.Param("id") == "" {
 		// Create: initial serial <today>01 unless explicitly provided.
-		if _, ok := body["serial"]; !ok && updateSerial {
+		if _, ok := body["serial"]; !ok {
 			body["serial"] = float64(NextSerial(0, time.Now()))
 		}
+	}
+	return nil
+}
+
+// dnsZoneBeforeUpdate bumps the SOA serial inside the update transaction
+// (design D7): the stored row is locked (SELECT ... FOR UPDATE), so
+// concurrent record mutations cannot race the increment. The bump applies
+// when any field other than the serial changed, is skipped with
+// "update_serial": false (remote-API parity) and yields to an explicitly
+// submitted serial (tform allows manual serial edits).
+func dnsZoneBeforeUpdate(_ context.Context, _ *gorm.DB, _ *repository.Identity, body map[string]any, oldAny, recAny any) error {
+	old := oldAny.(*model.DNSSoa)
+	rec := recAny.(*model.DNSSoa)
+	if v, ok := body["update_serial"].(bool); ok && !v {
 		return nil
 	}
-	if !updateSerial {
-		return nil
+	if rec.Serial != old.Serial {
+		return nil // explicit serial from the body wins
 	}
-	stored, err := loadOwned[model.DNSSoa](c, d, id, c.Param("id"))
-	if err != nil {
+	changed := *rec
+	changed.Serial = old.Serial
+	if changed == *old {
+		return nil // no-op update: no bump (and no datalog row)
+	}
+	rec.Serial = NextSerial(old.Serial, time.Now())
+	return nil
+}
+
+// dnsZoneBeforeDelete cascades a zone delete onto its records inside the
+// same transaction (port of dns_soa_del.php): every dns_rr row of the zone
+// is journaled as deleted and removed, so the daemon sees a consistent
+// delete and no orphan records remain.
+func dnsZoneBeforeDelete(_ context.Context, tx *gorm.DB, id *repository.Identity, recAny any) error {
+	soa := recAny.(*model.DNSSoa)
+	var records []model.DNSRr
+	if err := tx.Where("zone = ?", soa.ID).Find(&records).Error; err != nil {
 		return err
 	}
-	for _, f := range zoneBodyFields {
-		v, ok := body[f]
-		if !ok {
-			continue
+	for i := range records {
+		if err := tx.Delete(&model.DNSRr{}, records[i].ID).Error; err != nil {
+			return err
 		}
-		if bodyString(v) != zoneFieldString(stored, f) {
-			body["serial"] = float64(NextSerial(stored.Serial, time.Now()))
-			return nil
+		if err := datalog.LogDelete(tx, &records[i], id.Username); err != nil {
+			return err
 		}
 	}
 	return nil

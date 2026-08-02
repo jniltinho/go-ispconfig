@@ -95,6 +95,16 @@ type Entity struct {
 	// Decorate, when set, may add computed keys (e.g. datalog pending/error
 	// state) to the JSON objects returned by list and get.
 	Decorate func(ctx context.Context, db *gorm.DB, items []map[string]any) error `json:"-"`
+	// BeforeUpdate, when set, runs inside the update transaction after the
+	// stored row has been loaded (SELECT ... FOR UPDATE) and before the
+	// change detection: derived values computed from the locked stored
+	// state (e.g. the DNS SOA serial bump) land race-free in the row and
+	// its datalog diff. old and rec are *T; body is the request body.
+	BeforeUpdate func(ctx context.Context, tx *gorm.DB, id *repository.Identity, body map[string]any, old, rec any) error `json:"-"`
+	// BeforeDelete, when set, runs inside the delete transaction after the
+	// row has been loaded under the d-scope and before it is removed, so
+	// cascades (journaled child deletes) are atomic with the parent.
+	BeforeDelete func(ctx context.Context, tx *gorm.DB, id *repository.Identity, rec any) error `json:"-"`
 }
 
 // fields iterates over every field of every tab.
@@ -360,7 +370,13 @@ func (h *entityHandlers[T]) update(c *echo.Context) error {
 	if err := h.validate(ctx, &rec, c.Param("id")); err != nil {
 		return err
 	}
-	if err := h.repo.Update(ctx, id, &rec); err != nil {
+	var fixup func(tx *gorm.DB, old *T) error
+	if h.ent.BeforeUpdate != nil {
+		fixup = func(tx *gorm.DB, old *T) error {
+			return h.ent.BeforeUpdate(ctx, tx, id, body, old, &rec)
+		}
+	}
+	if err := h.repo.UpdateFn(ctx, id, &rec, fixup); err != nil {
 		return err
 	}
 	return c.JSON(http.StatusOK, h.toMap(ctx, &rec))
@@ -368,7 +384,15 @@ func (h *entityHandlers[T]) update(c *echo.Context) error {
 
 // delete serves DELETE /<entity>/:id.
 func (h *entityHandlers[T]) delete(c *echo.Context) error {
-	if err := h.repo.Delete(c.Request().Context(), identity(c), c.Param("id")); err != nil {
+	ctx := c.Request().Context()
+	id := identity(c)
+	var fixup func(tx *gorm.DB, old *T) error
+	if h.ent.BeforeDelete != nil {
+		fixup = func(tx *gorm.DB, old *T) error {
+			return h.ent.BeforeDelete(ctx, tx, id, old)
+		}
+	}
+	if err := h.repo.DeleteFn(ctx, id, c.Param("id"), fixup); err != nil {
 		return err
 	}
 	return c.NoContent(http.StatusNoContent)

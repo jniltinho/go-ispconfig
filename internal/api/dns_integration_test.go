@@ -429,6 +429,30 @@ func TestDNSWizardAndSlaveAPI(t *testing.T) {
 		require.Contains(t, errKeyOf(t, data).Fields["fields"], "fields_error")
 	})
 
+	t.Run("zone delete cascades onto its records", func(t *testing.T) {
+		var soa model.DNSSoa
+		require.NoError(t, db.Where("origin = ?", "wizard.example.").First(&soa).Error)
+		var before int64
+		require.NoError(t, db.Model(&model.DNSRr{}).Where("zone = ?", soa.ID).Count(&before).Error)
+		require.EqualValues(t, 7, before)
+
+		status, _ := call(t, srv, http.MethodDelete,
+			fmt.Sprintf("/api/dns/zones/%d", soa.ID), env.aCookie, env.aCSRF, nil)
+		require.Equal(t, http.StatusNoContent, status)
+
+		var after int64
+		require.NoError(t, db.Model(&model.DNSRr{}).Where("zone = ?", soa.ID).Count(&after).Error)
+		require.Zero(t, after, "no orphan records after zone delete")
+
+		var deletes int64
+		require.NoError(t, db.Model(&model.SysDatalog{}).
+			Where("dbtable = 'dns_rr' AND action = 'd'").Count(&deletes).Error)
+		require.EqualValues(t, 7, deletes, "every record delete is journaled")
+		require.NoError(t, db.Model(&model.SysDatalog{}).
+			Where("dbtable = 'dns_soa' AND action = 'd'").Count(&deletes).Error)
+		require.EqualValues(t, 1, deletes)
+	})
+
 	t.Run("secondary zone reaches the datalog", func(t *testing.T) {
 		status, data := call(t, srv, http.MethodPost, "/api/dns/slave-zones", env.aCookie, env.aCSRF,
 			map[string]any{"server_id": 1, "origin": "slave.example.", "ns": "10.0.0.53"})

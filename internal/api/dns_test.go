@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"testing"
 
 	"go-ispconfig/internal/model"
@@ -71,15 +72,51 @@ func TestIdnLower(t *testing.T) {
 	}
 }
 
-func TestZoneFieldStringMatchesBodyString(t *testing.T) {
-	z := &model.DNSSoa{ServerID: 1, Origin: "example.com.", Refresh: 7200, Active: "Y"}
-	if zoneFieldString(z, "refresh") != bodyString(float64(7200)) {
-		t.Error("numeric body value must compare equal to the stored field")
-	}
-	if zoneFieldString(z, "active") != bodyString("Y") {
-		t.Error("string body value must compare equal to the stored field")
-	}
-	if zoneFieldString(z, "origin") == bodyString("other.com.") {
-		t.Error("different values must not compare equal")
-	}
+func TestDNSZoneBeforeUpdate(t *testing.T) {
+	old := &model.DNSSoa{ID: 1, Serial: 2026080101, Refresh: 7200, Active: "Y"}
+
+	t.Run("bumps when a field changed", func(t *testing.T) {
+		rec := *old
+		rec.Refresh = 7300
+		if err := dnsZoneBeforeUpdate(context.TODO(), nil, nil, map[string]any{}, old, &rec); err != nil {
+			t.Fatal(err)
+		}
+		if rec.Serial == old.Serial {
+			t.Error("serial must be bumped on change")
+		}
+	})
+
+	t.Run("no bump without changes", func(t *testing.T) {
+		rec := *old
+		if err := dnsZoneBeforeUpdate(context.TODO(), nil, nil, map[string]any{}, old, &rec); err != nil {
+			t.Fatal(err)
+		}
+		if rec.Serial != old.Serial {
+			t.Error("no-op update must keep the serial")
+		}
+	})
+
+	t.Run("update_serial=false skips the bump", func(t *testing.T) {
+		rec := *old
+		rec.Refresh = 9999
+		body := map[string]any{"update_serial": false}
+		if err := dnsZoneBeforeUpdate(context.TODO(), nil, nil, body, old, &rec); err != nil {
+			t.Fatal(err)
+		}
+		if rec.Serial != old.Serial {
+			t.Error("update_serial=false must keep the serial")
+		}
+	})
+
+	t.Run("explicit serial wins", func(t *testing.T) {
+		rec := *old
+		rec.Serial = 42
+		rec.Refresh = 7300
+		if err := dnsZoneBeforeUpdate(context.TODO(), nil, nil, map[string]any{}, old, &rec); err != nil {
+			t.Fatal(err)
+		}
+		if rec.Serial != 42 {
+			t.Error("explicitly submitted serial must be kept")
+		}
+	})
 }

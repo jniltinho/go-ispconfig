@@ -368,12 +368,21 @@ func dnsWizardCreate(d *Deps) echo.HandlerFunc {
 				return err
 			}
 			for _, r := range records {
+				// Template record types map through the descriptor table so
+				// helper forms (SPF/DKIM/DMARC) store as TXT and unknown
+				// types fail instead of hitting the dns_rr enum.
+				rt, ok := dnsRecordTypeByName(r.Type)
+				if !ok {
+					return &ValidationError{Fields: map[string][]string{
+						"template_id": {"template_error_invalid"},
+					}}
+				}
 				rr := &model.DNSRr{
 					SysUserID: soa.SysUserID, SysGroupID: soa.SysGroupID,
 					SysPermUser: soa.SysPermUser, SysPermGroup: soa.SysPermGroup,
 					SysPermOther: soa.SysPermOther,
 					ServerID:     soa.ServerID, Zone: soa.ID,
-					Name: r.Name, Type: r.Type, Data: r.Data,
+					Name: r.Name, Type: rt.StoredType, Data: r.Data,
 					Aux: r.Aux, TTL: r.TTL, Active: "Y",
 				}
 				if err := tx.Create(rr).Error; err != nil {

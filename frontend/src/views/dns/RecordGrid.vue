@@ -57,7 +57,7 @@ async function load() {
       api.get<RecordRow[]>(`/api/dns/zones/${props.zoneId}/records`),
     ])
     serial.value = String(zone.serial ?? '')
-    rows.value = records
+    rows.value = records ?? []
   } catch (e) {
     error.value = e instanceof ApiError ? e.key : 'error.request_failed'
   }
@@ -65,7 +65,7 @@ async function load() {
 
 onMounted(async () => {
   try {
-    types.value = await api.get<RecordType[]>('/api/dns/record-types')
+    types.value = (await api.get<RecordType[]>('/api/dns/record-types')) ?? []
   } catch (e) {
     error.value = e instanceof ApiError ? e.key : 'error.request_failed'
   }

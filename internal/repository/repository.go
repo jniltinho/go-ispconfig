@@ -14,6 +14,7 @@ import (
 	"sync"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 	"gorm.io/gorm/schema"
 
 	"go-ispconfig/internal/datalog"
@@ -209,13 +210,24 @@ func (r *Repo[T]) txn(ctx context.Context, fn func(tx *gorm.DB) error) error {
 // datalog.Tracked, the changed-fields diff against the stored row is
 // journaled to sys_datalog in the same transaction.
 func (r *Repo[T]) Update(ctx context.Context, id *Identity, rec *T) error {
+	return r.UpdateFn(ctx, id, rec, nil)
+}
+
+// UpdateFn is Update with an optional fixup running inside the transaction
+// after the stored row has been loaded (SELECT ... FOR UPDATE) and the sys_
+// columns protected, and before the change detection: derived values
+// computed from the locked stored state (e.g. the DNS SOA serial bump,
+// design D7) land in the row and the datalog diff race-free. fixup may
+// mutate rec; old is the locked stored row.
+func (r *Repo[T]) UpdateFn(ctx context.Context, id *Identity, rec *T, fixup func(tx *gorm.DB, old *T) error) error {
 	if id == nil {
 		return ErrPermissionDenied
 	}
 	pk, _ := r.fieldValue(ctx, rec, r.pk)
 	return r.txn(ctx, func(tx *gorm.DB) error {
 		var old T
-		err := tx.Scopes(WithPerm(id, PermUpdate)).Where(r.pk+" = ?", pk).First(&old).Error
+		err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Scopes(WithPerm(id, PermUpdate)).Where(r.pk+" = ?", pk).First(&old).Error
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return ErrPermissionDenied
 		}
@@ -224,6 +236,11 @@ func (r *Repo[T]) Update(ctx context.Context, id *Identity, rec *T) error {
 		}
 		if !id.IsAdmin() {
 			if err := r.copySysColumns(ctx, &old, rec); err != nil {
+				return err
+			}
+		}
+		if fixup != nil {
+			if err := fixup(tx, &old); err != nil {
 				return err
 			}
 		}
@@ -248,6 +265,14 @@ func (r *Repo[T]) Update(ctx context.Context, id *Identity, rec *T) error {
 // datalog.Tracked, the full old record is journaled to sys_datalog in the
 // same transaction.
 func (r *Repo[T]) Delete(ctx context.Context, id *Identity, pk any) error {
+	return r.DeleteFn(ctx, id, pk, nil)
+}
+
+// DeleteFn is Delete with an optional fixup running inside the transaction
+// after the row has been loaded under the d-flag scope and before it is
+// removed: cascades (e.g. journaling and deleting a zone's records) commit
+// or roll back atomically with the parent delete.
+func (r *Repo[T]) DeleteFn(ctx context.Context, id *Identity, pk any, fixup func(tx *gorm.DB, old *T) error) error {
 	if id == nil {
 		return ErrPermissionDenied
 	}
@@ -259,6 +284,11 @@ func (r *Repo[T]) Delete(ctx context.Context, id *Identity, pk any) error {
 		}
 		if err != nil {
 			return err
+		}
+		if fixup != nil {
+			if err := fixup(tx, &old); err != nil {
+				return err
+			}
 		}
 		res := tx.Scopes(WithPerm(id, PermDelete)).Where(r.pk+" = ?", pk).Delete(new(T))
 		if res.Error != nil {

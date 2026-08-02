@@ -41,7 +41,7 @@ const textInputs = [
 
 onMounted(async () => {
   try {
-    templates.value = await api.get<TemplateInfo[]>('/api/dns/templates')
+    templates.value = (await api.get<TemplateInfo[]>('/api/dns/templates')) ?? []
     templateId.value = templates.value[0]?.template_id ?? null
   } catch (e) {
     error.value = e instanceof ApiError ? e.key : 'error.request_failed'
