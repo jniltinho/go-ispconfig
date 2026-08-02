@@ -50,6 +50,13 @@ type State struct {
 	BinPath         string // /usr/local/bin/go-ispconfig
 	CredentialsFile string // /root/.go-ispconfig-credentials
 	LegacyMarker    string // PHP ISPConfig3 install marker
+	MySQLSocket     string // /run/mysqld/mysqld.sock (root unix_socket auth)
+	// DBAddr is the TCP host:port used in the application DSN and the root
+	// TCP fallback (integration tests point it at a container).
+	DBAddr string
+	// DBUserHosts are the MariaDB host parts the ispconfig user is created
+	// for.
+	DBUserHosts []string
 
 	// Set by the mariadb step, consumed by later steps.
 	DB         *gorm.DB
@@ -76,6 +83,9 @@ func NewState(profile *Profile, answers *Answers) *State {
 		BinPath:         "/usr/local/bin/go-ispconfig",
 		CredentialsFile: "/root/.go-ispconfig-credentials",
 		LegacyMarker:    "/usr/local/ispconfig/server/lib/config.inc.php",
+		MySQLSocket:     "/run/mysqld/mysqld.sock",
+		DBAddr:          "127.0.0.1:3306",
+		DBUserHosts:     []string{"localhost", "127.0.0.1"},
 	}
 }
 

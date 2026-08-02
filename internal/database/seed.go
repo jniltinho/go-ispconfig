@@ -35,7 +35,7 @@ var defaultServerConfig string
 func Seed(db *gorm.DB, hostname, adminPassword string) (string, error) {
 	if adminPassword == "" {
 		var err error
-		adminPassword, err = randomPassword(20)
+		adminPassword, err = RandomPassword(20)
 		if err != nil {
 			return "", err
 		}
@@ -83,9 +83,10 @@ func Seed(db *gorm.DB, hostname, adminPassword string) (string, error) {
 	return adminPassword, nil
 }
 
-// randomPassword returns n characters from an unambiguous alphanumeric
-// alphabet using crypto/rand.
-func randomPassword(n int) (string, error) {
+// RandomPassword returns n characters from an unambiguous alphanumeric
+// alphabet using crypto/rand (shared by the seed and the installer's
+// generated DB credentials).
+func RandomPassword(n int) (string, error) {
 	const alphabet = "abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 	out := make([]byte, n)
 	for i := range out {

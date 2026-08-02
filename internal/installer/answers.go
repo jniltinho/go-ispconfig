@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -150,8 +151,18 @@ func ResolveAnswers(opts ResolveOptions) (*Answers, error) {
 	if a.AcmeClient != "acme.sh" && a.AcmeClient != "certbot" {
 		return nil, fmt.Errorf("invalid --acme-client %q: use acme.sh or certbot", a.AcmeClient)
 	}
+	// db name/user are interpolated into CREATE DATABASE/USER statements:
+	// restrict them to safe identifier characters.
+	for key, v := range map[string]string{"db-name": a.DBName, "db-user": a.DBUser} {
+		if !identRe.MatchString(v) {
+			return nil, fmt.Errorf("invalid --%s %q: only letters, digits and _ are allowed", key, v)
+		}
+	}
 	return a, nil
 }
+
+// identRe matches a safe MariaDB identifier (database/user name).
+var identRe = regexp.MustCompile(`^[A-Za-z0-9_]+$`)
 
 // promptAnswer asks one question showing the default (port of free_query):
 // empty input keeps the default.
