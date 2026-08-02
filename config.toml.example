@@ -39,6 +39,23 @@ trusted_proxies = []
 # MariaDB/MySQL DSN. The database must be the ISPConfig3 schema (dbispconfig);
 # `go-ispconfig migrate` creates it on an empty database.
 dsn = "root:@tcp(127.0.0.1:3306)/dbispconfig?charset=utf8mb4&parseTime=True&loc=Local"
+# Client-DB admin credentials file (TOML, mode 0600, root-owned) used by the
+# daemon database module to provision client MySQL databases — the
+# go-ispconfig equivalent of ISPConfig's server/lib/mysql_clientdb.conf:
+#
+#     clientdb_host = "localhost"
+#     clientdb_port = 3306
+#     clientdb_user = "goisp_clientdb"
+#     clientdb_password = "secret"
+#
+# The user needs only client-DB administration privileges (CREATE/DROP
+# DATABASE, CREATE USER, GRANT OPTION, read of mysql.user) — never root.
+# clientdb_conf = "/etc/go-ispconfig/mysql_clientdb.conf"
+#
+# Panel-wide database behavior stays in the getconf global [sites] section
+# (sys_ini, editable from the panel), not here. Keys consumed by this module:
+# dbname_prefix, dbuser_prefix, phpmyadmin_url, default_dbserver,
+# default_remote_dbserver, disable_client_remote_dbserver.
 
 [daemon]
 # Interval between sys_datalog processing cycles.
@@ -51,6 +68,7 @@ datalog_retention_days = 30
 # server role is set.
 # disable_mail_module = false
 # disable_firewall_module = false
+# disable_database_module = false
 # Emergency: stop client_delete teardown events.
 # disable_client_events = false
 

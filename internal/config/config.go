@@ -103,6 +103,10 @@ type DaemonConfig struct {
 	// UFW plugin even when server.firewall_server = 1 (spec
 	// firewall-module-events / design D3: config.toml enablement).
 	DisableFirewallModule bool `toml:"disable_firewall_module" mapstructure:"disable_firewall_module"`
+	// DisableDatabaseModule turns off the daemon database module and
+	// mysql_clientdb plugin even when server.db_server = 1 (spec
+	// database-module-events / design D15: config.toml enablement).
+	DisableDatabaseModule bool `toml:"disable_database_module" mapstructure:"disable_database_module"`
 	// DisableClientEvents turns off the daemon client module (emergency
 	// rollback only; client_delete teardown stops firing while set).
 	DisableClientEvents bool `toml:"disable_client_events" mapstructure:"disable_client_events"`
@@ -133,6 +137,7 @@ func setDefaults() {
 	viper.SetDefault("daemon.disable_client_events", false)
 	viper.SetDefault("daemon.disable_mail_module", false)
 	viper.SetDefault("daemon.disable_firewall_module", false)
+	viper.SetDefault("daemon.disable_database_module", false)
 	viper.SetDefault("auth.rehash_legacy", false)
 	viper.SetDefault("queue.addr", "localhost:6379")
 	viper.SetDefault("queue.db", 0)
