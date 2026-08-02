@@ -53,9 +53,11 @@ func clientEntity(d *Deps) *Entity {
 		},
 		Prepare:      clientPrepare(false),
 		AfterInsert:  clientAfterInsertHook(d),
+		AfterCreate:  welcomeAfterCreate(d),
 		BeforeUpdate: clientBeforeUpdate,
 		BeforeDelete: clientBeforeDelete,
 		Decorate:     redactClientSecrets,
+		Guard:        clientRoleGuard(false),
 	}
 }
 
@@ -73,9 +75,23 @@ func resellerEntity(d *Deps) *Entity {
 		},
 		Prepare:      clientPrepare(true),
 		AfterInsert:  clientAfterInsertHook(d),
+		AfterCreate:  welcomeAfterCreate(d),
 		BeforeUpdate: clientBeforeUpdate,
 		BeforeDelete: clientBeforeDelete,
 		Decorate:     redactClientSecrets,
+		Guard:        clientRoleGuard(true),
+	}
+}
+
+// clientRoleGuard hides rows of the other role on the by-id routes so
+// /api/clients and /api/resellers stay disjoint surfaces (the same
+// discriminator ListScope applies to the list route).
+func clientRoleGuard(reseller bool) func(rec any) error {
+	return func(rec any) error {
+		if clients.IsReseller(rec.(*model.Client)) != reseller {
+			return gorm.ErrRecordNotFound
+		}
+		return nil
 	}
 }
 
@@ -278,6 +294,8 @@ func clientPrepare(reseller bool) func(c *echo.Context, d *Deps, id *repository.
 			delete(body, "password") // unchanged
 		case pw == "":
 			return &ValidationError{Fields: map[string][]string{"password": {"password_error_empty"}}}
+		case len(pw) < minClientPasswordLen:
+			return &ValidationError{Fields: map[string][]string{"password": {"password_error_length"}}}
 		default:
 			// Keep the plaintext under a non-column key for the welcome
 			// email placeholder ({password}); applyBody only copies
@@ -342,14 +360,19 @@ func validateClientParent(ctx context.Context, tx *gorm.DB, c *model.Client) err
 // and materializes limit templates inside the insert transaction. A
 // non-admin creator (reseller) always becomes the parent of the new
 // client (client_edit.php onAfterInsert parity).
-func clientAfterInsertHook(d *Deps) func(context.Context, *gorm.DB, *repository.Identity, any, map[string]any) error {
-	return func(ctx context.Context, tx *gorm.DB, id *repository.Identity, rec any, body map[string]any) error {
-		if err := clientAfterInsert(ctx, tx, id, rec); err != nil {
-			return err
-		}
+func clientAfterInsertHook(_ *Deps) func(context.Context, *gorm.DB, *repository.Identity, any, map[string]any) error {
+	return func(ctx context.Context, tx *gorm.DB, id *repository.Identity, rec any, _ map[string]any) error {
+		return clientAfterInsert(ctx, tx, id, rec)
+	}
+}
+
+// welcomeAfterCreate sends the welcome email after the insert committed
+// (no SMTP I/O while the transaction holds locks; a failed send never
+// rolls back the create).
+func welcomeAfterCreate(d *Deps) func(context.Context, *repository.Identity, any, map[string]any) {
+	return func(ctx context.Context, id *repository.Identity, rec any, body map[string]any) {
 		plain, _ := body["_plain_password"].(string)
-		sendWelcomeMessage(ctx, d, rec.(*model.Client), plain)
-		return nil
+		sendWelcomeMessage(ctx, d, id, rec.(*model.Client), plain)
 	}
 }
 
@@ -378,7 +401,27 @@ func clientAfterInsert(ctx context.Context, tx *gorm.DB, id *repository.Identity
 	if err := clients.ProvisionIdentity(ctx, tx, c, c.Password, actor); err != nil {
 		return err
 	}
-	return clients.ApplyTemplates(ctx, tx, c)
+	if err := clients.ApplyTemplates(ctx, tx, c); err != nil {
+		return err
+	}
+	// Anti-escalation on create too (tform valuelimit parity): a child's
+	// limits never exceed its parent reseller's.
+	if c.ParentClientID != 0 {
+		parent, err := clients.LoadParent(ctx, tx, c.ParentClientID)
+		if err != nil {
+			return err
+		}
+		clamped, err := clients.CapToParent(c, parent)
+		if err != nil {
+			return err
+		}
+		if len(clamped) > 0 {
+			if err := tx.WithContext(ctx).Save(c).Error; err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 // clientBeforeUpdate re-materializes templates, caps the limits to the
@@ -587,23 +630,31 @@ func clientDeleteEverything(c *echo.Context, d *Deps) error {
 			return err
 		}
 		if grp.GroupID != 0 {
-			// Children before parents so daemon teardown order is sane.
-			if err := purgeOwned[model.WebFolderUser](ctx, tx, grp.GroupID, id.Username); err != nil {
+			if err := purgeOwnedAll(ctx, tx, grp.GroupID, id.Username); err != nil {
 				return err
 			}
-			if err := purgeOwned[model.WebFolder](ctx, tx, grp.GroupID, id.Username); err != nil {
+		}
+		// Child clients cascade first (client_del.php purges the whole
+		// group; children cannot themselves be resellers, so one level).
+		var children []model.Client
+		if err := tx.Where("parent_client_id = ?", row.ClientID).Find(&children).Error; err != nil {
+			return err
+		}
+		for i := range children {
+			child := &children[i]
+			var cgrp model.SysGroup
+			if err := tx.Where("client_id = ?", child.ClientID).Take(&cgrp).Error; err == nil {
+				if err := purgeOwnedAll(ctx, tx, cgrp.GroupID, id.Username); err != nil {
+					return err
+				}
+			}
+			if err := clients.DeprovisionIdentity(ctx, tx, child, id.Username); err != nil {
 				return err
 			}
-			if err := purgeOwned[model.WebDomain](ctx, tx, grp.GroupID, id.Username); err != nil {
+			if err := tx.Delete(&model.Client{}, child.ClientID).Error; err != nil {
 				return err
 			}
-			if err := purgeOwned[model.DNSRr](ctx, tx, grp.GroupID, id.Username); err != nil {
-				return err
-			}
-			if err := purgeOwned[model.DNSSoa](ctx, tx, grp.GroupID, id.Username); err != nil {
-				return err
-			}
-			if err := purgeOwned[model.DNSSlave](ctx, tx, grp.GroupID, id.Username); err != nil {
+			if err := datalog.LogDelete(tx, child, id.Username); err != nil {
 				return err
 			}
 		}
@@ -620,6 +671,29 @@ func clientDeleteEverything(c *echo.Context, d *Deps) error {
 	}
 	flush()
 	return c.NoContent(http.StatusNoContent)
+}
+
+// purgeOwnedAll removes every modeled resource owned by the group,
+// children before parents so daemon teardown order is sane. PHP purges
+// more tables (mail/ftp/shell/db/cron, …); those follow with their Go
+// modules — this list covers every table a daemon consumes today.
+func purgeOwnedAll(ctx context.Context, tx *gorm.DB, groupID uint32, username string) error {
+	if err := purgeOwned[model.WebFolderUser](ctx, tx, groupID, username); err != nil {
+		return err
+	}
+	if err := purgeOwned[model.WebFolder](ctx, tx, groupID, username); err != nil {
+		return err
+	}
+	if err := purgeOwned[model.WebDomain](ctx, tx, groupID, username); err != nil {
+		return err
+	}
+	if err := purgeOwned[model.DNSRr](ctx, tx, groupID, username); err != nil {
+		return err
+	}
+	if err := purgeOwned[model.DNSSoa](ctx, tx, groupID, username); err != nil {
+		return err
+	}
+	return purgeOwned[model.DNSSlave](ctx, tx, groupID, username)
 }
 
 // purgeOwned deletes every row of T owned by the group, one datalog
@@ -721,17 +795,24 @@ func registerClientTemplateRoutes(g *echo.Group, d *Deps) {
 			return err // 404 on unknown template
 		}
 		var created model.ClientTemplateAssigned
-		err = d.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		nctx, flush := datalog.NotifyAfterCommit(ctx)
+		err = d.DB.WithContext(nctx).Transaction(func(tx *gorm.DB) error {
 			created = model.ClientTemplateAssigned{ClientID: int64(row.ClientID), ClientTemplateID: body.TemplateID}
 			if err := tx.Create(&created).Error; err != nil {
 				return err
 			}
-			// Same-transaction materialization (spec client-rest-api).
-			return clients.ApplyTemplates(ctx, tx, row)
+			// Same-transaction materialization (spec client-rest-api),
+			// journaled as an {old,new} client update.
+			before := *row
+			if err := clients.ApplyTemplates(nctx, tx, row); err != nil {
+				return err
+			}
+			return datalog.LogUpdate(tx, &before, row, actorName(c))
 		})
 		if err != nil {
 			return err
 		}
+		flush()
 		return c.JSON(http.StatusCreated, assignedTemplateJSON{
 			AssignedTemplateID: created.AssignedTemplateID,
 			ClientTemplateID:   created.ClientTemplateID,
@@ -744,7 +825,7 @@ func registerClientTemplateRoutes(g *echo.Group, d *Deps) {
 		if err != nil {
 			return err
 		}
-		ctx := c.Request().Context()
+		ctx, flush := datalog.NotifyAfterCommit(c.Request().Context())
 		err = d.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 			res := tx.Where("assigned_template_id = ? AND client_id = ?", c.Param("assigned"), row.ClientID).
 				Delete(&model.ClientTemplateAssigned{})
@@ -754,11 +835,16 @@ func registerClientTemplateRoutes(g *echo.Group, d *Deps) {
 			if res.RowsAffected == 0 {
 				return gorm.ErrRecordNotFound
 			}
-			return clients.ApplyTemplates(ctx, tx, row)
+			before := *row
+			if err := clients.ApplyTemplates(ctx, tx, row); err != nil {
+				return err
+			}
+			return datalog.LogUpdate(tx, &before, row, actorName(c))
 		})
 		if err != nil {
 			return err
 		}
+		flush()
 		return c.NoContent(http.StatusNoContent)
 	})
 
@@ -771,6 +857,14 @@ func registerClientTemplateRoutes(g *echo.Group, d *Deps) {
 		}
 		return c.JSON(http.StatusOK, rows)
 	})
+}
+
+// actorName is the session username for datalog attribution.
+func actorName(c *echo.Context) string {
+	if id := identity(c); id != nil {
+		return id.Username
+	}
+	return "admin"
 }
 
 // loadClientScoped loads the client of the :id path param under the

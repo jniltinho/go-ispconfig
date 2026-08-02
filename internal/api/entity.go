@@ -109,6 +109,15 @@ type Entity struct {
 	// row has been loaded under the d-scope and before it is removed, so
 	// cascades (journaled child deletes) are atomic with the parent.
 	BeforeDelete func(ctx context.Context, tx *gorm.DB, id *repository.Identity, rec any) error `json:"-"`
+	// Guard, when set, validates a loaded record on the by-id routes
+	// (get/update/delete) — e.g. the clients/resellers role discriminator
+	// that ListScope enforces on the list route. Return
+	// gorm.ErrRecordNotFound to hide the row (404).
+	Guard func(rec any) error `json:"-"`
+	// AfterCreate, when set, runs after the insert transaction committed
+	// (no tx): best-effort side effects like the welcome email that must
+	// not hold locks or roll back the create.
+	AfterCreate func(ctx context.Context, id *repository.Identity, rec any, body map[string]any) `json:"-"`
 }
 
 // fields iterates over every field of every tab.
@@ -291,6 +300,11 @@ func (h *entityHandlers[T]) get(c *echo.Context) error {
 	if err := h.repo.Get(c.Request().Context(), identity(c), c.Param("id"), &rec); err != nil {
 		return err
 	}
+	if h.ent.Guard != nil {
+		if err := h.ent.Guard(&rec); err != nil {
+			return err
+		}
+	}
 	item := h.toMap(c.Request().Context(), &rec)
 	if err := h.decorate(c.Request().Context(), []map[string]any{item}); err != nil {
 		return err
@@ -349,6 +363,9 @@ func (h *entityHandlers[T]) create(c *echo.Context) error {
 	if err := h.repo.InsertFn(ctx, id, rec, fixup); err != nil {
 		return err
 	}
+	if h.ent.AfterCreate != nil {
+		h.ent.AfterCreate(ctx, id, rec, body)
+	}
 	item := h.toMap(ctx, rec)
 	if err := h.decorate(ctx, []map[string]any{item}); err != nil {
 		return err
@@ -375,6 +392,11 @@ func (h *entityHandlers[T]) update(c *echo.Context) error {
 	var rec T
 	if err := h.repo.Get(ctx, id, c.Param("id"), &rec); err != nil {
 		return err
+	}
+	if h.ent.Guard != nil {
+		if err := h.ent.Guard(&rec); err != nil {
+			return err
+		}
 	}
 	if err := h.applyBody(ctx, &rec, body, id); err != nil {
 		return err
@@ -403,9 +425,17 @@ func (h *entityHandlers[T]) delete(c *echo.Context) error {
 	ctx := c.Request().Context()
 	id := identity(c)
 	var fixup func(tx *gorm.DB, old *T) error
-	if h.ent.BeforeDelete != nil {
+	if h.ent.BeforeDelete != nil || h.ent.Guard != nil {
 		fixup = func(tx *gorm.DB, old *T) error {
-			return h.ent.BeforeDelete(ctx, tx, id, old)
+			if h.ent.Guard != nil {
+				if err := h.ent.Guard(old); err != nil {
+					return err
+				}
+			}
+			if h.ent.BeforeDelete != nil {
+				return h.ent.BeforeDelete(ctx, tx, id, old)
+			}
+			return nil
 		}
 	}
 	if err := h.repo.DeleteFn(ctx, id, c.Param("id"), fixup); err != nil {

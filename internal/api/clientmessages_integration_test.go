@@ -106,10 +106,17 @@ func TestClientMessagesAPI(t *testing.T) {
 		require.Equal(t, http.StatusUnprocessableEntity, status, "%s", data)
 	})
 
-	t.Run("non-admin cannot manage message templates", func(t *testing.T) {
+	t.Run("message templates are ownership-scoped, not admin-only", func(t *testing.T) {
+		// Spec client-messaging: resellers manage their own templates.
 		cCookie, cCSRF := login(t, srv, "wanda", "wanda-pw-secret1")
-		status, _ := call(t, srv, http.MethodPost, "/api/client-message-templates", cCookie, cCSRF,
-			map[string]any{"template_type": "other", "template_name": "x", "subject": "s", "message": "m"})
-		require.Equal(t, http.StatusForbidden, status)
+		status, data := call(t, srv, http.MethodPost, "/api/client-message-templates", cCookie, cCSRF,
+			map[string]any{"template_type": "other", "template_name": "Mine", "subject": "s", "message": "m"})
+		require.Equal(t, http.StatusCreated, status, "%s", data)
+
+		status, data = call(t, srv, http.MethodGet, "/api/client-message-templates", cCookie, "", nil)
+		require.Equal(t, http.StatusOK, status)
+		require.Contains(t, string(data), `"Mine"`)
+		require.NotContains(t, string(data), "Welcome {username}",
+			"admin-owned template invisible to the client user")
 	})
 }

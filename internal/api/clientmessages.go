@@ -15,19 +15,21 @@ import (
 )
 
 // clientMessageTemplateEntity is the /api/client-message-templates CRUD
-// surface (client_message_template.tform.php). Admin only. template_type
-// "welcome" powers the welcome-on-create hook.
+// surface (client_message_template.tform.php). riud-scoped, not admin
+// only: resellers manage their own templates (spec client-messaging);
+// template_type "welcome" powers the welcome-on-create hook, matched by
+// the creator's group.
 func clientMessageTemplateEntity() *Entity {
 	return &Entity{
-		Name:      "client-message-templates",
-		Title:     "client_message_template_edit_title",
-		AdminOnly: true,
+		Name:  "client-message-templates",
+		Title: "client_message_template_edit_title",
 		Tabs: []Tab{{
 			Name:  "template",
 			Label: "template_txt",
 			Fields: []Field{
 				selectField("template_type", "template_type_txt", "VARCHAR", "other", []Option{
 					{Value: "welcome", Label: "welcome_email_txt"},
+					{Value: "gdpr", Label: "gdpr_txt"},
 					{Value: "other", Label: "other_txt"},
 				}),
 				text("template_name", "template_name_txt",
@@ -98,6 +100,8 @@ func clientSendMessage(c *echo.Context, d *Deps) error {
 	if len(body.ClientIDs) > 0 {
 		q = q.Where("client_id IN ?", body.ClientIDs)
 	}
+	// client_message.php parity: canceled clients are never messaged.
+	q = q.Where("canceled != 'y'")
 	var recipients []model.Client
 	if err := q.Find(&recipients).Error; err != nil {
 		return err
@@ -146,12 +150,15 @@ func renderClientMessage(ctx context.Context, d *Deps, tpl string, row *model.Cl
 // sendWelcomeMessage emails the "welcome" message template to a freshly
 // created client. Best effort: a missing template, missing address,
 // unconfigured SMTP or transport failure never fails the create.
-func sendWelcomeMessage(ctx context.Context, d *Deps, row *model.Client, plainPassword string) {
-	if d.Mailer == nil || row.Email == "" {
+func sendWelcomeMessage(ctx context.Context, d *Deps, id *repository.Identity, row *model.Client, plainPassword string) {
+	if d.Mailer == nil || row.Email == "" || id == nil {
 		return
 	}
+	// client_edit.php parity: the welcome template of the CREATOR's group
+	// (a reseller's own template, or the admin group's).
 	var tpl model.ClientMessageTemplate
-	err := d.DB.WithContext(ctx).Where("template_type = 'welcome'").
+	err := d.DB.WithContext(ctx).
+		Where("template_type = 'welcome' AND sys_groupid = ?", id.DefaultGroup).
 		Order("client_message_template_id").First(&tpl).Error
 	if err != nil {
 		return

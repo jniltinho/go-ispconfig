@@ -256,7 +256,7 @@ func clientChangePasswordDoc() {}
 // clientDeleteEverythingDoc documents DELETE /api/clients/{id}/everything.
 //
 //	@Summary		Delete a client and everything it owns
-//	@Description	Admin only (remote client_delete_everything): purges every resource owned by the client's group (web domains, folders, folder users, dns zones, records, slave zones) with one datalog delete per row so the daemons tear them down, then deprovisions the login and deletes the client.
+//	@Description	Admin only (remote client_delete_everything): cascades child clients (their resources and logins included), purges every resource owned by the group(s) (web domains, folders, folder users, dns zones, records, slave zones — the tables Go daemons consume today; more follow with their modules) with one datalog delete per row, then deprovisions the login and deletes the client.
 //	@Tags			clients
 //	@Param			id	path	int	true	"client_id"
 //	@Success		204
@@ -412,7 +412,7 @@ func countriesDoc() {}
 // clientMessageTemplateListDoc documents GET /api/client-message-templates.
 //
 //	@Summary		List client message templates
-//	@Description	Admin only. Email templates for client messaging; template_type "welcome" is sent automatically after client creation when SMTP is configured.
+//	@Description	Ownership-scoped (resellers manage their own templates; admins see all). template_type "welcome" of the creating user's group is sent automatically after client creation when SMTP is configured.
 //	@Tags			client-messages
 //	@Produce		json
 //	@Success		200	{object}	ListResponse
@@ -440,7 +440,7 @@ func clientMessageTemplateGetDoc() {}
 // clientMessageTemplateCreateDoc documents POST /api/client-message-templates.
 //
 //	@Summary		Create a client message template
-//	@Description	Admin only. Subject and message may use {column} placeholders resolved from the recipient client (e.g. {username}, {contact_name}); {password} resolves only in the welcome-on-create email.
+//	@Description	Subject and message may use {column} placeholders resolved from the recipient client (e.g. {username}, {contact_name}); {password} resolves only in the welcome-on-create email.
 //	@Tags			client-messages
 //	@Accept			json
 //	@Produce		json

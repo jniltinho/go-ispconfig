@@ -175,6 +175,34 @@ func TestClientsAPI(t *testing.T) {
 		require.Equal(t, http.StatusNotFound, status, "inaccessible lookup is 404")
 	})
 
+	t.Run("by-id routes never cross the clients/resellers surfaces", func(t *testing.T) {
+		status, _ := call(t, srv, http.MethodGet, fmt.Sprintf("/api/clients/%d", int(resellerID)), adminCookie, "", nil)
+		require.Equal(t, http.StatusNotFound, status, "reseller hidden on /clients")
+		status, _ = call(t, srv, http.MethodGet, fmt.Sprintf("/api/resellers/%d", int(childID)), adminCookie, "", nil)
+		require.Equal(t, http.StatusNotFound, status, "client hidden on /resellers")
+		status, _ = call(t, srv, http.MethodPut, fmt.Sprintf("/api/clients/%d", int(resellerID)), adminCookie, adminCSRF,
+			map[string]any{"contact_name": "X"})
+		require.Equal(t, http.StatusNotFound, status)
+		status, _ = call(t, srv, http.MethodDelete, fmt.Sprintf("/api/clients/%d", int(resellerID)), adminCookie, adminCSRF, nil)
+		require.Equal(t, http.StatusNotFound, status)
+	})
+
+	t.Run("child limits are capped to the parent on create", func(t *testing.T) {
+		// resellen has default limits (limit_web_domain -1 template-less),
+		// so cap against a tighter parent: set it first.
+		require.NoError(t, db.Model(&model.Client{}).Where("client_id = ?", resellerID).
+			Update("limit_web_domain", 5).Error)
+		status, data := call(t, srv, http.MethodPost, "/api/clients", resCookie, resCSRF,
+			map[string]any{
+				"contact_name": "Greedy", "username": "greedy",
+				"password": "greedy-pw-long1", "limit_web_domain": -1,
+			})
+		require.Equal(t, http.StatusCreated, status, "%s", data)
+		var rec map[string]any
+		require.NoError(t, json.Unmarshal(data, &rec))
+		require.EqualValues(t, 5, rec["limit_web_domain"], "child -1 clamped to parent's 5")
+	})
+
 	t.Run("role-scoped lists", func(t *testing.T) {
 		status, data := call(t, srv, http.MethodGet, "/api/clients?limit=100", adminCookie, "", nil)
 		require.Equal(t, http.StatusOK, status)
@@ -267,6 +295,37 @@ func TestClientsAPI(t *testing.T) {
 		require.NoError(t, db.Where("dbtable = 'client' AND action = 'd'").
 			Order("datalog_id DESC").First(&dl).Error)
 		require.Equal(t, fmt.Sprintf("client_id:%d", int(childID)), dl.DBIdx)
+	})
+
+	t.Run("delete-everything cascades child clients", func(t *testing.T) {
+		status, data := call(t, srv, http.MethodPost, "/api/resellers", adminCookie, adminCSRF,
+			map[string]any{"contact_name": "Cascade", "username": "cascade", "password": "cascade-pw-long"})
+		require.Equal(t, http.StatusCreated, status, "%s", data)
+		var rec map[string]any
+		require.NoError(t, json.Unmarshal(data, &rec))
+		cascadeID := int(rec["client_id"].(float64))
+		cCookie, cCSRF := login(t, srv, "cascade", "cascade-pw-long")
+		status, data = call(t, srv, http.MethodPost, "/api/clients", cCookie, cCSRF,
+			map[string]any{"contact_name": "Cascade Kid", "username": "cascadekid", "password": "ckid-pw-long1"})
+		require.Equal(t, http.StatusCreated, status, "%s", data)
+
+		status, data = call(t, srv, http.MethodDelete,
+			fmt.Sprintf("/api/clients/%d/everything", cascadeID), adminCookie, adminCSRF, nil)
+		require.Equal(t, http.StatusNoContent, status, "%s", data)
+		var n int64
+		require.NoError(t, db.Model(&model.Client{}).
+			Where("username IN ?", []string{"cascade", "cascadekid"}).Count(&n).Error)
+		require.Zero(t, n, "reseller and child both gone")
+		require.NoError(t, db.Model(&model.SysUser{}).
+			Where("username IN ?", []string{"cascade", "cascadekid"}).Count(&n).Error)
+		require.Zero(t, n)
+	})
+
+	t.Run("weak password on create is rejected", func(t *testing.T) {
+		status, data := call(t, srv, http.MethodPost, "/api/clients", adminCookie, adminCSRF,
+			map[string]any{"contact_name": "Weak", "username": "weakpw", "password": "short"})
+		require.Equal(t, http.StatusUnprocessableEntity, status, "%s", data)
+		require.Contains(t, string(data), "password_error_length")
 	})
 
 	t.Run("delete-everything purges owned resources", func(t *testing.T) {

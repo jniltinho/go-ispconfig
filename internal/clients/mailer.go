@@ -2,6 +2,7 @@ package clients
 
 import (
 	"fmt"
+	"net"
 	"net/smtp"
 	"strings"
 )
@@ -37,14 +38,24 @@ func NewSMTPMailer(host string, port int, user, pass, from string) Mailer {
 	return &SMTPMailer{Addr: fmt.Sprintf("%s:%d", host, port), User: user, Pass: pass, From: from}
 }
 
+// sanitizeHeader strips CR/LF so template- or API-supplied values can
+// never inject additional SMTP headers.
+func sanitizeHeader(v string) string {
+	return strings.NewReplacer("\r", " ", "\n", " ").Replace(v)
+}
+
 // Send submits one message via SMTP.
 func (m *SMTPMailer) Send(to, subject, body string) error {
+	to = sanitizeHeader(to)
 	msg := strings.NewReplacer("\n", "\r\n").Replace(
-		"From: " + m.From + "\nTo: " + to + "\nSubject: " + subject +
+		"From: " + sanitizeHeader(m.From) + "\nTo: " + to + "\nSubject: " + sanitizeHeader(subject) +
 			"\nMIME-Version: 1.0\nContent-Type: text/plain; charset=utf-8\n\n" + body)
 	var auth smtp.Auth
 	if m.User != "" {
-		host := m.Addr[:strings.LastIndex(m.Addr, ":")]
+		host, _, err := net.SplitHostPort(m.Addr)
+		if err != nil {
+			host = m.Addr
+		}
 		auth = smtp.PlainAuth("", m.User, m.Pass, host)
 	}
 	if err := smtp.SendMail(m.Addr, auth, m.From, []string{to}, []byte(msg)); err != nil {

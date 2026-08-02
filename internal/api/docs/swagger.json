@@ -18,7 +18,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Admin only. Email templates for client messaging; template_type \"welcome\" is sent automatically after client creation when SMTP is configured.",
+                "description": "Ownership-scoped (resellers manage their own templates; admins see all). template_type \"welcome\" of the creating user's group is sent automatically after client creation when SMTP is configured.",
                 "produces": [
                     "application/json"
                 ],
@@ -56,7 +56,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Admin only. Subject and message may use {column} placeholders resolved from the recipient client (e.g. {username}, {contact_name}); {password} resolves only in the welcome-on-create email.",
+                "description": "Subject and message may use {column} placeholders resolved from the recipient client (e.g. {username}, {contact_name}); {password} resolves only in the welcome-on-create email.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1128,7 +1128,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Admin only (remote client_delete_everything): purges every resource owned by the client's group (web domains, folders, folder users, dns zones, records, slave zones) with one datalog delete per row so the daemons tear them down, then deprovisions the login and deletes the client.",
+                "description": "Admin only (remote client_delete_everything): cascades child clients (their resources and logins included), purges every resource owned by the group(s) (web domains, folders, folder users, dns zones, records, slave zones — the tables Go daemons consume today; more follow with their modules) with one datalog delete per row, then deprovisions the login and deletes the client.",
                 "tags": [
                     "clients"
                 ],
