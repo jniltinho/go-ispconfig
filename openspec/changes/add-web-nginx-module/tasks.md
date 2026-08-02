@@ -4,23 +4,23 @@ Conventional commit after each finished + validated task.
 
 ## 1. Data layer and assets
 
-- [ ] 1.1 Add GORM models for `web_domain`, `web_folder`, `web_folder_user`, `server_php` mapped onto the existing ISPConfig3 schema (explicit column tags, riud fields); unit tests round-trip a fixture row against MariaDB
-- [ ] 1.2 Embed assets: copy `nginx_vhost.conf.master`, `php_fpm_pool.conf.master` and `security/nginx_directives.blacklist` from the PHP tree into the Go module, expose via `embed.FS`; test that the renderer parses both templates without error
-- [ ] 1.3 Add `[web]` server-config struct (getconf port keys: website_basedir, website_path, vhost_conf_dir/enabled_dir, nginx_user/group, php_fpm_* dirs, security_level, website_symlinks) with Debian/Ubuntu defaults in the seed; unit test parsing
+- [x] 1.1 Add GORM models for `web_domain`, `web_folder`, `web_folder_user`, `server_php` mapped onto the existing ISPConfig3 schema (explicit column tags, riud fields); unit tests round-trip a fixture row against MariaDB
+- [x] 1.2 Embed assets: copy `nginx_vhost.conf.master`, `php_fpm_pool.conf.master` and `security/nginx_directives.blacklist` from the PHP tree into the Go module, expose via `embed.FS`; test that the renderer parses both templates without error
+- [x] 1.3 Add `[web]` server-config struct (getconf port keys: website_basedir, website_path, vhost_conf_dir/enabled_dir, nginx_user/group, php_fpm_* dirs, security_level, website_symlinks) with Debian/Ubuntu defaults in the seed; unit test parsing
 
 ## 2. Web module (events + services)
 
-- [ ] 2.1 Implement `web` module: table hooks for `web_domain`, `web_folder`, `web_folder_user`; announce and raise the nine `*_insert/update/delete` events; unit tests assert datalog row → event fan-out and that unhooked tables are ignored
-- [ ] 2.2 Register `httpd` service with `nginx -t` guard (abort + error output on failure) and per-version `php-fpm` services with delayed-restart dedup; unit tests with a fake command runner
+- [x] 2.1 Implement `web` module: table hooks for `web_domain`, `web_folder`, `web_folder_user`; announce and raise the nine `*_insert/update/delete` events; unit tests assert datalog row → event fan-out and that unhooked tables are ignored
+- [x] 2.2 Register `httpd` service with `nginx -t` guard (abort + error output on failure) and per-version `php-fpm` services with delayed-restart dedup; unit tests with a fake command runner
 
 ## 3. nginx plugin — filesystem and vhost
 
-- [ ] 3.1 Implement `ensureSite()`: idempotent directory tree (web/, log/, ssl/, tmp/ 1777, private/, cgi-bin/), system user/group creation, docroot move on rename; safety checks refusing paths outside website_basedir; unit tests with fake runner + temp dirs
-- [ ] 3.2 Implement vhost vector builder (listen, server_name/aliases, logs, fastcgi_pass, redirects, `rewrite_to_https`, SEO redirects port of `get_seo_redirects`) and render via master-templates; golden-file tests: vhost × {plain, ssl, redirect, seo, vhostsubdomain, vhostalias, no-php}
-- [ ] 3.3 Implement `nginx_merge_locations` port (custom location merge, `{FASTCGIPASS}` substitution) + blacklist filter stripping matching lines and recording datalog errors; unit tests including a blacklisted `load_module` line
-- [ ] 3.4 Implement activation pipeline: write with backup, `nginx -t`, enabled-symlink management, rollback with `.err` quarantine + SSL file restore + datalog error; delayed reload; integration-style test with a stubbed `nginx` binary covering success, failure and deactivate paths
-- [ ] 3.5 Implement `web_domain_delete`: remove vhost/symlink/pool/dirs/user with sanity guards; tests for delete and unsafe-path refusal
-- [ ] 3.6 Implement `web_folder`/`web_folder_user` handlers: auth file maintenance + vhost re-render with `auth_basic` location; tests
+- [x] 3.1 Implement `ensureSite()`: idempotent directory tree (web/, log/, ssl/, tmp/ 1777, private/, cgi-bin/), system user/group creation, docroot move on rename; safety checks refusing paths outside website_basedir; unit tests with fake runner + temp dirs
+- [x] 3.2 Implement vhost vector builder (listen, server_name/aliases, logs, fastcgi_pass, redirects, `rewrite_to_https`, SEO redirects port of `get_seo_redirects`) and render via master-templates; golden-file tests: vhost × {plain, ssl, redirect, seo, vhostsubdomain, vhostalias, no-php}
+- [x] 3.3 Implement `nginx_merge_locations` port (custom location merge, `{FASTCGIPASS}` substitution) + blacklist filter stripping matching lines and recording datalog errors; unit tests including a blacklisted `load_module` line
+- [x] 3.4 Implement activation pipeline: write with backup, `nginx -t`, enabled-symlink management, rollback with `.err` quarantine + SSL file restore + datalog error; delayed reload; integration-style test with a stubbed `nginx` binary covering success, failure and deactivate paths
+- [x] 3.5 Implement `web_domain_delete`: remove vhost/symlink/pool/dirs/user with sanity guards; tests for delete and unsafe-path refusal
+- [x] 3.6 Implement `web_folder`/`web_folder_user` handlers: auth file maintenance + vhost re-render with `auth_basic` location; tests
 
 ## 4. PHP-FPM pools
 
