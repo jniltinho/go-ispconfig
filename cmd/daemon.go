@@ -64,9 +64,11 @@ var daemonCmd = &cobra.Command{
 		nginxPlugin := nginx.NewPlugin(db, services, runner, cfg.Templates.CustomDir, logger)
 		modules := []engine.Module{web.NewModule()}
 		plugins := []engine.Plugin{nginxPlugin}
+		var dnsPlugin *dns.Plugin
 		if srv.DNSServer == 1 {
+			dnsPlugin = dns.NewPlugin(db, services, runner, cfg.Templates.CustomDir, srv.ServerID, logger)
 			modules = append(modules, dns.NewModule())
-			plugins = append(plugins, dns.NewPlugin(db, services, runner, cfg.Templates.CustomDir, srv.ServerID, logger))
+			plugins = append(plugins, dnsPlugin)
 			dns.RegisterServices(services)
 		}
 		if err := reg.Load(modules, plugins); err != nil {
@@ -99,6 +101,11 @@ var daemonCmd = &cobra.Command{
 		}
 		if err := nginxPlugin.RegisterRenewal(sched); err != nil {
 			return err
+		}
+		if dnsPlugin != nil {
+			if err := dnsPlugin.RegisterResign(sched); err != nil {
+				return err
+			}
 		}
 
 		ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

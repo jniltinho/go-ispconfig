@@ -3,6 +3,7 @@ package dns
 import (
 	"log/slog"
 	"sync"
+	"time"
 
 	"gorm.io/gorm"
 
@@ -27,6 +28,10 @@ type Plugin struct {
 	caaOnce      sync.Once
 	caaSupported bool
 	caaProbed    *bool
+
+	// resignThreshold overrides DefaultResignThreshold for the dns_resign
+	// job (0 means the default).
+	resignThreshold time.Duration
 }
 
 // NewPlugin creates the bind plugin for one server. customTplDir may be

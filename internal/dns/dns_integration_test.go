@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -266,6 +267,36 @@ func TestDatalogToBindPipeline(t *testing.T) {
 		assert.Contains(t, z.DNSSECInfo, "DNSKEY-Records:\n")
 
 		assert.Contains(t, readFile(t, namedConf), zoneFile+".signed", "named.conf points at the signed file")
+		exec.runs = nil
+	})
+
+	t.Run("dns_resign job re-signs only stale zones", func(t *testing.T) {
+		sched := engine.NewScheduler(db, nil)
+		require.NoError(t, plugin.RegisterResign(sched))
+
+		// Fresh signature: nothing to do.
+		runner.calls = nil
+		require.NoError(t, sched.RunJob(ctx, "dns_resign"))
+		assert.False(t, runner.has("dnssec-signzone"), "fresh signatures untouched")
+
+		// Stale signature (6 days > 5-day threshold): re-sign + one reload.
+		stale := time.Now().Add(-6 * 24 * time.Hour).Unix()
+		require.NoError(t, db.Exec("UPDATE dns_soa SET dnssec_last_signed = ? WHERE id = ?", stale, soa.ID).Error)
+		runner.calls = nil
+		exec.runs = nil
+		require.NoError(t, sched.RunJob(ctx, "dns_resign"))
+		assert.True(t, runner.has("dnssec-signzone"))
+		services.ProcessDelayedActions(ctx)
+		assert.Equal(t, [][2]string{{"bind9", "reload"}}, exec.runs)
+
+		var z model.DNSSoa
+		require.NoError(t, db.Where("id = ?", soa.ID).First(&z).Error)
+		assert.Greater(t, z.DNSSECLastSigned, stale, "dnssec_last_signed refreshed")
+
+		jobs := sched.Jobs(ctx)
+		require.Len(t, jobs, 1)
+		assert.Equal(t, "dns_resign", jobs[0].Name)
+		assert.Equal(t, "ok", jobs[0].Status, "job bookkeeping persisted")
 		exec.runs = nil
 	})
 

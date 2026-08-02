@@ -276,6 +276,52 @@ func (p *Plugin) dnssecDelete(ctx context.Context, cfg *getconf.DNSConfig, origi
 	return nil
 }
 
+// DefaultResignThreshold is the signature age after which the dns_resign
+// job re-signs a zone — well inside the 16-day validity of
+// dnssec-signzone -e +1382400.
+const DefaultResignThreshold = 5 * 24 * time.Hour
+
+// RegisterResign adds the daily dns_resign scheduler job (design D6,
+// replacing ISPConfig's cron-driven re-sign): every zone of this server
+// with dnssec_wanted='Y', dnssec_initialized='Y' and a signature older
+// than the threshold is re-signed, followed by one delayed bind reload.
+func (p *Plugin) RegisterResign(sched *engine.Scheduler) error {
+	return sched.Register("dns_resign", "@daily", p.resignJob)
+}
+
+// resignJob is the dns_resign job body.
+func (p *Plugin) resignJob(ctx context.Context) error {
+	cfg, err := p.dnsConfig()
+	if err != nil {
+		return err
+	}
+	threshold := p.resignThreshold
+	if threshold == 0 {
+		threshold = DefaultResignThreshold
+	}
+	cutoff := time.Now().Add(-threshold).Unix()
+	var zones []map[string]any
+	err = p.db.WithContext(ctx).Table("dns_soa").
+		Where("server_id = ? AND active = 'Y' AND dnssec_wanted = 'Y' AND dnssec_initialized = 'Y' AND dnssec_last_signed < ?",
+			p.serverID, cutoff).
+		Order("id").Find(&zones).Error
+	if err != nil {
+		return fmt.Errorf("dns: loading zones for re-signing: %w", err)
+	}
+	if len(zones) == 0 {
+		return nil
+	}
+	var errs []error
+	for _, z := range zones {
+		p.log.Info("dns: re-signing stale dnssec zone", "origin", row(z).str("origin"))
+		if err := p.dnssecUpdate(ctx, cfg, z, z, false); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	p.services.RestartServiceDelayed(BindService, engine.ActionReload)
+	return errors.Join(errs...)
+}
+
 // buildDNSSECInfo assembles the dnssec_info text block: the DS records
 // (dsset file content) followed by the DNSKEY records (.key file
 // contents), byte-compatible with the PHP concatenation.
