@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -48,7 +49,16 @@ func SetAssignedTemplates(ctx context.Context, tx *gorm.DB, clientID int64, temp
 	for _, row := range inDB {
 		needed[row.ClientTemplateID]--
 	}
-	for id, count := range needed {
+	// Deterministic order: new rows get ascending assigned_template_id per
+	// template id, so "first additional wins" merges (default servers)
+	// behave reproducibly.
+	ids := make([]int32, 0, len(needed))
+	for id := range needed {
+		ids = append(ids, id)
+	}
+	slices.Sort(ids)
+	for _, id := range ids {
+		count := needed[id]
 		for ; count > 0; count-- {
 			row := model.ClientTemplateAssigned{ClientID: clientID, ClientTemplateID: id}
 			if err := tx.WithContext(ctx).Create(&row).Error; err != nil {
