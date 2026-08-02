@@ -76,7 +76,8 @@ var daemonCmd = &cobra.Command{
 			modules = append(modules, mail.NewModule())
 			mailPlugin := mail.NewPlugin(db, services, runner, srv.ServerID, logger)
 			plugins = append(plugins, mailPlugin,
-				mail.NewMaildeliverPlugin(mailPlugin, cfg.Templates.CustomDir))
+				mail.NewMaildeliverPlugin(mailPlugin, cfg.Templates.CustomDir),
+				mail.NewDkimPlugin(mailPlugin))
 			mail.RegisterServices(services)
 		}
 		var dnsPlugin *dns.Plugin
