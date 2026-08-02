@@ -30,6 +30,7 @@ type migrateFromOpts struct {
 	insecure       bool
 	mapAllToLocal  bool
 	resetPasswords bool
+	orphansToAdmin bool
 }
 
 var mfOpts migrateFromOpts
@@ -77,6 +78,7 @@ func init() {
 	f.BoolVar(&mfOpts.insecure, "insecure", false, "disable TLS certificate verification (loudly echoed in the report)")
 	f.BoolVar(&mfOpts.mapAllToLocal, "map-all-to-local-server", false, "explicitly confirm mapping a multi-server legacy panel onto the single local server")
 	f.BoolVar(&mfOpts.resetPasswords, "reset-passwords", false, "after apply, generate one-time password-reset tokens for every recreated panel user")
+	f.BoolVar(&mfOpts.orphansToAdmin, "assign-orphan-zones-to-admin", false, "assign DNS zones whose owning client is absent to admin instead of conflicting")
 	_ = migrateFromCmd.MarkFlagRequired("url")
 	_ = migrateFromCmd.MarkFlagRequired("user")
 	rootCmd.AddCommand(migrateFromCmd)
@@ -98,6 +100,9 @@ func promptPassword(errw io.Writer) (string, error) {
 	fprintln(errw)
 	if err != nil {
 		return "", fmt.Errorf("reading password: %w", err)
+	}
+	if len(pw) == 0 {
+		return "", fmt.Errorf("empty password")
 	}
 	return string(pw), nil
 }
@@ -185,8 +190,9 @@ func runMigrateFrom(ctx context.Context, opts migrateFromOpts, openDB func() (*g
 	}
 
 	plan, err := importer.BuildPlan(ctx, db, snap, importer.Options{
-		Selection:      sel,
-		TargetServerID: localServer.ServerID,
+		Selection:                sel,
+		TargetServerID:           localServer.ServerID,
+		AssignOrphanZonesToAdmin: opts.orphansToAdmin,
 	})
 	if err != nil {
 		return err
@@ -215,7 +221,7 @@ func runMigrateFrom(ctx context.Context, opts migrateFromOpts, openDB func() (*g
 	}
 
 	report := importer.BuildReport(plan, counts, importer.ReportInput{
-		LegacyHost:  legacyHost(opts.url),
+		LegacyHost:  importer.LegacyHost(opts.url),
 		Insecure:    lc.Insecure(),
 		PlainHTTP:   lc.PlainHTTP(),
 		MultiServer: inv.MultiServer,
@@ -227,19 +233,9 @@ func runMigrateFrom(ctx context.Context, opts migrateFromOpts, openDB func() (*g
 			return err
 		}
 	} else if len(report.ResetRequired) > 0 {
-		fprintln(out, "Run again with --reset-passwords (or use the panel) to generate one-time reset tokens for these users.")
+		fprintln(out, "Run the same command again with --reset-passwords (the import is idempotent) to generate one-time reset tokens for these users.")
 	}
 	return nil
-}
-
-// legacyHost extracts the host part of the panel URL for rsync hints.
-func legacyHost(url string) string {
-	host := strings.TrimPrefix(strings.TrimPrefix(url, "https://"), "http://")
-	host = strings.TrimSuffix(strings.SplitN(host, "/", 2)[0], "/")
-	if i := strings.LastIndex(host, ":"); i > 0 && !strings.Contains(host, "]") {
-		host = host[:i]
-	}
-	return host
 }
 
 // printInventory renders the per-entity legacy counts.

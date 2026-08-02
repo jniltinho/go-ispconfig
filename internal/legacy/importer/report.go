@@ -2,9 +2,21 @@ package importer
 
 import (
 	"fmt"
+	"net/url"
+	"strings"
 
 	"go-ispconfig/internal/model"
 )
+
+// LegacyHost extracts the host (no port, no scheme, IPv6-safe) from the
+// legacy panel URL, for rsync suggestions and report display.
+func LegacyHost(rawURL string) string {
+	u, err := url.Parse(rawURL)
+	if err != nil || u.Host == "" {
+		return strings.TrimSuffix(rawURL, "/")
+	}
+	return u.Hostname()
+}
 
 // ReportInput carries the run context the report must echo.
 type ReportInput struct {

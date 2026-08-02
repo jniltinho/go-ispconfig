@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/labstack/echo/v5"
 	"gorm.io/gorm"
@@ -30,7 +31,7 @@ type MigrationConnectRequest struct {
 	// Username is the legacy remote_user name.
 	Username string `json:"username" example:"migrator"`
 	// Password is the legacy remote_user password.
-	Password string `json:"password" example:"secret"`
+	Password string `json:"password" example:""`
 	// Insecure disables TLS certificate verification (echoed as a warning).
 	Insecure bool `json:"insecure"`
 }
@@ -151,16 +152,18 @@ func newMigrationManager() *migrationManager {
 	}
 }
 
-// publish fans an SSE event (already JSON) to every subscriber without
-// blocking (slow subscribers drop events; the status snapshot recovers).
-func (m *migrationManager) publish(event any) {
+// publishLocked fans one SSE frame ("event: <name>" + data) to every
+// subscriber without blocking (slow subscribers drop events; the status
+// snapshot recovers). The caller must hold m.mu — it protects m.subs.
+func (m *migrationManager) publishLocked(name string, event any) {
 	payload, err := json.Marshal(event)
 	if err != nil {
 		return
 	}
+	frame := []byte("event: " + name + "\ndata: " + string(payload) + "\n\n")
 	for ch := range m.subs {
 		select {
-		case ch <- payload:
+		case ch <- frame:
 		default:
 		}
 	}
@@ -274,8 +277,16 @@ func migrationConnectHandler(m *migrationManager) echo.HandlerFunc {
 	}
 }
 
-// requireConnected returns the connected client or a 409 payload.
-func (m *migrationManager) requireConnected(c *echo.Context) (*legacyclient.Client, bool, error) {
+// begin snapshots the manager state for a read stage: it rejects an
+// active run or a missing connection with a 409 and otherwise returns
+// the connected client. It takes and releases the lock itself so slow
+// legacy fetches never block status/SSE handlers.
+func (m *migrationManager) begin(c *echo.Context) (*legacyclient.Client, bool, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.running {
+		return nil, false, c.JSON(http.StatusConflict, MigrationError{Error: "a migration run is already active"})
+	}
 	if m.client == nil {
 		return nil, false, c.JSON(http.StatusConflict, MigrationError{Error: "not connected: run the connection test first"})
 	}
@@ -298,33 +309,35 @@ func (m *migrationManager) requireConnected(c *echo.Context) (*legacyclient.Clie
 //	@Security		BearerAuth
 func migrationInventoryHandler(m *migrationManager) echo.HandlerFunc {
 	return func(c *echo.Context) error {
-		m.mu.Lock()
-		defer m.mu.Unlock()
-		if m.running {
-			return c.JSON(http.StatusConflict, MigrationError{Error: "a migration run is already active"})
-		}
-		lc, ok, err := m.requireConnected(c)
+		lc, ok, err := m.begin(c)
 		if !ok {
 			return err
 		}
+		// Fetched without holding the lock: status/SSE stay responsive.
 		snap, err := importer.FetchSnapshot(c.Request().Context(), lc,
 			importer.Selection{Clients: true, Sites: true, DNS: true})
 		if err != nil {
 			return c.JSON(http.StatusBadRequest, migrationFailure(err))
 		}
 		inv := snap.Inventory()
+		m.mu.Lock()
 		m.status.Inventory = inv
 		m.status.MultiServer = inv.MultiServer
+		m.mu.Unlock()
 		return c.JSON(http.StatusOK, inv)
 	}
 }
 
-// targetServer resolves the run's local server id.
+// targetServer resolves and validates the run's local server id.
 func targetServer(ctx context.Context, db *gorm.DB, requested uint32) (uint32, error) {
-	if requested != 0 {
-		return requested, nil
-	}
 	var server model.Server
+	if requested != 0 {
+		err := db.WithContext(ctx).Where("server_id = ?", requested).First(&server).Error
+		if err != nil {
+			return 0, fmt.Errorf("target server %d does not exist locally: %w", requested, err)
+		}
+		return server.ServerID, nil
+	}
 	if err := db.WithContext(ctx).Order("server_id").First(&server).Error; err != nil {
 		return 0, fmt.Errorf("no local server row found: %w", err)
 	}
@@ -353,17 +366,14 @@ func migrationDryRunHandler(m *migrationManager, d *Deps) echo.HandlerFunc {
 		if err := c.Bind(&req); err != nil {
 			return err
 		}
-		m.mu.Lock()
-		defer m.mu.Unlock()
-		if m.running {
-			return c.JSON(http.StatusConflict, MigrationError{Error: "a migration run is already active"})
-		}
-		lc, ok, err := m.requireConnected(c)
+		lc, ok, err := m.begin(c)
 		if !ok {
 			return err
 		}
 		ctx := c.Request().Context()
 		sel := req.Selection.selection()
+		// Fetched and planned without holding the lock: status/SSE stay
+		// responsive during the (potentially long) legacy reads.
 		snap, err := importer.FetchSnapshot(ctx, lc, sel)
 		if err != nil {
 			return c.JSON(http.StatusBadRequest, migrationFailure(err))
@@ -420,9 +430,9 @@ func migrationExecuteHandler(m *migrationManager, d *Deps) echo.HandlerFunc {
 		if m.running {
 			return c.JSON(http.StatusConflict, MigrationError{Error: "a migration run is already active"})
 		}
-		lc, ok, err := m.requireConnected(c)
-		if !ok {
-			return err
+		lc := m.client
+		if lc == nil {
+			return c.JSON(http.StatusConflict, MigrationError{Error: "not connected: run the connection test first"})
 		}
 		if m.status.MultiServer && !req.ConfirmMapAllToLocalServer {
 			return c.JSON(http.StatusBadRequest, MigrationError{
@@ -447,12 +457,26 @@ func migrationExecuteHandler(m *migrationManager, d *Deps) echo.HandlerFunc {
 	}
 }
 
+// runTimeout bounds a background run so a wedged legacy panel (TCP
+// half-open) can never leave the wizard locked until a process restart.
+const runTimeout = 4 * time.Hour
+
 // run executes fetch → plan → apply → report in the background.
 func (m *migrationManager) run(ctx context.Context, db *gorm.DB, lc *legacyclient.Client,
 	sel importer.Selection, target uint32, orphansToAdmin bool) {
+	ctx, cancel := context.WithTimeout(ctx, runTimeout)
+	defer cancel()
+
+	finished := false
 	finish := func(errRun error, report *importer.Report) {
+		finished = true
+		// The wizard is done with the legacy panel either way: end the
+		// remote session so credentials stop being live. A new stage
+		// requires a fresh connect.
+		_ = lc.Close()
 		m.mu.Lock()
 		m.running = false
+		m.client = nil
 		if errRun != nil {
 			m.status.State = "failed"
 			m.status.Error = errRun.Error()
@@ -460,9 +484,15 @@ func (m *migrationManager) run(ctx context.Context, db *gorm.DB, lc *legacyclien
 			m.status.State = "done"
 			m.status.Report = report
 		}
-		m.publish(m.status)
+		m.publishLocked("status", m.status)
 		m.mu.Unlock()
 	}
+	// A panic in the run must fail the run, never the API process.
+	defer func() {
+		if r := recover(); r != nil && !finished {
+			finish(fmt.Errorf("panic during migration run: %v", r), nil)
+		}
+	}()
 
 	snap, err := importer.FetchSnapshot(ctx, lc, sel)
 	if err != nil {
@@ -479,7 +509,7 @@ func (m *migrationManager) run(ctx context.Context, db *gorm.DB, lc *legacyclien
 	counts, err := importer.Apply(ctx, db, plan, func(p importer.Progress) {
 		m.mu.Lock()
 		m.status.Progress[p.Entity] = p
-		m.publish(p)
+		m.publishLocked("progress", p)
 		m.mu.Unlock()
 	})
 	if err != nil {
@@ -489,7 +519,7 @@ func (m *migrationManager) run(ctx context.Context, db *gorm.DB, lc *legacyclien
 
 	m.mu.Lock()
 	input := importer.ReportInput{
-		LegacyHost:  hostOf(m.legacyURL),
+		LegacyHost:  importer.LegacyHost(m.legacyURL),
 		Insecure:    m.status.Insecure,
 		PlainHTTP:   m.status.PlainHTTP,
 		MultiServer: m.status.MultiServer,
@@ -520,7 +550,7 @@ func migrationResetHandler(m *migrationManager, d *Deps) echo.HandlerFunc {
 		}
 		tokens, err := importer.GenerateResetTokens(c.Request().Context(), d.DB, m.status.Report.ResetRequired)
 		if err != nil {
-			return err
+			return c.JSON(http.StatusInternalServerError, MigrationError{Error: err.Error()})
 		}
 		return c.JSON(http.StatusOK, tokens)
 	}
@@ -564,54 +594,53 @@ func migrationProgressHandler(m *migrationManager) echo.HandlerFunc {
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.Header().Set("Cache-Control", "no-cache")
 		w.Header().Set("Connection", "keep-alive")
+		// Reverse proxies (nginx) must not buffer the stream.
+		w.Header().Set("X-Accel-Buffering", "no")
 		w.WriteHeader(http.StatusOK)
 		rc := http.NewResponseController(w)
 
-		write := func(payload []byte) error {
-			if _, err := fmt.Fprintf(w, "data: %s\n\n", payload); err != nil {
+		write := func(frame []byte) error {
+			if _, err := w.Write(frame); err != nil {
 				return err
 			}
 			return rc.Flush()
 		}
+
+		// Subscribe before building the snapshot so no event published in
+		// between is lost (a duplicate progress event is harmless).
+		events, cancel := m.subscribe()
+		defer cancel()
 
 		// Replay the current snapshot so late subscribers catch up.
 		m.mu.Lock()
 		snapshot, err := json.Marshal(m.status)
 		m.mu.Unlock()
 		if err == nil {
-			if err := write(snapshot); err != nil {
+			frame := append([]byte("event: status\ndata: "), snapshot...)
+			if err := write(append(frame, '\n', '\n')); err != nil {
 				return nil //nolint:nilerr // client went away; nothing to do
 			}
 		}
 
-		events, cancel := m.subscribe()
-		defer cancel()
+		// Heartbeat comments keep idle proxy connections alive while
+		// fetch/plan run before the first progress event.
+		heartbeat := time.NewTicker(15 * time.Second)
+		defer heartbeat.Stop()
+
 		done := c.Request().Context().Done()
 		for {
 			select {
 			case <-done:
 				return nil
-			case payload := <-events:
-				if err := write(payload); err != nil {
+			case <-heartbeat.C:
+				if err := write([]byte(": ping\n\n")); err != nil {
+					return nil //nolint:nilerr // client went away; nothing to do
+				}
+			case frame := <-events:
+				if err := write(frame); err != nil {
 					return nil //nolint:nilerr // client went away; nothing to do
 				}
 			}
 		}
 	}
-}
-
-// hostOf extracts the host part of the legacy URL for rsync hints.
-func hostOf(url string) string {
-	host := url
-	for _, prefix := range []string{"https://", "http://"} {
-		if len(host) > len(prefix) && host[:len(prefix)] == prefix {
-			host = host[len(prefix):]
-		}
-	}
-	for i, r := range host {
-		if r == '/' || r == ':' {
-			return host[:i]
-		}
-	}
-	return host
 }

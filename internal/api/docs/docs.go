@@ -3357,7 +3357,7 @@ const docTemplate = `{
                 "password": {
                     "description": "Password is the legacy remote_user password.",
                     "type": "string",
-                    "example": "secret"
+                    "example": ""
                 },
                 "url": {
                     "description": "URL is the legacy panel base URL.",

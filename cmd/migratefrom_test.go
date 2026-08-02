@@ -173,9 +173,3 @@ func TestMigrateFromInsecureWarnings(t *testing.T) {
 		require.Contains(t, errw, "plain http")
 	})
 }
-
-func TestLegacyHost(t *testing.T) {
-	require.Equal(t, "legacy.example.com", legacyHost("https://legacy.example.com:8080"))
-	require.Equal(t, "legacy.example.com", legacyHost("http://legacy.example.com/panel"))
-	require.Equal(t, "10.0.0.5", legacyHost("https://10.0.0.5"))
-}

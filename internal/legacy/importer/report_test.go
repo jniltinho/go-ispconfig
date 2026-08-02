@@ -7,6 +7,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestLegacyHost(t *testing.T) {
+	require.Equal(t, "legacy.example.com", LegacyHost("https://legacy.example.com:8080"))
+	require.Equal(t, "legacy.example.com", LegacyHost("http://legacy.example.com/panel"))
+	require.Equal(t, "10.0.0.5", LegacyHost("https://10.0.0.5"))
+	require.Equal(t, "::1", LegacyHost("https://[::1]:8080"), "IPv6 hosts must not break")
+}
+
 func TestBuildReport(t *testing.T) {
 	snap := testSnapshot()
 	snap.Domains[0]["ssl"] = "y"

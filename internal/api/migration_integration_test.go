@@ -201,26 +201,32 @@ func TestMigrationWizard(t *testing.T) {
 			}
 			close(lines)
 		}()
+		event := ""
 		for !sawDone {
 			select {
 			case <-deadline:
 				t.Fatal("SSE stream did not reach a final status in time")
 			case line, ok := <-lines:
 				require.True(t, ok, "SSE stream closed before the final status")
+				if name, found := strings.CutPrefix(line, "event: "); found {
+					event = name
+					continue
+				}
 				payload, found := strings.CutPrefix(line, "data: ")
 				if !found {
 					continue
 				}
-				var progress importer.Progress
-				if json.Unmarshal([]byte(payload), &progress) == nil && progress.Entity != "" {
+				switch event {
+				case "progress":
+					var progress importer.Progress
+					require.NoError(t, json.Unmarshal([]byte(payload), &progress))
 					sawProgress = true
 					if progress.Entity == "web_domain" {
 						last = progress
 					}
-					continue
-				}
-				var status api.MigrationStatus
-				if json.Unmarshal([]byte(payload), &status) == nil {
+				case "status":
+					var status api.MigrationStatus
+					require.NoError(t, json.Unmarshal([]byte(payload), &status))
 					if status.State == "done" || status.State == "failed" {
 						require.Equal(t, "done", status.State, "run failed: %s", status.Error)
 						require.NotNil(t, status.Report)
