@@ -17,6 +17,7 @@ import (
 
 	"go-ispconfig/internal/config"
 	"go-ispconfig/internal/database"
+	"go-ispconfig/internal/dns"
 	"go-ispconfig/internal/engine"
 	"go-ispconfig/internal/getconf"
 	"go-ispconfig/internal/nginx"
@@ -43,11 +44,19 @@ var daemonCmd = &cobra.Command{
 			return err
 		}
 
+		// Server row: the dns module/plugin only load on DNS servers
+		// (dns-module-events spec: server.dns_server = 1).
+		srv, err := engine.GuardServer(db)
+		if err != nil {
+			return err
+		}
+
 		// Services registry with the web-module guard: 'httpd' maps to the
-		// nginx unit behind an nginx -t check, php-fpm units pass through.
+		// nginx unit behind an nginx -t check, 'bind' resolves its systemd
+		// unit (bind9/named) at runtime, php-fpm units pass through.
 		runner := engine.ExecRunner{}
 		services := engine.NewServices(web.GuardedExecutor{
-			Inner:  engine.SystemctlExecutor{},
+			Inner:  &dns.BindExecutor{Inner: engine.SystemctlExecutor{}},
 			Runner: runner,
 		}, logger)
 
@@ -55,6 +64,11 @@ var daemonCmd = &cobra.Command{
 		nginxPlugin := nginx.NewPlugin(db, services, runner, cfg.Templates.CustomDir, logger)
 		modules := []engine.Module{web.NewModule()}
 		plugins := []engine.Plugin{nginxPlugin}
+		if srv.DNSServer == 1 {
+			modules = append(modules, dns.NewModule())
+			plugins = append(plugins, dns.NewPlugin(db, services, runner, cfg.Templates.CustomDir, srv.ServerID, logger))
+			dns.RegisterServices(services)
+		}
 		if err := reg.Load(modules, plugins); err != nil {
 			return err
 		}
