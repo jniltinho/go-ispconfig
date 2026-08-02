@@ -3,7 +3,7 @@
 // search, red logout), per-module sidebar with sections, routed content area.
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Search } from 'lucide-vue-next'
+import { utilityIcons } from '../icons'
 import { moduleIcons } from '../icons'
 import { modules } from '../modules'
 import { useI18n } from '../i18n'
@@ -62,7 +62,7 @@ async function logout() {
               :placeholder="t('topbar.search_placeholder')"
               class="w-40 px-2 py-1.5 text-sm outline-none"
             />
-            <Search :size="16" class="mx-2 text-text" />
+            <component :is="utilityIcons.search" :size="16" class="mx-2 text-text" />
           </div>
           <button
             type="button"

@@ -5,7 +5,7 @@
 // source of truth the API validates against. Every mutation refreshes the
 // grid and the bumped SOA serial.
 import { computed, onMounted, ref } from 'vue'
-import { Pencil, Trash2 } from 'lucide-vue-next'
+import { utilityIcons } from '../../icons'
 import { api, ApiError } from '../../api'
 import { useI18n } from '../../i18n'
 
@@ -266,7 +266,7 @@ async function toggleActive(row: RecordRow) {
                 class="border border-border bg-surface p-1 hover:bg-info"
                 @click="openEdit(row)"
               >
-                <Pencil :size="14" />
+                <component :is="utilityIcons.edit" :size="14" />
               </button>
               <button
                 type="button"
@@ -275,7 +275,7 @@ async function toggleActive(row: RecordRow) {
                 class="ml-1 border border-danger-border bg-danger p-1 text-danger-text"
                 @click="remove(row)"
               >
-                <Trash2 :size="14" />
+                <component :is="utilityIcons.delete" :size="14" />
               </button>
             </td>
           </tr>

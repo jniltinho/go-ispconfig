@@ -3,7 +3,7 @@
 // filters, zebra striping, hover highlight, right-aligned actions column and
 // server-side pagination driven by props/events.
 import { computed, reactive } from 'vue'
-import { Filter } from 'lucide-vue-next'
+import { utilityIcons } from '../icons'
 import { useI18n } from '../i18n'
 
 export interface Column {
@@ -82,7 +82,7 @@ function goTo(page: number) {
               class="border border-border bg-surface p-1 text-text hover:bg-info"
               @click="applyFilters"
             >
-              <Filter :size="14" />
+              <component :is="utilityIcons.filter" :size="14" />
             </button>
           </th>
         </tr>

@@ -2,7 +2,7 @@
 // Demo page exercising the DataTable and TabbedForm primitives with mock
 // data until the real module list/form endpoints land.
 import { computed, ref } from 'vue'
-import { Pencil, Trash2 } from 'lucide-vue-next'
+import { utilityIcons } from '../icons'
 import DataTable, { type Column, type Row } from '../components/DataTable.vue'
 import TabbedForm, { type FormMetadata } from '../components/TabbedForm.vue'
 import { useI18n } from '../i18n'
@@ -94,10 +94,10 @@ const savedValues = ref<Record<string, unknown> | null>(null)
       >
         <template #actions>
           <button type="button" class="border border-border bg-surface p-1 hover:bg-info">
-            <Pencil :size="14" />
+            <component :is="utilityIcons.edit" :size="14" />
           </button>
           <button type="button" class="ml-1 border border-danger-border bg-danger p-1 text-danger-text">
-            <Trash2 :size="14" />
+            <component :is="utilityIcons.delete" :size="14" />
           </button>
         </template>
       </DataTable>

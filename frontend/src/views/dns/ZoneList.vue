@@ -3,7 +3,7 @@
 // pending/error badges, wizard + manual-create entry points, edit/delete.
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { Pencil, Trash2 } from 'lucide-vue-next'
+import { utilityIcons } from '../../icons'
 import DataTable, { type Column, type Row } from '../../components/DataTable.vue'
 import { useSitesStore, type ListResponse } from '../../stores/sites'
 import { api, ApiError } from '../../api'
@@ -131,7 +131,7 @@ async function remove(row: Row) {
           class="border border-border bg-surface p-1 hover:bg-info"
           @click="open(row)"
         >
-          <Pencil :size="14" />
+          <component :is="utilityIcons.edit" :size="14" />
         </button>
         <button
           type="button"
@@ -140,7 +140,7 @@ async function remove(row: Row) {
           class="ml-1 border border-danger-border bg-danger p-1 text-danger-text"
           @click="remove(row)"
         >
-          <Trash2 :size="14" />
+          <component :is="utilityIcons.delete" :size="14" />
         </button>
       </template>
     </DataTable>
