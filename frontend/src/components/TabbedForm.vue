@@ -2,7 +2,7 @@
 // ISPConfig-style tabbed form: flat tabs on top of a white card, fields
 // rendered from JSON form metadata, labels on the left with an automatic ':',
 // green Save / Cancel buttons and per-field errors in alert-danger style.
-import { reactive, ref } from 'vue'
+import { reactive, ref, watch } from 'vue'
 import { useI18n } from '../i18n'
 
 export interface FormField {
@@ -49,6 +49,26 @@ for (const tab of props.metadata.tabs) {
 }
 
 const errorList = () => Object.entries(props.errors ?? {}).filter(([, msgs]) => msgs.length > 0)
+
+// When server validation errors arrive, stay on (or jump to) the first tab
+// holding an offending field so the inline message is visible.
+watch(
+  () => props.errors,
+  (errors) => {
+    const bad = new Set(
+      Object.entries(errors ?? {})
+        .filter(([, msgs]) => msgs.length > 0)
+        .map(([field]) => field),
+    )
+    if (bad.size === 0) return
+    const hasBadField = (name: string) =>
+      props.metadata.tabs.find((tab) => tab.name === name)?.fields.some((f) => bad.has(f.name))
+    if (hasBadField(activeTab.value)) return
+    const offending = props.metadata.tabs.find((tab) => tab.fields.some((f) => bad.has(f.name)))
+    if (offending) activeTab.value = offending.name
+  },
+  { immediate: true },
+)
 </script>
 
 <template>

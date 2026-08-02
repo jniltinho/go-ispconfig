@@ -27,16 +27,26 @@ export interface SessionInfo {
 }
 
 /**
- * ApiError carries the HTTP status so callers can branch on it, and `key`,
- * an i18n key for a user-facing message.
+ * ApiError carries the HTTP status so callers can branch on it, `key`, an
+ * i18n key for a user-facing message, and for 422 validation failures
+ * `fields`, the per-field i18n error keys reported by the API.
  */
 export class ApiError extends Error {
   status: number
   key: string
-  constructor(status: number, message: string) {
+  fields?: Record<string, string[]>
+  constructor(status: number, message: string, body?: string) {
     super(message)
     this.status = status
     this.key = status === 403 ? 'error.forbidden' : 'error.request_failed'
+    // The API error body is {error: {key, fields?}} (i18n keys).
+    try {
+      const parsed = JSON.parse(body ?? '') as { error?: { key?: string; fields?: Record<string, string[]> } }
+      if (parsed?.error?.key) this.key = parsed.error.key
+      if (parsed?.error?.fields) this.fields = parsed.error.fields
+    } catch {
+      // Non-JSON body: keep the status-derived key.
+    }
   }
 }
 
@@ -64,7 +74,7 @@ async function request<T>(
       if (session?.csrf_token) setCsrfToken(session.csrf_token)
       return request<T>(method, path, body, false)
     }
-    throw new ApiError(res.status, `${method} ${path}: ${res.status}`)
+    throw new ApiError(res.status, `${method} ${path}: ${res.status}`, text)
   }
   return (text ? JSON.parse(text) : null) as T
 }

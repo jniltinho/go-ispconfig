@@ -7,6 +7,7 @@ import LoginView from './views/LoginView.vue'
 import DashboardView from './views/DashboardView.vue'
 import ModulePlaceholder from './views/ModulePlaceholder.vue'
 import WebDomainList from './views/sites/WebDomainList.vue'
+import EntityForm from './views/sites/EntityForm.vue'
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -19,6 +20,23 @@ export const router = createRouter({
       children: [
         { path: 'dashboard', name: 'dashboard', component: DashboardView },
         { path: 'sites', name: 'sites', component: WebDomainList },
+        {
+          path: 'sites/domains/new',
+          name: 'sites-domain-new',
+          component: EntityForm,
+          props: { entity: 'web-domains', apiBase: '/api/sites/web-domains', backTo: '/sites' },
+        },
+        {
+          path: 'sites/domains/:id',
+          name: 'sites-domain-edit',
+          component: EntityForm,
+          props: (route) => ({
+            entity: 'web-domains',
+            apiBase: '/api/sites/web-domains',
+            backTo: '/sites',
+            id: String(route.params.id),
+          }),
+        },
         { path: 'sites/folders', name: 'sites-folders', component: ModulePlaceholder },
         { path: 'dns', name: 'dns', component: ModulePlaceholder },
         { path: 'system', name: 'system', component: ModulePlaceholder },
