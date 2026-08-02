@@ -78,6 +78,12 @@ versionados). Regra absoluta: **somente leitura** — inventário, API remota,
 agent-browser e SELECTs/dumps para análise local; nada de escrita. Se a VPN cair:
 `nmcli connection up VPN_Criare`.
 
+**Testes de escrita** (criação de entidades, imports, migrate-from apply, CRUD
+de módulos) usam SEMPRE o lab local em `vagrant/lab/README.md` — duas VMs
+ISPConfig3 completas (nginx `.20`, apache2 `.21`, mail + Roundcube, remote API
+com usuário full-grant `goisp-lab`), dataset de fixtures idempotente
+(`make vagrant-lab-fixtures`) — NUNCA o servidor real.
+
 ## Testar e validar
 
 | O quê | Como |
