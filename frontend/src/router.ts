@@ -20,6 +20,8 @@ import ClientList from './views/clients/ClientList.vue'
 import ResellerList from './views/clients/ResellerList.vue'
 import ClientForm from './views/clients/ClientForm.vue'
 import LimitTemplateList from './views/clients/LimitTemplateList.vue'
+import MessageTemplateList from './views/clients/MessageTemplateList.vue'
+import SendMessageView from './views/clients/SendMessageView.vue'
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -43,6 +45,29 @@ export const router = createRouter({
           props: (route) => ({ id: String(route.params.id), reseller: true }),
         },
         { path: 'clients/limit-templates', name: 'limit-templates', component: LimitTemplateList },
+        { path: 'clients/message-templates', name: 'message-templates', component: MessageTemplateList },
+        {
+          path: 'clients/message-templates/new',
+          name: 'message-template-new',
+          component: EntityForm,
+          props: {
+            entity: 'client-message-templates',
+            apiBase: '/api/client-message-templates',
+            backTo: '/clients/message-templates',
+          },
+        },
+        {
+          path: 'clients/message-templates/:id',
+          name: 'message-template-edit',
+          component: EntityForm,
+          props: (route) => ({
+            entity: 'client-message-templates',
+            apiBase: '/api/client-message-templates',
+            backTo: '/clients/message-templates',
+            id: String(route.params.id),
+          }),
+        },
+        { path: 'clients/send-message', name: 'send-message', component: SendMessageView },
         {
           path: 'clients/limit-templates/new',
           name: 'limit-template-new',
