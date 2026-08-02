@@ -47,5 +47,5 @@
 
 ## 7. Integration and docs
 
-- [ ] 7.1 End-to-end integration test against MariaDB: API create user + database → datalog → daemon run → physical `CREATE DATABASE` + GRANTs observable via information_schema / mysql.user; update remote_ips and delete paths covered. Commit.
+- [x] 7.1 End-to-end integration test against MariaDB: API create user + database → datalog → daemon run → physical `CREATE DATABASE` + GRANTs observable via information_schema / mysql.user; update remote_ips and delete paths covered. Commit.
 - [ ] 7.2 Module docs in `docs/` (client-DB admin user setup and required privileges, config keys, prefix rules, phpMyAdmin URL, migration notes: existing MySQL objects left until first event/resync). Commit.
