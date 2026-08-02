@@ -279,7 +279,7 @@ func TestPagedFilterKeyOrder(t *testing.T) {
 func TestClientGetID(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.RawQuery == "login" {
-			fmt.Fprint(w, `{"code":"ok","message":"","response":"sess1"}`)
+			_, _ = fmt.Fprint(w, `{"code":"ok","message":"","response":"sess1"}`)
 			return
 		}
 		var body struct {
@@ -288,11 +288,11 @@ func TestClientGetID(t *testing.T) {
 		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
 		switch body.SysUserID {
 		case 3:
-			fmt.Fprint(w, `{"code":"ok","message":"","response":2}`)
+			_, _ = fmt.Fprint(w, `{"code":"ok","message":"","response":2}`)
 		case 99:
-			fmt.Fprint(w, `{"code":"remote_fault","message":"There is no sys_user account with this userid.","response":false}`)
+			_, _ = fmt.Fprint(w, `{"code":"remote_fault","message":"There is no sys_user account with this userid.","response":false}`)
 		default:
-			fmt.Fprint(w, `{"code":"remote_fault","message":"You do not have the permissions to access this function.","response":false}`)
+			_, _ = fmt.Fprint(w, `{"code":"remote_fault","message":"You do not have the permissions to access this function.","response":false}`)
 		}
 	}))
 	defer srv.Close()
