@@ -1,0 +1,18 @@
+# Allowlist of intended legacy-vs-go-ispconfig differences. A divergence
+# whose parity-test label contains one of these lines (exact substring) is
+# reported but does not fail the suite. Keep each entry justified.
+#
+# UI/UX (informational, not asserted by the script):
+# - go-ispconfig is a Vue SPA with its own navigation; the legacy panel is
+#   the classic ISPConfig3 themed interface. Screen layout, menus and
+#   wording are intentionally different; only outcomes are compared.
+# - The go-ispconfig panel is served by the binary itself over its own
+#   self-signed TLS (port 8080), not via an nginx/apache vhost.
+#
+# Data-level entries (substring of the parity-test label):
+#
+# go-ispconfig has no client module yet (openspec add-client-module is a
+# future change): records are created as admin, the legacy clients are
+# baseline/migration-source data only. Remove this entry when the client
+# module ships.
+client (contact, username, email)
