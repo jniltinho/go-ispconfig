@@ -22,6 +22,14 @@ const activeModule = computed(
   () => modules.find((m) => route.path.startsWith(m.path)) ?? modules[0],
 )
 
+// Module visibility follows the session's sys_user.modules CSV (spec
+// client-ui): admins see everything, dashboard is always shown.
+const visibleModules = computed(() =>
+  modules.filter(
+    (m) => m.id === 'dashboard' || auth.typ === 'admin' || auth.modules.includes(m.id),
+  ),
+)
+
 // Admin-only sidebar sections (e.g. DNS templates) are hidden from clients.
 const visibleSections = computed(() =>
   activeModule.value.sections.filter((s) => !s.adminOnly || auth.typ === 'admin'),
@@ -75,7 +83,7 @@ async function logout() {
         <!-- Module tabs: 32px icon over bold title (original top-nav) -->
         <nav class="flex min-w-0 flex-1 justify-center overflow-x-auto">
           <RouterLink
-            v-for="mod in modules"
+            v-for="mod in visibleModules"
             :key="mod.id"
             :to="mod.path"
             class="flex w-24 flex-col items-center gap-1 border-b-2 border-transparent py-2 text-text no-underline transition-colors duration-150 hover:bg-bg hover:text-brand"

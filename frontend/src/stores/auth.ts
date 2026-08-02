@@ -15,6 +15,7 @@ export const useAuthStore = defineStore('auth', {
   state: () => ({
     username: sessionStorage.getItem('auth.username') ?? '',
     typ: '' as string,
+    modules: [] as string[],
     error: '' as string,
   }),
   getters: {
@@ -31,6 +32,7 @@ export const useAuthStore = defineStore('auth', {
         const session = await api.get<SessionInfo>('/api/session')
         this.username = session.username
         this.typ = session.typ
+        this.modules = session.modules ?? []
         setCsrfToken(session.csrf_token)
         sessionStorage.setItem('auth.username', this.username)
       } catch {
@@ -53,6 +55,14 @@ export const useAuthStore = defineStore('auth', {
         return false
       }
       sessionStorage.setItem('auth.username', this.username)
+      // Module visibility comes from GET /api/session (the login response
+      // carries no modules); fetch it for the top nav, non-fatally.
+      try {
+        const session = await api.get<SessionInfo>('/api/session')
+        this.modules = session.modules ?? []
+      } catch {
+        this.modules = []
+      }
       return true
     },
     async logout(): Promise<void> {
@@ -68,6 +78,7 @@ export const useAuthStore = defineStore('auth', {
       setCsrfToken('')
       this.username = ''
       this.typ = ''
+      this.modules = []
       sessionStorage.removeItem('auth.username')
     },
   },

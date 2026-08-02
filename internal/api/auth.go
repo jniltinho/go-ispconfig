@@ -48,6 +48,10 @@ type SessionInfo struct {
 	Typ string `json:"typ" example:"admin"`
 	// Groups is the effective sys_group id list of the user.
 	Groups []uint32 `json:"groups"`
+	// Modules is the list of panel modules the user may see (sys_user
+	// .modules); the SPA hides top-nav entries not listed here (admins
+	// see everything regardless).
+	Modules []string `json:"modules"`
 	// Language is the panel language of the user.
 	Language string `json:"language" example:"en"`
 	// CSRFToken is the per-session token for the X-CSRF-Token header, so a
@@ -125,6 +129,7 @@ func loginHandler(d *Deps) echo.HandlerFunc {
 			Groups:       ident.Groups,
 			DefaultGroup: ident.DefaultGroup,
 			Language:     user.Language,
+			Modules:      user.Modules,
 			Permanent:    req.StayLoggedIn,
 		}
 
@@ -181,6 +186,18 @@ func logoutHandler(d *Deps) echo.HandlerFunc {
 //	@Router			/session [get]
 //	@Security		CookieAuth
 //	@Security		BearerAuth
+//
+// splitModules splits the sys_user.modules CSV into a list ([] when empty).
+func splitModules(csv string) []string {
+	out := []string{}
+	for _, m := range strings.Split(csv, ",") {
+		if m = strings.TrimSpace(m); m != "" {
+			out = append(out, m)
+		}
+	}
+	return out
+}
+
 func sessionHandler() echo.HandlerFunc {
 	return func(c *echo.Context) error {
 		sess := auth.FromContext(c)
@@ -188,6 +205,7 @@ func sessionHandler() echo.HandlerFunc {
 			Username:  sess.Username,
 			Typ:       sess.Typ,
 			Groups:    sess.Groups,
+			Modules:   splitModules(sess.Modules),
 			Language:  sess.Language,
 			CSRFToken: sess.CSRFToken,
 		})

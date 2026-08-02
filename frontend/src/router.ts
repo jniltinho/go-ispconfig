@@ -16,6 +16,8 @@ import ZoneWizard from './views/dns/ZoneWizard.vue'
 import SlaveZoneList from './views/dns/SlaveZoneList.vue'
 import TemplateList from './views/dns/TemplateList.vue'
 import MigrationWizard from './views/system/MigrationWizard.vue'
+import ClientList from './views/clients/ClientList.vue'
+import ResellerList from './views/clients/ResellerList.vue'
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -28,6 +30,8 @@ export const router = createRouter({
       children: [
         { path: 'dashboard', name: 'dashboard', component: DashboardView },
         { path: 'sites', name: 'sites', component: WebDomainList },
+        { path: 'clients', name: 'clients', component: ClientList },
+        { path: 'clients/resellers', name: 'resellers', component: ResellerList },
         {
           path: 'sites/domains/new',
           name: 'sites-domain-new',

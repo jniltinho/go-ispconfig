@@ -23,6 +23,7 @@ export interface SessionInfo {
   username: string
   typ: string
   groups: string[]
+  modules: string[]
   csrf_token: string
 }
 

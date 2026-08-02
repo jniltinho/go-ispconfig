@@ -5238,6 +5238,13 @@ const docTemplate = `{
                     "type": "string",
                     "example": "en"
                 },
+                "modules": {
+                    "description": "Modules is the list of panel modules the user may see (sys_user\n.modules); the SPA hides top-nav entries not listed here (admins\nsee everything regardless).",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "typ": {
                     "description": "Typ is the access level (\"admin\" or \"user\").",
                     "type": "string",
