@@ -76,6 +76,9 @@ func testState(t *testing.T) (*State, *mockExec, *bytes.Buffer) {
 	st.CredentialsFile = dir + "/root/.go-ispconfig-credentials"
 	st.LegacyMarker = dir + "/usr/local/ispconfig/server/lib/config.inc.php"
 	st.AcmeWebroot = dir + "/usr/local/ispconfig/interface/acme"
+	st.AcmeShHome = dir + "/root/.acme.sh"
+	mock.missing["acme.sh"] = true
+	mock.missing["certbot"] = true
 
 	// Point the profile's absolute paths into the temp dir.
 	p := st.Profile

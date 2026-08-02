@@ -70,6 +70,8 @@ type State struct {
 	// SelfExe is the running executable, copied to BinPath by the systemd
 	// step ("" disables the copy).
 	SelfExe string
+	// AcmeShHome is acme.sh's default install dir (client detection).
+	AcmeShHome string
 
 	// Set by the mariadb step, consumed by later steps.
 	DB         *gorm.DB
@@ -102,6 +104,7 @@ func NewState(profile *Profile, answers *Answers) *State {
 		HostIPs:         detectHostIPs,
 		AcmeWebroot:     nginx.AcmeWebroot,
 		SelfExe:         selfExe(),
+		AcmeShHome:      "/root/.acme.sh",
 	}
 }
 
