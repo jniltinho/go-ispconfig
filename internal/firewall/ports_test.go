@@ -13,10 +13,10 @@ import (
 // list — same semantics as the PHP implode/loop.
 func TestCleanPorts(t *testing.T) {
 	tests := []struct {
-		name    string
-		input   string
-		spacer  string
-		want    string
+		name   string
+		input  string
+		spacer string
+		want   string
 	}{
 		{"empty input", "", ",", ""},
 		{"single port", "22", ",", "22"},
