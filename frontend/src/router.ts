@@ -19,6 +19,7 @@ import MigrationWizard from './views/system/MigrationWizard.vue'
 import ClientList from './views/clients/ClientList.vue'
 import ResellerList from './views/clients/ResellerList.vue'
 import ClientForm from './views/clients/ClientForm.vue'
+import LimitTemplateList from './views/clients/LimitTemplateList.vue'
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -34,6 +35,31 @@ export const router = createRouter({
         { path: 'clients', name: 'clients', component: ClientList },
         { path: 'clients/resellers', name: 'resellers', component: ResellerList },
         { path: 'clients/new', name: 'client-new', component: ClientForm },
+        { path: 'clients/resellers/new', name: 'reseller-new', component: ClientForm, props: { reseller: true } },
+        {
+          path: 'clients/resellers/:id(\\d+)',
+          name: 'reseller-edit',
+          component: ClientForm,
+          props: (route) => ({ id: String(route.params.id), reseller: true }),
+        },
+        { path: 'clients/limit-templates', name: 'limit-templates', component: LimitTemplateList },
+        {
+          path: 'clients/limit-templates/new',
+          name: 'limit-template-new',
+          component: EntityForm,
+          props: { entity: 'client-templates', apiBase: '/api/client-templates', backTo: '/clients/limit-templates' },
+        },
+        {
+          path: 'clients/limit-templates/:id',
+          name: 'limit-template-edit',
+          component: EntityForm,
+          props: (route) => ({
+            entity: 'client-templates',
+            apiBase: '/api/client-templates',
+            backTo: '/clients/limit-templates',
+            id: String(route.params.id),
+          }),
+        },
         {
           path: 'clients/:id(\\d+)',
           name: 'client-edit',

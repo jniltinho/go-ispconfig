@@ -509,5 +509,7 @@
   "client.remove_template": "Remove",
   "client.no_additional_templates": "No additional templates assigned.",
   "client.pick_template": "-- select template --",
-  "client.assign_template": "Assign"
+  "client.assign_template": "Assign",
+  "client.limit_templates_title": "Limit Templates",
+  "client.add_limit_template": "Add new limit template"
 }
