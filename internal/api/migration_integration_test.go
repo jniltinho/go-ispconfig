@@ -66,7 +66,7 @@ func setupMigrationEnv(t *testing.T) *migrationEnv {
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := srv.Client().Do(req)
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	var login api.LoginResponse
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&login))

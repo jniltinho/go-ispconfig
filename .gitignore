@@ -4,10 +4,11 @@ base/
 # Local-only validation prints (curated screenshots go in docs/screenshots/)
 docs/prints/
 
-# Vagrant images/state and test data — never committed
+# Vagrant images/state and root-level test dumps — never committed.
+# Package fixtures live under internal/*/testdata/ or internal/*/golden/ and MUST be tracked.
 .vagrant/
 *.box
-testdata/
+/testdata/
 *.sql.gz
 *.dump
 
