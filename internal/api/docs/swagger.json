@@ -2886,6 +2886,425 @@
                 }
             }
         },
+        "/mail/domains": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Paginated, permission-scoped list. dkim_private is never returned. Any declared field may filter (e.g. ?domain=example).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "mail-domains"
+                ],
+                "summary": "List mail domains",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "1-based page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 25,
+                        "description": "Page size (max 100)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Substring filter on domain",
+                        "name": "domain",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.ListResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Domain is lowercased and IDN-encoded; a mail domain may not collide with a transport domain on the same server. When dkim=y without a key, an RSA pair is generated; a supplied dkim_private is validated. When active+dkim and a managed DNS zone exists, the DKIM TXT is published and the response's dns_published reflects it; otherwise the suggested record is available for manual publication.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "mail-domains"
+                ],
+                "summary": "Create a mail domain",
+                "parameters": [
+                    {
+                        "description": "Mail domain fields",
+                        "name": "record",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.MailDomain"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/model.MailDomain"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied or limit reached",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Validation failed (domain empty/malformed, transport collision, bad DKIM key/selector)",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/mail/domains/by-domain/{domain}": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Permission-scoped lookup (remote mail_domain_get_by_domain); 404 when no accessible domain matches. dkim_private redacted.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "mail-domains"
+                ],
+                "summary": "Get a mail domain by name",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Domain name",
+                        "name": "domain",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.MailDomain"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/mail/domains/generate-dkim": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns a fresh 2048-bit RSA private/public PEM pair for the domain form (remote get_dkim create). The key is not stored until the domain is saved.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "mail-domains"
+                ],
+                "summary": "Generate a DKIM key pair",
+                "responses": {
+                    "200": {
+                        "description": "{dkim_private, dkim_public}",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/mail/domains/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "dkim_private is redacted.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "mail-domains"
+                ],
+                "summary": "Get a mail domain",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "domain_id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.MailDomain"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Re-reconciles the DKIM TXT record (rename/selector change withdraws the old one; disable/deactivate withdraws).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "mail-domains"
+                ],
+                "summary": "Update a mail domain",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "domain_id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Changed fields",
+                        "name": "record",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.MailDomain"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.MailDomain"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Journals the delete (the daemon removes the maildomain tree) and withdraws the DKIM TXT.",
+                "tags": [
+                    "mail-domains"
+                ],
+                "summary": "Delete a mail domain",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "domain_id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/mail/domains/{id}/set-status": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "remote mail_domain_set_status: flips active (y/n), journals the update and reconciles the DKIM TXT.",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "mail-domains"
+                ],
+                "summary": "Set a mail domain active/inactive",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "domain_id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "{active: y|n}",
+                        "name": "record",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/meta/forms/{entity}": {
             "get": {
                 "security": [
@@ -6507,6 +6926,62 @@
                 },
                 "visible": {
                     "type": "string"
+                }
+            }
+        },
+        "model.MailDomain": {
+            "type": "object",
+            "properties": {
+                "active": {
+                    "type": "string"
+                },
+                "dkim": {
+                    "type": "string"
+                },
+                "dkimprivate": {
+                    "type": "string"
+                },
+                "dkimpublic": {
+                    "type": "string"
+                },
+                "dkimselector": {
+                    "type": "string"
+                },
+                "domain": {
+                    "type": "string"
+                },
+                "domainID": {
+                    "type": "integer"
+                },
+                "localDelivery": {
+                    "type": "string"
+                },
+                "relayHost": {
+                    "type": "string"
+                },
+                "relayPass": {
+                    "type": "string"
+                },
+                "relayUser": {
+                    "type": "string"
+                },
+                "serverID": {
+                    "type": "integer"
+                },
+                "sysGroupID": {
+                    "type": "integer"
+                },
+                "sysPermGroup": {
+                    "type": "string"
+                },
+                "sysPermOther": {
+                    "type": "string"
+                },
+                "sysPermUser": {
+                    "type": "string"
+                },
+                "sysUserID": {
+                    "type": "integer"
                 }
             }
         },

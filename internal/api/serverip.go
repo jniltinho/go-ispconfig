@@ -87,6 +87,9 @@ func registerEntities(g *echo.Group, d *Deps) error {
 	if err := registerClientEntities(g, d); err != nil {
 		return err
 	}
+	if err := registerMailEntities(g, d); err != nil {
+		return err
+	}
 	return registerDNSEntities(g.Group("/dns"), d)
 }
 

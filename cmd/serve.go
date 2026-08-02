@@ -94,6 +94,8 @@ var serveCmd = &cobra.Command{
 			// welcome emails are skipped.
 			Mailer: clients.NewSMTPMailer(cfg.Mail.SMTPHost, cfg.Mail.SMTPPort,
 				cfg.Mail.SMTPUser, cfg.Mail.SMTPPass, cfg.Mail.From),
+			// DKIM TXT records publish into locally managed DNS zones.
+			DNSPub: api.NewDNSPublisher(db),
 		}
 		// Client limit_* enforcement behind the foundation create hook
 		// (add-client-module D5); registered before the routes mount.

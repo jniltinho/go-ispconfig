@@ -45,6 +45,9 @@ type Deps struct {
 	// Mailer is the optional SMTP transport for client messaging; nil
 	// means sending is not configured.
 	Mailer clients.Mailer
+	// DNSPub publishes DKIM TXT records into managed zones; nil means
+	// the no-op publisher (DNS module disabled).
+	DNSPub DNSPublisher
 
 	// trustedProxies is Config.Server.TrustedProxies parsed by Register.
 	trustedProxies []netip.Prefix

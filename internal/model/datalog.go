@@ -31,3 +31,27 @@ func (ServerPHP) DBHistory() bool { return true }
 
 // DBHistory reports that client mutations are datalogged.
 func (Client) DBHistory() bool { return true }
+
+// DBHistory reports that mail_domain mutations are datalogged.
+func (MailDomain) DBHistory() bool { return true }
+
+// DBHistory reports that mail_user mutations are datalogged.
+func (MailUser) DBHistory() bool { return true }
+
+// DBHistory reports that mail_forwarding mutations are datalogged.
+func (MailForwarding) DBHistory() bool { return true }
+
+// DBHistory reports that mail_transport mutations are datalogged.
+func (MailTransport) DBHistory() bool { return true }
+
+// DBHistory reports that mail_access mutations are datalogged.
+func (MailAccess) DBHistory() bool { return true }
+
+// DBHistory reports that spamfilter_users mutations are datalogged.
+func (SpamfilterUser) DBHistory() bool { return true }
+
+// DBHistory reports that spamfilter_wblist mutations are datalogged.
+func (SpamfilterWblist) DBHistory() bool { return true }
+
+// DBHistory reports that spamfilter_policy mutations are datalogged.
+func (SpamfilterPolicy) DBHistory() bool { return true }
