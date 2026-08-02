@@ -96,6 +96,100 @@ com usuário full-grant `goisp-lab`), dataset de fixtures idempotente
 | Instalação | `make vagrant-up && make vagrant-test` (VM Ubuntu 24.04, roda `go-ispconfig install --yes` + smoke tests) |
 | API manual | Swagger UI em `/swagger/` |
 
+## Status ao usuário (Telegram + e-mail) — obrigatório a cada marco
+
+A cada marco do loop de implementação (task concluída, lote fechado, change finalizada, contingência
+de quota, transbordo para agent externo, falha), **além** do e-mail de status
+(`scripts/send-status-email.py`), o agente DEVE notificar o usuário via **Hermes MCP bridge**
+para o Telegram. Não substituir o e-mail — adicionar o Telegram.
+
+### Destino
+
+Apenas no **grupo** `telegram:-1001683954128` (Nilton Hermes Agent). **Não enviar na DM**
+(`telegram:75440030`) — o grupo é a fonte única de updates do projeto.
+
+### Cabeçalho (em negrito)
+
+A primeira linha da mensagem deve identificar quem está enviando, em negrito (Markdown Telegram):
+
+```
+*github:* jniltinho/go-ispconfig   *cli:* claude
+*projeto:* go-ispconfig   *pasta:* /home/nilton/Projetos/nilton/go-ispconfig
+```
+
+- `*github:*` — owner/repo REAL do remote (`git remote -v`), hoje
+  `jniltinho/go-ispconfig`. Se estiver em outro repo, ajustar.
+- `*cli:*` — o CLI em uso, minúsculo: `claude`, `grok`, `codex`, `agent`
+  ou `opencode` (para opencode, pode anotar o modelo: `opencode (kimi-k3)`,
+  `opencode (minimax-m3)`).
+- `*projeto:*` — nome do projeto (diretório raiz do repo).
+- `*pasta:*` — caminho absoluto onde o projeto está executando.
+
+### MCP server
+
+O Claude Code já tem o servidor `hermes` configurado localmente (`claude mcp list` → `hermes ✔ Connected`,
+comando `hermes mcp serve`). Tools disponíveis (sem precisar de aprovação):
+
+- `channels_list` — descobre os targets Telegram (use para confirmar antes do primeiro envio)
+- `messages_send(target="telegram:<chat_id>", message="...")` — manda a mensagem
+- `events_poll` / `events_wait` — se quiser ouvir respostas (não obrigatório)
+
+**Importante:** chamar `messages_send` **apenas uma vez por marco**, com `target="telegram:-1001683954128"`.
+
+### Formato da mensagem
+
+Markdown Telegram. Curto: 1–6 linhas após o cabeçalho. Esquema sugerido:
+
+```
+*github:* jniltinho/go-ispconfig   *cli:* <cli em uso>
+*projeto:* go-ispconfig   *pasta:* <caminho absoluto do repo>
+🔔 <emoji_marco> <change-id> • <task/lote>
+<resumo em uma linha>
+• resultado: <OK / parcial / falhou — com motivo curto>
+• próxima: <próxima ação concreta>
+```
+
+Emojis por marco: 🟢 concluído / 🟡 parcial / 🔴 falhou / 🚀 change despachada / 📦 commit / 👀 aguardando revisão.
+
+### Exemplos
+
+Marco de task única (Claude Code):
+
+```
+*github:* jniltinho/go-ispconfig   *cli:* claude
+*projeto:* go-ispconfig   *pasta:* /home/nilton/Projetos/nilton/go-ispconfig
+🟢 add-client-module • task 17/23 — reseller sync
+sync entre `client` e `sys_user` validado em paridade; `c7ff541` commitado.
+• próxima: task 18/23 (sys_datalog audit fields).
+```
+
+Lote fechado (opencode):
+
+```
+*github:* jniltinho/go-ispconfig   *cli:* opencode (kimi-k3)
+*projeto:* go-ispconfig   *pasta:* /home/nilton/Projetos/nilton/go-ispconfig
+📦 add-mail-module • batch 1 (3 tasks)
+DKIM keypair + Rspamd maps + Postfix transport stub. revisão cruzada ok.
+• próxima: batch 2 (vmail mailbox quota + sieve defaults).
+```
+
+Contingência de quota (Claude Code despachando para MiniMax-M3):
+
+```
+*github:* jniltinho/go-ispconfig   *cli:* claude
+*projeto:* go-ispconfig   *pasta:* /home/nilton/Projetos/nilton/go-ispconfig
+🔴 add-mail-module • contingência de quota
+API Claude estourou (reset previsto ~13:20). Despachando tasks 14–17
+para MiniMax-M3 via opencode; e-mail de status enviado.
+```
+
+### Regra operacional
+
+- Não acumular updates — mandar **logo após** o commit / lote / falha.
+- Se a chamada `messages_send` falhar (tool error), ainda enviar o e-mail (e vice-versa).
+- Citar o SHA curto do commit quando houver.
+- **Nunca** mandar na DM `75440030` — só no grupo.
+
 ## Atualizar documentação (mudanças grandes)
 
 | O quê mudou | Onde documentar |
