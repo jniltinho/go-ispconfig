@@ -135,6 +135,95 @@ describe('EntityForm', () => {
     expect(init.method).toBe('PUT')
   })
 
+  it('SSL tab: Let\'s Encrypt toggle and ssl_action reach the API', async () => {
+    const sslMeta = {
+      name: 'web-domains',
+      title: 'web_vhost_domain_edit_title',
+      tabs: [
+        {
+          name: 'ssl',
+          label: 'ssl_tab_txt',
+          fields: [
+            {
+              name: 'ssl',
+              label: 'ssl_txt',
+              type: 'checkbox',
+              datatype: 'VARCHAR',
+              formtype: 'CHECKBOX',
+              default: 'n',
+              options: [
+                { value: 'n', label: 'no_txt' },
+                { value: 'y', label: 'yes_txt' },
+              ],
+            },
+            {
+              name: 'ssl_letsencrypt',
+              label: 'ssl_letsencrypt_txt',
+              type: 'checkbox',
+              datatype: 'VARCHAR',
+              formtype: 'CHECKBOX',
+              default: 'n',
+              options: [
+                { value: 'n', label: 'no_txt' },
+                { value: 'y', label: 'yes_txt' },
+              ],
+            },
+            {
+              name: 'ssl_cert',
+              label: 'ssl_cert_txt',
+              type: 'textarea',
+              datatype: 'TEXT',
+              formtype: 'TEXTAREA',
+            },
+            {
+              name: 'ssl_action',
+              label: 'ssl_action_txt',
+              type: 'select',
+              datatype: 'VARCHAR',
+              formtype: 'SELECT',
+              default: '',
+              options: [
+                { value: '', label: 'none_txt' },
+                { value: 'save', label: 'save_certificate_txt' },
+                { value: 'create', label: 'create_certificate_txt' },
+                { value: 'del', label: 'delete_certificate_txt' },
+              ],
+            },
+          ],
+        },
+      ],
+    }
+    fetchMock
+      .mockResolvedValueOnce(res(200, sslMeta))
+      .mockResolvedValueOnce(res(200, { domain_id: 5, ssl: 'n', ssl_letsencrypt: 'n', ssl_cert: 'CERT' }))
+      .mockResolvedValueOnce(res(200, { domain_id: 5 }))
+    const wrapper = mount(EntityForm, { props: { ...domainProps, id: '5' } })
+    await flushPromises()
+
+    // Stored certificate is displayed; action select offers the ISPConfig
+    // actions (none/save/create/del).
+    expect((wrapper.find('#field-ssl_cert').element as HTMLTextAreaElement).value).toBe('CERT')
+    expect(wrapper.findAll('#field-ssl_action option').map((o) => o.attributes('value'))).toEqual([
+      '',
+      'save',
+      'create',
+      'del',
+    ])
+
+    await wrapper.find('#field-ssl').setValue(true)
+    await wrapper.find('#field-ssl_letsencrypt').setValue(true)
+    await wrapper.find('#field-ssl_action').setValue('create')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    const [, init] = fetchMock.mock.calls[2]
+    expect(JSON.parse(init.body)).toMatchObject({
+      ssl: 'y',
+      ssl_letsencrypt: 'y',
+      ssl_action: 'create',
+    })
+  })
+
   it('maps 422 field errors inline and switches to the offending tab', async () => {
     fetchMock
       .mockResolvedValueOnce(res(200, meta))
