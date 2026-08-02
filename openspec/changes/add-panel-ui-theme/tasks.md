@@ -34,6 +34,6 @@
 
 ## 6. E2E and verification
 
-- [ ] 6.1 Write agent-browser E2E for the themed flows: login, module navigation, list view (filter row + pagination), tabbed form save/cancel; commit
+- [x] 6.1 Write agent-browser E2E for the themed flows: login, module navigation, list view (filter row + pagination), tabbed form save/cancel; commit
 - [ ] 6.2 Add E2E assertions for theme traits: sampled elements report `border-radius: 0`, thead computed background is `#3E474E`, dark-mode toggle switches the scheme and persists across reload; commit
 - [ ] 6.3 Add the E2E network check asserting every request during the suite targets the panel origin (no external hosts); run the full suite against a fresh built binary and commit

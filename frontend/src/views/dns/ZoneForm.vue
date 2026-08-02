@@ -73,7 +73,7 @@ onMounted(loadZone)
         type="button"
         :data-test="`zone-tab-${tab.name}`"
         class="border-r border-border px-5 py-2.5 text-sm font-bold"
-        :class="activeTab === tab.name ? 'bg-surface text-text' : 'text-text/70 hover:bg-info'"
+        :class="activeTab === tab.name ? 'bg-surface text-text' : 'text-text-muted hover:bg-info'"
         @click="activeTab = tab.name"
       >
         {{ t(tab.label) }}
