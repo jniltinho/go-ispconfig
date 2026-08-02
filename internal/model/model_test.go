@@ -68,6 +68,7 @@ var allModels = []any{
 	SysIni{}, SysLog{}, SysSession{}, Server{}, ServerIP{}, ServerPHP{},
 	Client{}, WebDomain{}, WebFolder{}, WebFolderUser{},
 	DNSSoa{}, DNSRr{}, DNSSlave{}, DNSTemplate{},
+	ClientTemplate{}, ClientTemplateAssigned{}, ClientMessageTemplate{}, Country{},
 }
 
 // TestModelsMatchDDL asserts that every GORM model maps exactly the columns
