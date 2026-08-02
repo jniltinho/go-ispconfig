@@ -19,6 +19,10 @@ func (p *Plugin) OnLoad(r *engine.Registry) error {
 	}{
 		{"dns_soa_insert", p.soaInsert},
 		{"dns_soa_update", p.soaUpdate},
+		{"dns_soa_delete", p.soaDelete},
+		{"dns_slave_insert", p.slaveInsert},
+		{"dns_slave_update", p.slaveUpdate},
+		{"dns_slave_delete", p.slaveDelete},
 		{"dns_rr_insert", p.rrInsert},
 		{"dns_rr_update", p.rrUpdate},
 		{"dns_rr_delete", p.rrDelete},

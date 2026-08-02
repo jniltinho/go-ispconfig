@@ -185,7 +185,52 @@ func TestDatalogToBindPipeline(t *testing.T) {
 
 		assert.Equal(t, before, readFile(t, zoneFile), "no zone touched")
 		assert.NoFileExists(t, base+"/pri.")
+		exec.runs = nil
 	})
+
+	t.Run("secondary zone reaches named.conf and creates the slave dir", func(t *testing.T) {
+		slaveRepo, err := repository.New[model.DNSSlave](db)
+		require.NoError(t, err)
+		slave := &model.DNSSlave{
+			SysUserID: 1, SysGroupID: 1,
+			SysPermUser: "riud", SysPermGroup: "riud",
+			ServerID: 1, Origin: "customer.net.",
+			NS: "192.168.10.20", Active: "Y", Xfer: "",
+		}
+		require.NoError(t, slaveRepo.Insert(ctx, admin, slave))
+		require.NoError(t, daemon.RunCycle(ctx))
+
+		named := readFile(t, namedConf)
+		assert.Contains(t, named, `zone "customer.net" {`)
+		assert.Contains(t, named, "type slave;")
+		assert.Contains(t, named, "masters {192.168.10.20;};")
+		assert.Contains(t, named, "allow-transfer {none;};")
+
+		info, err := os.Stat(base + "/slave")
+		require.NoError(t, err)
+		assert.Equal(t, os.FileMode(0o770), info.Mode().Perm())
+		assert.Equal(t, [][2]string{{"bind9", "reload"}}, exec.runs)
+		exec.runs = nil
+
+		// Delete: named.conf entry and transferred file are removed.
+		require.NoError(t, os.WriteFile(base+"/slave/sec.customer.net", []byte("transferred"), 0o644))
+		require.NoError(t, slaveRepo.Delete(ctx, admin, slave.ID))
+		require.NoError(t, daemon.RunCycle(ctx))
+		assert.NotContains(t, readFile(t, namedConf), "customer.net")
+		assert.NoFileExists(t, base+"/slave/sec.customer.net")
+		exec.runs = nil
+	})
+
+	t.Run("zone delete removes file and named.conf entry", func(t *testing.T) {
+		require.NoError(t, soaRepo.Delete(ctx, admin, soa.ID))
+		require.NoError(t, daemon.RunCycle(ctx))
+		assert.NoFileExists(t, zoneFile)
+		assert.NoFileExists(t, zoneFile+".err")
+		assert.NotContains(t, readFile(t, namedConf), "example.com")
+		assert.Equal(t, [][2]string{{"bind9", "reload"}}, exec.runs)
+		exec.runs = nil
+	})
+
 }
 
 func readFile(t *testing.T, path string) string {
