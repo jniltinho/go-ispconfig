@@ -24,7 +24,10 @@ Replace `$S` with the VM suffix (`n` or `a`) throughout.
 | labchild1$S | child of labres1$S      | 1 site, 1 maildomain                   |
 
 The `legacy` VM additionally carries the parity clients `pclient1` /
-`pclient2` (password `ParityPw2026!`) — see `vagrant/parity/dataset.md`.
+`pclient2` (password `ParityPw2026!`, see `vagrant/parity/dataset.md`)
+and `paneltest1` (`PanelTestPw2026!`), created through the legacy panel
+UI to pin down 3.3.x ownership semantics (admin-created clients are
+owned by sys_userid/sys_groupid 1 — the shape the importer must handle).
 
 ## Websites
 
