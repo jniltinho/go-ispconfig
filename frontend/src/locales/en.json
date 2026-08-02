@@ -776,5 +776,6 @@
   "error.limit_database": "The maximum number of databases is reached.",
   "error.limit_database_user": "The maximum number of database users is reached.",
   "error.limit_database_quota": "The database quota limit is reached.",
-  "error.not_allowed_server_id": "The selected server is not allowed for this account."
+  "error.not_allowed_server_id": "The selected server is not allowed for this account.",
+  "database_client_differs_error": "The client of the database and of the database user do not match."
 }

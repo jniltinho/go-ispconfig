@@ -410,6 +410,32 @@ func sitesDatabasePrepare(c *echo.Context, d *Deps, id *repository.Identity, bod
 		body["database_charset"] = old.DatabaseCharset
 	}
 
+	// The referenced database users must belong to the same client group
+	// as the website (PHP database_client_differs guard) — otherwise a
+	// client could point a database at another tenant's login and the
+	// daemon would GRANT across clients. Partial update bodies fall back
+	// to the stored references.
+	for _, col := range []string{"database_user_id", "database_ro_user_id"} {
+		uid := bodyInt(body, col)
+		if uid == 0 && old != nil {
+			ref := old.DatabaseUserID
+			if col == "database_ro_user_id" {
+				ref = old.DatabaseROUserID
+			}
+			if ref != nil {
+				uid = int64(*ref)
+			}
+		}
+		if uid == 0 || parent == nil {
+			continue
+		}
+		var user model.WebDatabaseUser
+		err := d.DB.WithContext(ctx).Select("sys_groupid").Take(&user, uid).Error
+		if err != nil || user.SysGroupID != parent.SysGroupID {
+			fields[col] = append(fields[col], "database_client_differs_error")
+		}
+	}
+
 	// Apply the name prefix and crop (create: expanded template; update:
 	// the prefix the record was created with).
 	prefix := expandedPrefix

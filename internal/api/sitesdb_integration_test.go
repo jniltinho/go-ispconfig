@@ -117,6 +117,25 @@ func TestSitesDatabaseAPI(t *testing.T) {
 		require.Equal(t, http.StatusForbidden, status)
 	})
 
+	t.Run("database user of another client group is rejected", func(t *testing.T) {
+		// Client B owns a website but references client A's database user:
+		// the daemon would GRANT across tenants — must be a 422.
+		bDomainID := env.createDomain(t, env.bCookie, env.bCSRF,
+			map[string]any{"server_id": 1, "domain": "clientb-db.com", "type": "vhost"})
+		status, data := call(t, srv, http.MethodPost, "/api/sites/databases", env.bCookie, env.bCSRF,
+			map[string]any{"server_id": 1, "parent_domain_id": bDomainID,
+				"database_name": "b_db", "database_user_id": userID})
+		require.Equal(t, http.StatusUnprocessableEntity, status, "%s", data)
+		require.Contains(t, errKeyOf(t, data).Fields["database_user_id"], "database_client_differs_error")
+
+		// Same guard for the read-only user reference.
+		status, data = call(t, srv, http.MethodPost, "/api/sites/databases", env.bCookie, env.bCSRF,
+			map[string]any{"server_id": 1, "parent_domain_id": bDomainID,
+				"database_name": "b_db", "database_ro_user_id": userID})
+		require.Equal(t, http.StatusUnprocessableEntity, status, "%s", data)
+		require.Contains(t, errKeyOf(t, data).Fields["database_ro_user_id"], "database_client_differs_error")
+	})
+
 	t.Run("charset and name are immutable for clients", func(t *testing.T) {
 		status, data := call(t, srv, http.MethodPut,
 			fmt.Sprintf("/api/sites/databases/%d", int(databaseID)), env.aCookie, env.aCSRF,
