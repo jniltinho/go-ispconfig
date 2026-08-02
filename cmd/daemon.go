@@ -110,6 +110,7 @@ var daemonCmd = &cobra.Command{
 		// server.db_server = 1 and !disable_database_module).
 		if srv.DBServer == 1 && !cfg.Daemon.DisableDatabaseModule {
 			modules = append(modules, clientdb.NewModule())
+			plugins = append(plugins, clientdb.NewPlugin(db, runner, cfg.Database.ClientDBConf, logger))
 		}
 		if err := reg.Load(modules, plugins); err != nil {
 			return err
