@@ -25,7 +25,7 @@
 ## 4. Domain logic (API-side)
 
 - [x] 4.1 Implement MySQL native and sha2 password hash helpers (port of `getPasswordHash` / MYSQL + MYSQLSHA2) with unit tests (known vectors for native `*SHA1(SHA1())` form). Commit.
-- [ ] 4.2 Implement name-prefix helpers for `dbname_prefix` / `dbuser_prefix` (placeholder expansion parity with sites tools) and full-name crop to 64; tests. Commit.
+- [x] 4.2 Implement name-prefix helpers for `dbname_prefix` / `dbuser_prefix` (placeholder expansion parity with sites tools) and full-name crop to 64; tests. Commit.
 - [ ] 4.3 Implement database validators on the foundation validation engine (regex, unique per server, charset set, remote_ips IP list, parent vhost required, immutable charset/server_id, non-admin rename guard, blacklist); tests. Commit.
 - [ ] 4.4 Implement database-user validators (regex, unique, password strength on create); tests. Commit.
 - [ ] 4.5 Implement client/reseller limit checks (`limit_database`, `limit_database_user`, `limit_database_quota`) and `db_servers` allow-list; permission tests (client/reseller/admin). Commit.
