@@ -40,3 +40,52 @@ func TestResolveRuleMailEntities(t *testing.T) {
 	_, ok := resolveRule("gizmos", nil)
 	assert.False(t, ok)
 }
+
+// TestResolveRuleDatabaseEntities pins the database entity → limit
+// column/error mapping (add-database-module task 4.5).
+func TestResolveRuleDatabaseEntities(t *testing.T) {
+	rule, ok := resolveRule("databases", nil)
+	assert.True(t, ok)
+	assert.Equal(t, "error.limit_database", rule.key)
+	assert.Equal(t, int32(3), rule.limit(&model.Client{LimitDatabase: 3}))
+
+	rule, ok = resolveRule("database-users", nil)
+	assert.True(t, ok)
+	assert.Equal(t, "error.limit_database_user", rule.key)
+	assert.Equal(t, int32(7), rule.limit(&model.Client{LimitDatabaseUser: 7}))
+}
+
+// TestDatabaseServerAllowList: creating on a server outside db_servers
+// is vetoed before any counting; allow-listed and unset lists pass (with
+// unlimited quota nothing else is queried).
+func TestDatabaseServerAllowList(t *testing.T) {
+	client := &model.Client{DBServers: "1,3", LimitDatabaseQuota: -1}
+	err := databaseCreateChecks(t.Context(), nil, client, map[string]any{"server_id": float64(2)})
+	var le *LimitError
+	assert.ErrorAs(t, err, &le)
+	assert.Equal(t, "error.not_allowed_server_id", le.Key)
+
+	assert.NoError(t, databaseCreateChecks(t.Context(), nil, client, map[string]any{"server_id": float64(3)}))
+	open := &model.Client{DBServers: "", LimitDatabaseQuota: -1}
+	assert.NoError(t, databaseCreateChecks(t.Context(), nil, open, map[string]any{"server_id": float64(9)}))
+}
+
+// TestDatabaseQuotaBodyRejections: -1 (unlimited DB) under a finite
+// client quota and 0 under a positive quota are rejected before any sum
+// query runs.
+func TestDatabaseQuotaBodyRejections(t *testing.T) {
+	client := &model.Client{LimitDatabaseQuota: 100}
+	var le *LimitError
+	err := databaseCreateChecks(t.Context(), nil, client, map[string]any{"database_quota": float64(-1)})
+	assert.ErrorAs(t, err, &le)
+	err = databaseCreateChecks(t.Context(), nil, client, map[string]any{"database_quota": float64(0)})
+	assert.ErrorAs(t, err, &le)
+	assert.Equal(t, "error.limit_database_quota", le.Key)
+}
+
+// TestBodyNum: float64, string and missing values.
+func TestBodyNum(t *testing.T) {
+	assert.EqualValues(t, 5, bodyNum(map[string]any{"x": float64(5)}, "x"))
+	assert.EqualValues(t, 7, bodyNum(map[string]any{"x": " 7 "}, "x"))
+	assert.EqualValues(t, 0, bodyNum(map[string]any{}, "x"))
+}
