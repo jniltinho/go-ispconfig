@@ -37,6 +37,6 @@
 
 ## 6. Integration and docs
 
-- [ ] 6.1 End-to-end integration test against MariaDB: API client create → sys_user/sys_group rows → datalog → daemon raises `client_delete` on delete-everything after owning a site/zone (datalog child deletes present). Commit.
-- [ ] 6.2 LimitHook integration: client at `limit_dns_zone = 1` with one zone cannot create a second via DNS API; unlimited can. Commit.
+- [x] 6.1 End-to-end integration test against MariaDB: API client create → sys_user/sys_group rows → datalog → daemon raises `client_delete` on delete-everything after owning a site/zone (datalog child deletes present). Commit.
+- [x] 6.2 LimitHook integration: client at `limit_dns_zone = 1` with one zone cannot create a second via DNS API; unlimited can. Commit.
 - [ ] 6.3 Module docs in `docs/` (client/reseller model, limit semantics, template merge, SMTP config, cascade delete, migration notes for existing ISPConfig clients). Commit.
