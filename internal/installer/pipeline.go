@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"path/filepath"
 
 	"gorm.io/gorm"
 
@@ -66,6 +67,9 @@ type State struct {
 	// AcmeWebroot is the Let's Encrypt challenge dir served by site vhosts
 	// (must match internal/nginx.AcmeWebroot).
 	AcmeWebroot string
+	// SelfExe is the running executable, copied to BinPath by the systemd
+	// step ("" disables the copy).
+	SelfExe string
 
 	// Set by the mariadb step, consumed by later steps.
 	DB         *gorm.DB
@@ -97,7 +101,20 @@ func NewState(profile *Profile, answers *Answers) *State {
 		DBUserHosts:     []string{"localhost", "127.0.0.1"},
 		HostIPs:         detectHostIPs,
 		AcmeWebroot:     nginx.AcmeWebroot,
+		SelfExe:         selfExe(),
 	}
+}
+
+// selfExe resolves the running binary path ("" when undeterminable).
+func selfExe() string {
+	exe, err := os.Executable()
+	if err != nil {
+		return ""
+	}
+	if resolved, err := filepath.EvalSymlinks(exe); err == nil {
+		return resolved
+	}
+	return exe
 }
 
 func (st *State) logf(format string, args ...any) {
