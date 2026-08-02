@@ -21,6 +21,10 @@ const props = defineProps<{
   id?: string
   /** fixed values are merged into every save (e.g. web_folder_id). */
   fixed?: Record<string, unknown>
+  /** embedded hides the h1 title (form rendered inside another view). */
+  embedded?: boolean
+  /** readonlyFields render disabled (e.g. the server-managed serial). */
+  readonlyFields?: string[]
 }>()
 
 const { t } = useI18n()
@@ -75,6 +79,7 @@ function toFormMetadata(meta: ServerMeta): FormMetadata {
         // yet, e.g. server_id) arrive without options; render them as text
         // inputs so the value stays editable.
         type: field.type === 'select' && !field.options?.length ? 'text' : field.type,
+        readonly: props.readonlyFields?.includes(field.name) || undefined,
         label: t(field.label),
         options: field.options?.map((o) => ({ value: o.value, label: t(o.label) })),
         default:
@@ -176,7 +181,7 @@ async function save(values: Record<string, unknown>) {
 
 <template>
   <div>
-    <h1 class="mb-3 text-lg font-bold">{{ title }}</h1>
+    <h1 v-if="!embedded" class="mb-3 text-lg font-bold">{{ title }}</h1>
 
     <p
       v-if="datalogState === 'pending'"

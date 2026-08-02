@@ -11,6 +11,8 @@ export interface FormField {
   label: string
   options?: { value: string; label: string }[]
   default?: unknown
+  /** readonly renders the field disabled (e.g. server-managed serial). */
+  readonly?: boolean
 }
 
 export interface FormTab {
@@ -117,7 +119,8 @@ watch(
                 :id="`field-${field.name}`"
                 v-model="values[field.name] as string"
                 :type="field.type"
-                class="w-full max-w-md border border-border bg-surface px-3 py-1.5 text-sm outline-none focus:border-link"
+                :disabled="field.readonly"
+                class="w-full max-w-md border border-border bg-surface px-3 py-1.5 text-sm outline-none focus:border-link disabled:bg-bg disabled:text-text/60"
                 :class="{ 'border-danger-border': errors?.[field.name]?.length }"
               />
               <textarea
@@ -125,7 +128,8 @@ watch(
                 :id="`field-${field.name}`"
                 v-model="values[field.name] as string"
                 rows="4"
-                class="w-full max-w-md border border-border bg-surface px-3 py-1.5 text-sm outline-none focus:border-link"
+                :disabled="field.readonly"
+                class="w-full max-w-md border border-border bg-surface px-3 py-1.5 text-sm outline-none focus:border-link disabled:bg-bg disabled:text-text/60"
                 :class="{ 'border-danger-border': errors?.[field.name]?.length }"
               />
               <select

@@ -19,6 +19,11 @@ const activeModule = computed(
   () => modules.find((m) => route.path.startsWith(m.path)) ?? modules[0],
 )
 
+// Admin-only sidebar sections (e.g. DNS templates) are hidden from clients.
+const visibleSections = computed(() =>
+  activeModule.value.sections.filter((s) => !s.adminOnly || auth.typ === 'admin'),
+)
+
 async function logout() {
   await auth.logout()
   router.push({ name: 'login' })
@@ -77,7 +82,7 @@ async function logout() {
           {{ t(`module.${activeModule.id}`) }}
         </div>
         <ul>
-          <li v-for="section in activeModule.sections" :key="section.labelKey">
+          <li v-for="section in visibleSections" :key="section.labelKey">
             <RouterLink
               :to="section.path"
               class="block px-3 py-2.5 text-sm text-text no-underline hover:bg-info"

@@ -3,7 +3,7 @@
 export interface ModuleDef {
   id: string
   path: string
-  sections: { labelKey: string; path: string }[]
+  sections: { labelKey: string; path: string; adminOnly?: boolean }[]
 }
 
 export const modules: ModuleDef[] = [
@@ -25,7 +25,8 @@ export const modules: ModuleDef[] = [
     path: '/dns',
     sections: [
       { labelKey: 'sidebar.dns.zones', path: '/dns' },
-      { labelKey: 'sidebar.dns.records', path: '/dns' },
+      { labelKey: 'sidebar.dns.slave_zones', path: '/dns/slave-zones' },
+      { labelKey: 'sidebar.dns.templates', path: '/dns/templates', adminOnly: true },
     ],
   },
   {
