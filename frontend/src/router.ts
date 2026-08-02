@@ -15,6 +15,7 @@ import ZoneForm from './views/dns/ZoneForm.vue'
 import ZoneWizard from './views/dns/ZoneWizard.vue'
 import SlaveZoneList from './views/dns/SlaveZoneList.vue'
 import TemplateList from './views/dns/TemplateList.vue'
+import MigrationWizard from './views/system/MigrationWizard.vue'
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -153,6 +154,7 @@ export const router = createRouter({
           }),
         },
         { path: 'system', name: 'system', component: ModulePlaceholder },
+        { path: 'system/migration', name: 'system-migration', component: MigrationWizard },
       ],
     },
   ],

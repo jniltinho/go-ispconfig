@@ -35,9 +35,12 @@ export class ApiError extends Error {
   status: number
   key: string
   fields?: Record<string, string[]>
+  /** Raw response body, for endpoints with custom error payloads (migration wizard). */
+  body?: string
   constructor(status: number, message: string, body?: string) {
     super(message)
     this.status = status
+    this.body = body
     this.key = status === 403 ? 'error.forbidden' : 'error.request_failed'
     // The API error body is {error: {key, fields?}} (i18n keys).
     try {
