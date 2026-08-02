@@ -111,6 +111,19 @@ func TestEnsureSiteProvisionsTree(t *testing.T) {
 	assert.Contains(t, cmds, "useradd -d "+docroot+" -g client1 -s /bin/false web1")
 	assert.Contains(t, cmds, "chown web1:client1 "+filepath.Join(docroot, "tmp"))
 	assert.Contains(t, cmds, "chown root:root "+filepath.Join(docroot, "ssl"))
+
+	// Default index page written when the web folder has no index yet.
+	content, err := os.ReadFile(filepath.Join(docroot, "web", "standard_index.html"))
+	require.NoError(t, err)
+	assert.Contains(t, string(content), "Welcome")
+
+	// An existing index is never overwritten.
+	require.NoError(t, os.Remove(filepath.Join(docroot, "web", "standard_index.html")))
+	require.NoError(t, os.WriteFile(filepath.Join(docroot, "web", "index.html"), []byte("mine"), 0o644))
+	require.NoError(t, p.ensureSite(context.Background(), site{
+		cfg: webCfg(base), action: "update", old: d, new: d,
+	}))
+	assert.NoFileExists(t, filepath.Join(docroot, "web", "standard_index.html"))
 }
 
 // TestEnsureSiteIdempotent covers "Re-running is a no-op": the second run

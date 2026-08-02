@@ -213,6 +213,27 @@ func (p *Plugin) ensureSite(ctx context.Context, s site) error {
 		}
 	}
 
+	// Default index page (port of the PHP skeleton copy: apache2/nginx
+	// plugin writes standard_index.html when the web folder has no index
+	// yet), so a fresh site serves HTTP 200 instead of an error page.
+	webDir := filepath.Join(docroot, webFolder)
+	hasIndex := false
+	for _, name := range []string{"index.html", "index.php", "standard_index.html"} {
+		if _, err := os.Stat(filepath.Join(webDir, name)); err == nil {
+			hasIndex = true
+			break
+		}
+	}
+	if !hasIndex {
+		idx := filepath.Join(webDir, "standard_index.html")
+		if err := os.WriteFile(idx, []byte(standardIndexHTML), 0o644); err != nil {
+			return fmt.Errorf("nginx: writing %s: %w", idx, err)
+		}
+		if err := p.chown(ctx, idx, username, groupname, false); err != nil {
+			return err
+		}
+	}
+
 	// Website symlinks (website_symlinks config): the rendered vhost's root
 	// is website_basedir/<domain>/<web_folder>, which resolves through
 	// these links, so they are load-bearing, not cosmetic.
@@ -221,6 +242,17 @@ func (p *Plugin) ensureSite(ctx context.Context, s site) error {
 	}
 	return nil
 }
+
+// standardIndexHTML is the default page of a freshly created website
+// (stand-in for ISPConfig's conf/index/standard_index.html_en skeleton).
+const standardIndexHTML = `<!DOCTYPE html>
+<html><head><title>Welcome!</title></head>
+<body><h1>Welcome to your website!</h1>
+<p>This is the default index page of your website.</p>
+<p>This file may be deleted or overwritten without any difficulty. This is
+produced by the file <b>standard_index.html</b> in the web directory.</p>
+</body></html>
+`
 
 // symlinkTargets expands the website_symlinks templates for one domain and
 // client id, trailing slash removed.
