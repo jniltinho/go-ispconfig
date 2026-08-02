@@ -1,0 +1,131 @@
+package mail
+
+import (
+	"context"
+	"os"
+	"strings"
+	"sync"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"go-ispconfig/internal/engine"
+	"go-ispconfig/internal/getconf"
+)
+
+// fakeRunner records commands without executing anything.
+type fakeRunner struct {
+	mu   sync.Mutex
+	runs [][]string
+}
+
+func (f *fakeRunner) Run(_ context.Context, name string, args ...string) ([]byte, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.runs = append(f.runs, append([]string{name}, args...))
+	return nil, nil
+}
+
+func (f *fakeRunner) all() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	var out []string
+	for _, r := range f.runs {
+		out = append(out, strings.Join(r, " "))
+	}
+	return out
+}
+
+// testPlugin builds a plugin with a fixed config and fake runner (no DB:
+// uid/gid already resolved in the fixtures).
+func testPlugin(t *testing.T, cfg getconf.MailConfig) (*Plugin, *fakeRunner) {
+	t.Helper()
+	runner := &fakeRunner{}
+	p := NewPlugin(nil, nil, runner, 1, nil)
+	p.LoadConfig = func(context.Context) (getconf.MailConfig, error) { return cfg, nil }
+	return p, runner
+}
+
+func TestUserInsertCreatesDovecotMaildirLayout(t *testing.T) {
+	home := t.TempDir()
+	cfg := getconf.DefaultMailConfig()
+	cfg.HomedirPath = home
+	p, runner := testPlugin(t, cfg)
+
+	maildir := home + "/example.com/user1"
+	err := p.userInsert(context.Background(), engine.Data{New: map[string]any{
+		"mailuser_id": float64(3), "email": "user1@example.com",
+		"uid": float64(5000), "gid": float64(5000),
+		"maildir": maildir, "maildir_format": "maildir", "quota": float64(0),
+		"server_id": float64(1),
+	}})
+	require.NoError(t, err)
+
+	// Dovecot layout: <maildir>/Maildir with cur/new/tmp + dot folders.
+	for _, d := range []string{
+		maildir + "/Maildir/cur", maildir + "/Maildir/new", maildir + "/Maildir/tmp",
+		maildir + "/Maildir/.Sent/new", maildir + "/Maildir/.Drafts/cur",
+		maildir + "/Maildir/.Trash/tmp", maildir + "/Maildir/.Junk/new",
+	} {
+		assert.DirExists(t, d)
+	}
+	// Base domain dir exists 0770.
+	fi, err := os.Stat(home + "/example.com")
+	require.NoError(t, err)
+	assert.Equal(t, os.FileMode(0o770), fi.Mode().Perm())
+	// Mailbox dirs are 0700.
+	fi, err = os.Stat(maildir + "/Maildir")
+	require.NoError(t, err)
+	assert.Equal(t, os.FileMode(0o700), fi.Mode().Perm())
+
+	// Subscriptions file lists the standard folders once each.
+	sub, err := os.ReadFile(maildir + "/Maildir/subscriptions")
+	require.NoError(t, err)
+	assert.Equal(t, "Sent\nDrafts\nTrash\nJunk\n", string(sub))
+
+	cmds := runner.all()
+	assert.Contains(t, cmds, "chown "+cfg.MailuserName+":"+cfg.MailuserGroup+" "+home+"/example.com")
+	assert.Contains(t, cmds, "chown -R 5000:5000 "+maildir, "recursive ownership at the end")
+}
+
+func TestUserInsertQuarantinesCorruptMaildir(t *testing.T) {
+	home := t.TempDir()
+	cfg := getconf.DefaultMailConfig()
+	cfg.HomedirPath = home
+	p, runner := testPlugin(t, cfg)
+
+	// Existing Maildir dir without new/cur → quarantine then recreate.
+	maildir := home + "/example.com/broken"
+	require.NoError(t, os.MkdirAll(maildir+"/Maildir/whatever", 0o700))
+
+	err := p.userInsert(context.Background(), engine.Data{New: map[string]any{
+		"mailuser_id": float64(9), "email": "broken@example.com",
+		"uid": float64(5000), "gid": float64(5000),
+		"maildir": maildir, "maildir_format": "maildir", "server_id": float64(1),
+	}})
+	require.NoError(t, err)
+
+	assert.DirExists(t, home+"/corrupted/9")
+	assert.Contains(t, runner.all(), "mv -f "+maildir+" "+home+"/corrupted/9")
+}
+
+func TestUserInsertMdboxUsesDoveadm(t *testing.T) {
+	home := t.TempDir()
+	cfg := getconf.DefaultMailConfig()
+	cfg.HomedirPath = home
+	p, runner := testPlugin(t, cfg)
+
+	err := p.userInsert(context.Background(), engine.Data{New: map[string]any{
+		"mailuser_id": float64(4), "email": "box@example.com",
+		"uid": float64(5000), "gid": float64(5000),
+		"maildir": home + "/example.com/box", "maildir_format": "mdbox",
+		"server_id": float64(1),
+	}})
+	require.NoError(t, err)
+
+	cmds := runner.all()
+	assert.Contains(t, cmds, "doveadm mailbox create -u box@example.com INBOX")
+	assert.Contains(t, cmds, "doveadm mailbox subscribe -u box@example.com Drafts")
+	assert.NoDirExists(t, home+"/example.com/box/Maildir", "mdbox never builds a maildir layout")
+}

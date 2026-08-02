@@ -14,7 +14,7 @@
 ## 3. mail plugin — maildir lifecycle
 
 - [x] 3.1 Implement uid/gid resolution (`mailbox_virtual_uidgid_maps` → web_domain system_user, else mailuser_uid/gid) and no-datalog DB write-back; unit tests. Commit.
-- [ ] 3.2 Implement maildir create path: domain base dir 0770, Dovecot maildir layout + standard folders (or mdbox via doveadm), chown; safety helpers; tests with fake runner + temp dirs. Commit.
+- [x] 3.2 Implement maildir create path: domain base dir 0770, Dovecot maildir layout + standard folders (or mdbox via doveadm), chown; safety helpers; tests with fake runner + temp dirs. Commit.
 - [ ] 3.3 Implement user_update: refuse maildir_format change, move on path rename, quota apply/unlimited, corrupted-maildir quarantine under `homedir_path/corrupted/<id>`; tests. Commit.
 - [ ] 3.4 Implement user_delete and domain_delete with path guards and soft-delete rename (`-deleted-<YmdHis>`); refuse unsafe paths; tests. Commit.
 - [ ] 3.5 Implement transport_* → delayed postfix reload; optional welcome-mail send gated by global config + mirror_server_id==0; tests. Commit.

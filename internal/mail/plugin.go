@@ -57,7 +57,9 @@ func (p *Plugin) OnLoad(r *engine.Registry) error {
 
 // handlers maps event names to their implementations.
 func (p *Plugin) handlers() map[string]func(context.Context, engine.Data) error {
-	return map[string]func(context.Context, engine.Data) error{}
+	return map[string]func(context.Context, engine.Data) error{
+		"mail_user_insert": p.userInsert,
+	}
 }
 
 // config loads the [mail] section (typed, with defaults).
