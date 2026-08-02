@@ -1,0 +1,9 @@
+# Addrs local to this server.
+local_addrs = [
+	"127.0.0.0/8",
+	"::1",
+<tmpl_loop name="local_addrs">	<tmpl_var name='quoted_ip'></tmpl_loop>];
+
+dns {
+	nameserver = ["127.0.0.1:53:10"];
+}

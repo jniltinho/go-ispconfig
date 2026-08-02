@@ -21,6 +21,11 @@ var hookedTables = []string{
 	"spamfilter_users", "spamfilter_wblist",
 }
 
+// serverTables are additionally hooked so the rspamd plugin can react
+// to server / server_ip changes (PHP raises these from the server core;
+// no other Go module announces them yet).
+var serverTables = []string{"server", "server_ip"}
+
 // Module is the mail module. Wire it into the daemon via
 // engine.Registry.Load on servers with mail_server = 1.
 type Module struct {
@@ -39,7 +44,7 @@ func (*Module) Name() string { return "mail" }
 func (m *Module) OnLoad(r *engine.Registry) error {
 	m.reg = r
 	var events []string
-	for _, table := range hookedTables {
+	for _, table := range append(append([]string{}, hookedTables...), serverTables...) {
 		events = append(events, table+"_insert", table+"_update", table+"_delete")
 		r.RegisterTableHook(table, m.process)
 	}

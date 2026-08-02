@@ -37,8 +37,6 @@ func (*RspamdPlugin) Name() string { return "rspamd" }
 func (r *RspamdPlugin) usersDir() string { return r.RspamdDir + "/local.d/users/" }
 
 // localD is the local.d directory for server-level snippets.
-//
-//nolint:unused // wired by the server-level refresh (task 6.3).
 func (r *RspamdPlugin) localD() string { return r.RspamdDir + "/local.d" }
 
 // OnLoad subscribes the plugin (PHP registration table).
@@ -55,6 +53,10 @@ func (r *RspamdPlugin) OnLoad(reg *engine.Registry) error {
 	}
 	for _, ev := range []string{"spamfilter_wblist_delete", "mail_access_delete"} {
 		subs[ev] = r.wblistDelete
+	}
+	for _, ev := range []string{"server_insert", "server_update",
+		"server_ip_insert", "server_ip_update", "server_ip_delete"} {
+		subs[ev] = r.serverUpdate
 	}
 	for event, handler := range subs {
 		h := handler
@@ -400,4 +402,76 @@ func validEmail(email string) bool {
 	}
 	// Empty local means an @domain form: valid for wblist filters.
 	return true
+}
+
+// serverLocalD are the local.d files regenerated from mail getconf and
+// server IPs on server / server_ip events (rspamd_plugin::server_update).
+var serverLocalD = []string{
+	"dkim_signing.conf", "options.inc", "redis.conf", "classifier-bayes.conf",
+}
+
+// serverUpdate regenerates the server-level Rspamd snippets and queues
+// a reload.
+func (r *RspamdPlugin) serverUpdate(ctx context.Context, _ string, _ engine.Data) error {
+	if !isDir(r.RspamdDir) {
+		return nil
+	}
+	cfg, err := r.base.config(ctx)
+	if err != nil {
+		r.base.log.Warn("mail: using default [mail] config", "error", err)
+	}
+
+	var addrs []map[string]any
+	if r.base.db != nil {
+		var ips []string
+		err := r.base.db.WithContext(ctx).Table("server_ip").
+			Where("server_id = ?", r.base.serverID).Pluck("ip_address", &ips).Error
+		if err != nil {
+			r.base.log.Error("mail: loading server IPs failed", "error", err)
+		}
+		for _, ip := range ips {
+			addrs = append(addrs, map[string]any{
+				"ip":        ip,
+				"quoted_ip": "\"" + ip + "\",\n",
+			})
+		}
+	}
+
+	for _, f := range serverLocalD {
+		src, _, err := mastertpl.Load("rspamd_"+f+".master", r.customTplDir)
+		if err != nil {
+			r.base.log.Error("mail: loading rspamd template failed", "template", f, "error", err)
+			continue
+		}
+		tpl := mastertpl.New(src)
+		tpl.SetVar("dkim_path", cfg.DKIMPath)
+		tpl.SetVar("rspamd_redis_servers", cfg.RspamdRedisServers)
+		tpl.SetVar("rspamd_redis_password", cfg.RspamdRedisPasswd)
+		tpl.SetVar("rspamd_redis_bayes_servers", cfg.RspamdRedisBayesServers)
+		tpl.SetVar("rspamd_redis_bayes_password", cfg.RspamdRedisBayesPasswd)
+		if len(addrs) > 0 {
+			tpl.SetLoop("local_addrs", addrs)
+		}
+		out, err := tpl.Render()
+		if err != nil {
+			r.base.log.Error("mail: rendering rspamd template failed", "template", f, "error", err)
+			continue
+		}
+		if err := os.WriteFile(r.localD()+"/"+f, []byte(out), 0o644); err != nil {
+			r.base.log.Error("mail: writing rspamd config failed", "file", f, "error", err)
+		}
+	}
+
+	// Protect password-bearing files (PHP chgrp _rspamd + chmod 640).
+	protect := []string{r.localD() + "/redis.conf", r.localD() + "/classifier-bayes.conf"}
+	for _, f := range protect {
+		if _, err := r.base.runner.Run(ctx, "chgrp", "_rspamd", f); err != nil {
+			r.base.log.Warn("mail: chgrp rspamd config failed", "file", f, "error", err)
+		}
+		if err := os.Chmod(f, 0o640); err != nil {
+			r.base.log.Warn("mail: chmod rspamd config failed", "file", f, "error", err)
+		}
+	}
+	r.reloadRspamd(cfg)
+	return nil
 }

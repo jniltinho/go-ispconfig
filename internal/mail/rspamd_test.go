@@ -84,3 +84,54 @@ func TestUserSettingsDeleteRemovesFile(t *testing.T) {
 	services.ProcessDelayedActions(context.Background())
 	assert.Equal(t, []string{"rspamd/reload"}, exec.runs)
 }
+
+func TestServerUpdateWritesLocalDSnippets(t *testing.T) {
+	exec := &recordExec{}
+	services := engine.NewServices(exec, nil)
+	RegisterServices(services)
+	base := NewPlugin(nil, services, &fakeRunner{}, 1, nil)
+	cfg := getconf.DefaultMailConfig()
+	cfg.RspamdRedisPasswd = "sekret"
+	base.LoadConfig = func(context.Context) (getconf.MailConfig, error) { return cfg, nil }
+	r := NewRspamdPlugin(base, "")
+	r.RspamdDir = t.TempDir()
+	require.NoError(t, os.MkdirAll(r.localD(), 0o755))
+
+	require.NoError(t, r.serverUpdate(context.Background(), "server_ip_update", engine.Data{}))
+
+	for _, f := range serverLocalD {
+		assert.FileExists(t, r.localD()+"/"+f)
+	}
+	redis, err := os.ReadFile(r.localD() + "/redis.conf")
+	require.NoError(t, err)
+	assert.Contains(t, string(redis), `servers = "127.0.0.1";`)
+	assert.Contains(t, string(redis), `password = "sekret";`, "real ini key rendered (PHP read the wrong one)")
+	fi, err := os.Stat(r.localD() + "/redis.conf")
+	require.NoError(t, err)
+	assert.Equal(t, os.FileMode(0o640), fi.Mode().Perm(), "password-bearing file protected")
+
+	dkim, err := os.ReadFile(r.localD() + "/dkim_signing.conf")
+	require.NoError(t, err)
+	assert.Contains(t, string(dkim), "path_map")
+
+	opts, err := os.ReadFile(r.localD() + "/options.inc")
+	require.NoError(t, err)
+	assert.Contains(t, string(opts), "local_addrs")
+
+	services.ProcessDelayedActions(context.Background())
+	assert.Equal(t, []string{"rspamd/reload"}, exec.runs)
+}
+
+func TestServerEventsAnnouncedByModule(t *testing.T) {
+	// The rspamd plugin's server subscriptions must load against the
+	// mail module's announcements.
+	reg := engine.NewRegistry(nil)
+	base := NewPlugin(nil, engine.NewServices(&recordExec{}, nil), &fakeRunner{}, 1, nil)
+	base.LoadConfig = func(context.Context) (getconf.MailConfig, error) {
+		return getconf.DefaultMailConfig(), nil
+	}
+	require.NoError(t, reg.Load(
+		[]engine.Module{NewModule()},
+		[]engine.Plugin{NewRspamdPlugin(base, "")},
+	))
+}
