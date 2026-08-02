@@ -12,6 +12,8 @@ var _ = []any{
 	clientTemplateUpdateDoc, clientTemplateDeleteDoc,
 	clientTemplatesAssignedListDoc, clientTemplateAssignDoc, clientTemplateUnassignDoc,
 	countriesDoc,
+	clientMessageTemplateListDoc, clientMessageTemplateGetDoc, clientMessageTemplateCreateDoc,
+	clientMessageTemplateUpdateDoc, clientMessageTemplateDeleteDoc, clientSendMessageDoc,
 }
 
 // clientListDoc documents GET /api/clients.
@@ -406,3 +408,95 @@ func clientTemplateUnassignDoc() {}
 //	@Security		CookieAuth
 //	@Security		BearerAuth
 func countriesDoc() {}
+
+// clientMessageTemplateListDoc documents GET /api/client-message-templates.
+//
+//	@Summary		List client message templates
+//	@Description	Admin only. Email templates for client messaging; template_type "welcome" is sent automatically after client creation when SMTP is configured.
+//	@Tags			client-messages
+//	@Produce		json
+//	@Success		200	{object}	ListResponse
+//	@Failure		401	{object}	ErrorResponse
+//	@Failure		403	{object}	ErrorResponse
+//	@Router			/client-message-templates [get]
+//	@Security		CookieAuth
+//	@Security		BearerAuth
+func clientMessageTemplateListDoc() {}
+
+// clientMessageTemplateGetDoc documents GET /api/client-message-templates/{id}.
+//
+//	@Summary	Get a client message template
+//	@Tags		client-messages
+//	@Produce	json
+//	@Param		id	path		int	true	"client_message_template_id"
+//	@Success	200	{object}	model.ClientMessageTemplate
+//	@Failure	401	{object}	ErrorResponse
+//	@Failure	403	{object}	ErrorResponse
+//	@Router		/client-message-templates/{id} [get]
+//	@Security	CookieAuth
+//	@Security	BearerAuth
+func clientMessageTemplateGetDoc() {}
+
+// clientMessageTemplateCreateDoc documents POST /api/client-message-templates.
+//
+//	@Summary		Create a client message template
+//	@Description	Admin only. Subject and message may use {column} placeholders resolved from the recipient client (e.g. {username}, {contact_name}); {password} resolves only in the welcome-on-create email.
+//	@Tags			client-messages
+//	@Accept			json
+//	@Produce		json
+//	@Param			record	body		model.ClientMessageTemplate	true	"Template fields"
+//	@Success		201		{object}	model.ClientMessageTemplate
+//	@Failure		401		{object}	ErrorResponse
+//	@Failure		403		{object}	ErrorResponse
+//	@Failure		422		{object}	ErrorResponse
+//	@Router			/client-message-templates [post]
+//	@Security		CookieAuth
+//	@Security		BearerAuth
+func clientMessageTemplateCreateDoc() {}
+
+// clientMessageTemplateUpdateDoc documents PUT /api/client-message-templates/{id}.
+//
+//	@Summary	Update a client message template
+//	@Tags		client-messages
+//	@Accept		json
+//	@Produce	json
+//	@Param		id		path		int							true	"client_message_template_id"
+//	@Param		record	body		model.ClientMessageTemplate	true	"Changed field values"
+//	@Success	200		{object}	model.ClientMessageTemplate
+//	@Failure	401		{object}	ErrorResponse
+//	@Failure	403		{object}	ErrorResponse
+//	@Failure	422		{object}	ErrorResponse
+//	@Router		/client-message-templates/{id} [put]
+//	@Security	CookieAuth
+//	@Security	BearerAuth
+func clientMessageTemplateUpdateDoc() {}
+
+// clientMessageTemplateDeleteDoc documents DELETE /api/client-message-templates/{id}.
+//
+//	@Summary	Delete a client message template
+//	@Tags		client-messages
+//	@Param		id	path	int	true	"client_message_template_id"
+//	@Success	204
+//	@Failure	401	{object}	ErrorResponse
+//	@Failure	403	{object}	ErrorResponse
+//	@Router		/client-message-templates/{id} [delete]
+//	@Security	CookieAuth
+//	@Security	BearerAuth
+func clientMessageTemplateDeleteDoc() {}
+
+// clientSendMessageDoc documents POST /api/clients/send-message.
+//
+//	@Summary		Send an email to clients
+//	@Description	Port of client_message.php. Renders {column} placeholders per recipient and submits one email per client with an address; recipients are permission-scoped (a reseller only reaches its own clients). Subject/message come from the body or from template_id. Requires mail.smtp_host to be configured (422 error.smtp_not_configured otherwise).
+//	@Tags			client-messages
+//	@Accept			json
+//	@Produce		json
+//	@Param			record	body		sendMessageBody	true	"Recipients and content"
+//	@Success		200		{object}	sendMessageResult
+//	@Failure		401		{object}	ErrorResponse
+//	@Failure		404		{object}	ErrorResponse	"Unknown template_id"
+//	@Failure		422		{object}	ErrorResponse	"No SMTP transport or empty content"
+//	@Router			/clients/send-message [post]
+//	@Security		CookieAuth
+//	@Security		BearerAuth
+func clientSendMessageDoc() {}

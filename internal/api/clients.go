@@ -24,10 +24,13 @@ import (
 // client.inc.php). Both entities share the client table; the role
 // discriminator is limit_client (0 = client, != 0 = reseller, design D2).
 func registerClientEntities(g *echo.Group, d *Deps) error {
-	if err := RegisterEntity[model.Client](g, d, clientEntity()); err != nil {
+	if err := RegisterEntity[model.Client](g, d, clientEntity(d)); err != nil {
 		return err
 	}
-	if err := RegisterEntity[model.Client](g, d, resellerEntity()); err != nil {
+	if err := RegisterEntity[model.Client](g, d, resellerEntity(d)); err != nil {
+		return err
+	}
+	if err := RegisterEntity[model.ClientMessageTemplate](g, d, clientMessageTemplateEntity()); err != nil {
 		return err
 	}
 	if err := RegisterEntity[model.ClientTemplate](g, d, clientTemplateEntity()); err != nil {
@@ -35,11 +38,12 @@ func registerClientEntities(g *echo.Group, d *Deps) error {
 	}
 	registerClientExtraRoutes(g, d)
 	registerClientTemplateRoutes(g, d)
+	registerClientMessageRoutes(g, d)
 	return nil
 }
 
 // clientEntity is the /api/clients CRUD surface (client.tform.php).
-func clientEntity() *Entity {
+func clientEntity(d *Deps) *Entity {
 	return &Entity{
 		Name:  "clients",
 		Title: "client_edit_title",
@@ -48,7 +52,7 @@ func clientEntity() *Entity {
 			return tx.Where("limit_client = 0")
 		},
 		Prepare:      clientPrepare(false),
-		AfterInsert:  clientAfterInsert,
+		AfterInsert:  clientAfterInsertHook(d),
 		BeforeUpdate: clientBeforeUpdate,
 		BeforeDelete: clientBeforeDelete,
 		Decorate:     redactClientSecrets,
@@ -58,7 +62,7 @@ func clientEntity() *Entity {
 // resellerEntity is the /api/resellers CRUD surface (reseller.tform.php).
 // Resellers are managed by the admin only; the limit_client field is what
 // makes the row a reseller and must stay non-zero.
-func resellerEntity() *Entity {
+func resellerEntity(d *Deps) *Entity {
 	return &Entity{
 		Name:      "resellers",
 		Title:     "reseller_edit_title",
@@ -68,7 +72,7 @@ func resellerEntity() *Entity {
 			return tx.Where("limit_client != 0")
 		},
 		Prepare:      clientPrepare(true),
-		AfterInsert:  clientAfterInsert,
+		AfterInsert:  clientAfterInsertHook(d),
 		BeforeUpdate: clientBeforeUpdate,
 		BeforeDelete: clientBeforeDelete,
 		Decorate:     redactClientSecrets,
@@ -275,6 +279,10 @@ func clientPrepare(reseller bool) func(c *echo.Context, d *Deps, id *repository.
 		case pw == "":
 			return &ValidationError{Fields: map[string][]string{"password": {"password_error_empty"}}}
 		default:
+			// Keep the plaintext under a non-column key for the welcome
+			// email placeholder ({password}); applyBody only copies
+			// declared columns, so it can never reach the record.
+			body["_plain_password"] = pw
 			hash, err := auth.HashPassword(pw)
 			if err != nil {
 				return err
@@ -334,6 +342,17 @@ func validateClientParent(ctx context.Context, tx *gorm.DB, c *model.Client) err
 // and materializes limit templates inside the insert transaction. A
 // non-admin creator (reseller) always becomes the parent of the new
 // client (client_edit.php onAfterInsert parity).
+func clientAfterInsertHook(d *Deps) func(context.Context, *gorm.DB, *repository.Identity, any, map[string]any) error {
+	return func(ctx context.Context, tx *gorm.DB, id *repository.Identity, rec any, body map[string]any) error {
+		if err := clientAfterInsert(ctx, tx, id, rec); err != nil {
+			return err
+		}
+		plain, _ := body["_plain_password"].(string)
+		sendWelcomeMessage(ctx, d, rec.(*model.Client), plain)
+		return nil
+	}
+}
+
 func clientAfterInsert(ctx context.Context, tx *gorm.DB, id *repository.Identity, rec any) error {
 	c := rec.(*model.Client)
 	actor := "admin"

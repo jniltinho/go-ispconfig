@@ -13,6 +13,7 @@ import (
 	"gorm.io/gorm"
 
 	"go-ispconfig/internal/auth"
+	"go-ispconfig/internal/clients"
 	"go-ispconfig/internal/config"
 )
 
@@ -41,6 +42,9 @@ type Deps struct {
 	Sessions *auth.Store
 	// Config is the loaded process configuration.
 	Config *config.Config
+	// Mailer is the optional SMTP transport for client messaging; nil
+	// means sending is not configured.
+	Mailer clients.Mailer
 
 	// trustedProxies is Config.Server.TrustedProxies parsed by Register.
 	trustedProxies []netip.Prefix

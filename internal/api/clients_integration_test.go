@@ -28,6 +28,13 @@ import (
 // newClientsTestEnv boots a migrated MariaDB behind the full API stack
 // with the client limit hook wired (as cmd/serve does).
 func newClientsTestEnv(t *testing.T) (*gorm.DB, *httptest.Server, string, string) {
+	db, srv, cookie, csrf, _ := newClientsTestEnvDeps(t)
+	return db, srv, cookie, csrf
+}
+
+// newClientsTestEnvDeps additionally exposes Deps so tests can inject a
+// fake Mailer after registration.
+func newClientsTestEnvDeps(t *testing.T) (*gorm.DB, *httptest.Server, string, string, *api.Deps) {
 	t.Helper()
 	dsnPrefix, container := database.StartMariaDB(t, "clientsapi")
 	database.MariaDBExec(t, container, "CREATE DATABASE ispconfig CHARACTER SET utf8mb4")
@@ -52,7 +59,7 @@ func newClientsTestEnv(t *testing.T) (*gorm.DB, *httptest.Server, string, string
 	t.Cleanup(srv.Close)
 
 	adminCookie, adminCSRF := login(t, srv, "admin", "smoke-test-pw")
-	return db, srv, adminCookie, adminCSRF
+	return db, srv, adminCookie, adminCSRF, deps
 }
 
 func TestClientsAPI(t *testing.T) {

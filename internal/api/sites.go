@@ -476,7 +476,7 @@ const defaultWebsitePath = "/var/www/clients/client[client_id]/web[website_id]"
 // system_group (client<id>) are computed and persisted inside the create
 // transaction, so the datalog insert row already carries them.
 // vhostsubdomain/vhostalias records inherit these values from their parent.
-func webDomainAfterInsert(ctx context.Context, tx *gorm.DB, id *repository.Identity, recAny any) error {
+func webDomainAfterInsert(ctx context.Context, tx *gorm.DB, id *repository.Identity, recAny any, _ map[string]any) error {
 	rec := recAny.(*model.WebDomain)
 	now := time.Now()
 	rec.AddedDate = &now

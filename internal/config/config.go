@@ -22,6 +22,18 @@ type Config struct {
 	Auth      AuthConfig      `toml:"auth" mapstructure:"auth"`
 	Queue     QueueConfig     `toml:"queue" mapstructure:"queue"`
 	Templates TemplatesConfig `toml:"templates" mapstructure:"templates"`
+	Mail      MailConfig      `toml:"mail" mapstructure:"mail"`
+}
+
+// MailConfig is the optional SMTP transport used by the client messaging
+// endpoints and welcome emails; an empty SMTPHost disables sending.
+type MailConfig struct {
+	SMTPHost string `toml:"smtp_host" mapstructure:"smtp_host"`
+	SMTPPort int    `toml:"smtp_port" mapstructure:"smtp_port"`
+	SMTPUser string `toml:"smtp_user" mapstructure:"smtp_user"`
+	SMTPPass string `toml:"smtp_pass" mapstructure:"smtp_pass"`
+	// From is the envelope/header sender of panel emails.
+	From string `toml:"from" mapstructure:"from"`
 }
 
 // TemplatesConfig controls the ".master" template override directory
@@ -112,6 +124,11 @@ func setDefaults() {
 	viper.SetDefault("queue.db", 0)
 	viper.SetDefault("queue.password", "")
 	viper.SetDefault("templates.custom_dir", "/etc/go-ispconfig/templates-custom")
+	viper.SetDefault("mail.smtp_host", "")
+	viper.SetDefault("mail.smtp_port", 25)
+	viper.SetDefault("mail.smtp_user", "")
+	viper.SetDefault("mail.smtp_pass", "")
+	viper.SetDefault("mail.from", "")
 }
 
 // Init configures the global Viper instance: defaults, GOISP_ environment

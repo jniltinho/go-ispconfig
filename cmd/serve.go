@@ -90,6 +90,10 @@ var serveCmd = &cobra.Command{
 			DB:       db,
 			Sessions: auth.NewStore(db, 0),
 			Config:   cfg,
+			// nil when mail.smtp_host is unset: messaging endpoints refuse,
+			// welcome emails are skipped.
+			Mailer: clients.NewSMTPMailer(cfg.Mail.SMTPHost, cfg.Mail.SMTPPort,
+				cfg.Mail.SMTPUser, cfg.Mail.SMTPPass, cfg.Mail.From),
 		}
 		// Client limit_* enforcement behind the foundation create hook
 		// (add-client-module D5); registered before the routes mount.

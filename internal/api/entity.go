@@ -91,7 +91,7 @@ type Entity struct {
 	// AfterInsert, when set, runs inside the create transaction after the
 	// row exists (primary key assigned) and before the datalog insert row
 	// is written, so derived defaults land in both the row and the journal.
-	AfterInsert func(ctx context.Context, tx *gorm.DB, id *repository.Identity, rec any) error `json:"-"`
+	AfterInsert func(ctx context.Context, tx *gorm.DB, id *repository.Identity, rec any, body map[string]any) error `json:"-"`
 	// Decorate, when set, may add or remove keys (e.g. datalog state,
 	// password redaction) on the JSON objects returned by list and get.
 	Decorate func(ctx context.Context, db *gorm.DB, items []map[string]any) error `json:"-"`
@@ -344,7 +344,7 @@ func (h *entityHandlers[T]) create(c *echo.Context) error {
 	}
 	var fixup func(tx *gorm.DB) error
 	if h.ent.AfterInsert != nil {
-		fixup = func(tx *gorm.DB) error { return h.ent.AfterInsert(ctx, tx, id, rec) }
+		fixup = func(tx *gorm.DB) error { return h.ent.AfterInsert(ctx, tx, id, rec, body) }
 	}
 	if err := h.repo.InsertFn(ctx, id, rec, fixup); err != nil {
 		return err
