@@ -34,7 +34,7 @@ async function logout() {
 <template>
   <div class="flex min-h-full flex-col">
     <header class="border-b border-border bg-surface">
-      <div class="flex items-center gap-6 px-4">
+      <div class="flex items-center gap-6 px-5">
         <!-- Logo placeholder (white-label logo arrives with add-panel-ui-theme) -->
         <RouterLink to="/dashboard" class="py-3 text-lg font-bold text-brand no-underline">
           {{ t('app.title') }}
@@ -87,16 +87,16 @@ async function logout() {
     </header>
 
     <div class="flex flex-1">
-      <!-- Per-module sidebar -->
+      <!-- Per-module sidebar (215px like the original, fluid content) -->
       <aside class="w-[215px] shrink-0 border-r border-border bg-surface">
-        <div class="border-b border-border bg-info px-3 py-2 text-sm font-bold">
+        <div class="border-b border-border bg-info px-4 py-2.5 text-sm font-bold text-info-text">
           {{ t(`module.${activeModule.id}`) }}
         </div>
         <ul>
           <li v-for="section in visibleSections" :key="section.labelKey">
             <RouterLink
               :to="section.path"
-              class="block px-3 py-2.5 text-sm text-text no-underline hover:bg-info"
+              class="block border-l-2 border-transparent px-4 py-2.5 text-sm text-text no-underline transition-colors duration-150 hover:bg-info [&.router-link-active]:border-brand [&.router-link-active]:bg-bg [&.router-link-active]:font-semibold"
             >
               {{ t(section.labelKey) }}
             </RouterLink>
@@ -104,8 +104,8 @@ async function logout() {
         </ul>
       </aside>
 
-      <!-- Content area -->
-      <main class="flex-1 p-5">
+      <!-- Fluid content area with consistent gutters (no fixed 950px) -->
+      <main class="min-w-0 flex-1 p-5">
         <RouterView />
       </main>
     </div>
