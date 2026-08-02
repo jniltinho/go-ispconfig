@@ -27,8 +27,12 @@
   src: url('/fonts/inter-v20-latin-700.woff2') format('woff2');
 }
 
+/* Complete semantic light-scheme token set (add-panel-ui-theme D1),
+   values from the original colors.sass (docs/research/ispconfig3-theme.md).
+   Components use only token-derived utilities — no hard-coded hex. */
 @theme {
   --color-brand: #c70f19;
+  --color-brand-dark: #9c0c14;
   --color-bg: #f2f5f7;
   --color-surface: #ffffff;
   --color-text: #3c444b;
@@ -36,12 +40,17 @@
   --color-success: #3cb355;
   --color-border: #d3d7da;
   --color-info: #dfeaf6;
+  --color-info-border: #cedded;
+  --color-info-text: #698296;
   --color-danger: #f7dfdf;
   --color-danger-border: #dcb2b3;
   --color-danger-text: #95686b;
   --color-thead: #3e474e;
+  --color-dashlet: #e1e4e9;
   --font-sans: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  /* Square corners everywhere (ISPConfig3 port requirement). */
+  /* Square corners everywhere (ISPConfig3 port requirement): the radius
+     namespace is cleared so no rounded-* utility exists, and --radius is 0
+     for anything reading the variable directly. */
   --radius: 0;
   --radius-*: initial;
 }
