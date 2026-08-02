@@ -58,8 +58,10 @@ func (p *Plugin) OnLoad(r *engine.Registry) error {
 // handlers maps event names to their implementations.
 func (p *Plugin) handlers() map[string]func(context.Context, engine.Data) error {
 	return map[string]func(context.Context, engine.Data) error{
-		"mail_user_insert": p.userInsert,
-		"mail_user_update": p.userUpdate,
+		"mail_user_insert":   p.userInsert,
+		"mail_user_update":   p.userUpdate,
+		"mail_user_delete":   p.userDelete,
+		"mail_domain_delete": p.domainDelete,
 	}
 }
 
