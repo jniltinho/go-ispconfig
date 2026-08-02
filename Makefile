@@ -25,7 +25,8 @@ LINUX_BIN := bin/go-ispconfig-linux-amd64
 .PHONY: all build build-prod build-linux run clean frontend frontend-dev \
         migrate tidy deps deps-frontend install-upx lint swagger e2e-theme \
         swagger-check test test-race help \
-        vagrant-up vagrant-test vagrant-destroy vagrant-lab-up vagrant-parity-test
+        vagrant-up vagrant-test vagrant-destroy vagrant-lab-up vagrant-lab-fixtures \
+        vagrant-lab-status vagrant-parity-test
 
 ## Default: build frontend + go binary
 all: clean frontend build
@@ -145,9 +146,29 @@ vagrant-test:
 vagrant-destroy:
 	cd vagrant && vagrant destroy -f ubuntu debian
 
-## Bring up the comparison lab: go-ispconfig (.10) + legacy PHP ISPConfig (.20)
+## Bring up the standing lab: go-ispconfig (.10) + legacy nginx (.20) + legacy apache2 (.21)
 vagrant-lab-up: build-linux
-	cd vagrant && vagrant up ubuntu legacy
+	cd vagrant && vagrant up ubuntu legacy legacy-apache
+
+## Idempotent fixture dataset on both legacy lab VMs (see vagrant/lab/)
+vagrant-lab-fixtures:
+	bash vagrant/lab/fixtures.sh legacy
+	bash vagrant/lab/fixtures.sh legacy-apache
+	cd vagrant && vagrant upload lab/wordpress.sh /tmp/wordpress.sh legacy \
+		&& vagrant ssh legacy -c "sudo bash /tmp/wordpress.sh n"
+	cd vagrant && vagrant upload lab/wordpress.sh /tmp/wordpress.sh legacy-apache \
+		&& vagrant ssh legacy-apache -c "sudo bash /tmp/wordpress.sh a"
+
+## IP/URL/health table for every lab VM
+vagrant-lab-status:
+	@printf "%-14s %-15s %-30s %s\n" "MACHINE" "IP" "PANEL" "HEALTH"
+	@for m in "ubuntu 192.168.56.10" "debian 192.168.56.11" \
+	          "legacy 192.168.56.20" "legacy-apache 192.168.56.21"; do \
+		set -- $$m; name=$$1; ip=$$2; \
+		code=$$(curl -sk -o /dev/null -m 3 -w '%{http_code}' https://$$ip:8080/ 2>/dev/null); \
+		[ "$$code" = 200 ] || [ "$$code" = 302 ] && health="panel up ($$code)" || health="unreachable"; \
+		printf "%-14s %-15s %-30s %s\n" "$$name" "$$ip" "https://$$ip:8080" "$$health"; \
+	done
 
 ## Run the agent-browser parity suite against both panels (see vagrant/parity/)
 vagrant-parity-test:
@@ -184,5 +205,7 @@ help:
 	@echo "  vagrant-up       - Build binary + vagrant up (VM=ubuntu|debian)"
 	@echo "  vagrant-test     - Run smoke test in the guest (VM=ubuntu|debian)"
 	@echo "  vagrant-destroy  - Destroy installer rig VMs (keeps standing lab)"
-	@echo "  vagrant-lab-up   - Bring up go-ispconfig + legacy comparison VMs"
+	@echo "  vagrant-lab-up   - Bring up the standing lab (ubuntu + both legacies)"
+	@echo "  vagrant-lab-fixtures - Idempotent fixture dataset on both legacy VMs"
+	@echo "  vagrant-lab-status - IP/URL/health table for all lab VMs"
 	@echo "  vagrant-parity-test - Run the parity suite against both panels"

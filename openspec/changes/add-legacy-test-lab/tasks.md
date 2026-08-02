@@ -23,7 +23,7 @@
 
 ## 4. Lab contract and integration
 
-- [ ] 4.1 Make targets: extend `vagrant-lab-up` (both legacies), add `vagrant-lab-fixtures` and `vagrant-lab-status` (IP/URL/health table output). Commit.
+- [x] 4.1 Make targets: extend `vagrant-lab-up` (both legacies), add `vagrant-lab-fixtures` and `vagrant-lab-status` (IP/URL/health table output). Commit.
 - [ ] 4.2 `vagrant/lab/README.md`: IP/URL table (.10/.11/.20/.21), credential locations, per-VM purpose, reprovision + VirtualBox snapshot/rollback guide, and the standing rule: read/write tests target the lab, NEVER the real server. Link from vagrant/README.md and AGENTS.md. Commit.
 - [ ] 4.3 Re-run the parity suite against the upgraded `legacy` VM (mail present) and adjust intended-differences/dataset docs if provisioning changed defaults; suite must stay green. Commit.
 - [ ] 4.4 Validate `migrate-from --dry-run` (CLI) and the wizard connect/inventory/dry-run (UI) against BOTH lab VMs using the provisioned remote_user — closing the API happy path that was blocked on the real server; record inventory numbers in the README; curated screenshots to docs/screenshots/. Commit.
