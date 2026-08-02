@@ -548,6 +548,19 @@ func (h *entityHandlers[T]) setField(ctx context.Context, rec *T, column string,
 	if f == nil {
 		return fmt.Errorf("api: %s has no %s column", h.schema.Table, column)
 	}
+	// An empty string for a non-string column (e.g. a nullable datetime
+	// or a numeric field) means "unset": a form always submits every
+	// declared field, so "" must land as the zero value / NULL rather
+	// than fail type conversion (e.g. empty autoresponder dates).
+	if s, ok := value.(string); ok && s == "" {
+		ft := f.FieldType
+		if ft.Kind() == reflect.Pointer {
+			return nil // leave the pointer nil (SQL NULL)
+		}
+		if ft.Kind() != reflect.String {
+			return nil // leave the zero value
+		}
+	}
 	if err := f.Set(ctx, reflect.ValueOf(rec).Elem(), value); err != nil {
 		return &ValidationError{Fields: map[string][]string{column: {"error.validation.type"}}}
 	}

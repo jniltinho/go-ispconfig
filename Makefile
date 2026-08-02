@@ -23,7 +23,7 @@ PANEL_IP  := $(if $(filter debian,$(VM)),192.168.56.11,192.168.56.10)
 LINUX_BIN := bin/go-ispconfig-linux-amd64
 
 .PHONY: all build build-prod build-linux run clean frontend frontend-dev \
-        migrate tidy deps deps-frontend install-upx lint swagger e2e-theme e2e-clients \
+        migrate tidy deps deps-frontend install-upx lint swagger e2e-theme e2e-clients e2e-mail \
         swagger-check test test-race help \
         vagrant-up vagrant-test vagrant-destroy vagrant-lab-up vagrant-lab-fixtures \
         vagrant-lab-status vagrant-parity-test
@@ -80,6 +80,11 @@ e2e-theme:
 ##   make e2e-clients PANEL_URL=http://127.0.0.1:8092 ADMIN_PASSWORD=...
 e2e-clients:
 	PANEL_URL=$(PANEL_URL) ADMIN_PASSWORD=$(ADMIN_PASSWORD) e2e/panel-clients.sh
+
+## Mail-module E2E (agent-browser) against a running built binary:
+##   make e2e-mail PANEL_URL=http://127.0.0.1:8093 ADMIN_PASSWORD=...
+e2e-mail:
+	PANEL_URL=$(PANEL_URL) ADMIN_PASSWORD=$(ADMIN_PASSWORD) e2e/panel-mail.sh
 
 ## Run golangci-lint (godoc on exported identifiers is enforced)
 lint:
