@@ -125,6 +125,28 @@ func TestApplyEndToEnd(t *testing.T) {
 		require.Len(t, rrs, 3)
 	})
 
+	t.Run("bulk reset tokens for flagged users, no plaintext stored", func(t *testing.T) {
+		flagged := plan.ResetRequired()
+		require.Equal(t, []string{"reseller1", "client2", "client3"}, flagged)
+
+		tokens, err := importer.GenerateResetTokens(ctx, db, flagged)
+		require.NoError(t, err)
+		require.Len(t, tokens, 3, "one one-time token per flagged user")
+
+		for _, tok := range tokens {
+			require.Len(t, tok.Token, 32)
+			var u model.SysUser
+			require.NoError(t, db.Where("username = ?", tok.Username).First(&u).Error)
+			require.Equal(t, importer.PlaceholderHash, u.Passwort,
+				"password stays unusable until the reset is consumed")
+			require.Equal(t, importer.HashResetToken(tok.Token), u.LostPasswordHash)
+			require.NotEqual(t, tok.Token, u.LostPasswordHash,
+				"cleartext token must never be stored")
+			require.NotNil(t, u.LostPasswordReqAt)
+			require.EqualValues(t, 1, u.LostPasswordFunc)
+		}
+	})
+
 	t.Run("datalog rows consumable by the daemon", func(t *testing.T) {
 		var rows []model.SysDatalog
 		require.NoError(t, db.Where("dbtable = ?", "dns_soa").Find(&rows).Error)
