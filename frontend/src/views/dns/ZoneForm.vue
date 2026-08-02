@@ -66,11 +66,13 @@ onMounted(loadZone)
     <UiAlert v-if="loadError" variant="danger" class="mb-3" :messages="[t(loadError)]" />
 
     <!-- Top-level tabs (Records / Zone settings / Zone rendering) -->
-    <div class="flex border border-border border-b-0 bg-bg">
+    <div role="tablist" class="flex border border-border border-b-0 bg-bg">
       <button
         v-for="tab in tabs"
         :key="tab.name"
         type="button"
+        role="tab"
+        :aria-selected="activeTab === tab.name"
         :data-test="`zone-tab-${tab.name}`"
         class="border-r border-border px-5 py-2.5 text-sm font-bold"
         :class="activeTab === tab.name ? 'bg-surface text-text' : 'text-text-muted hover:bg-info'"

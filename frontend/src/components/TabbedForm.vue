@@ -185,15 +185,13 @@ watch(
     <div class="flex justify-end gap-2 border-t border-border bg-bg px-4 py-3">
       <button
         type="button"
+        data-test="form-cancel"
         class="btn btn-default px-8"
         @click="emit('cancel')"
       >
         {{ t('form.cancel') }}
       </button>
-      <button
-        type="submit"
-        class="btn btn-success px-8"
-      >
+      <button type="submit" data-test="form-save" class="btn btn-success px-8">
         {{ t('form.save') }}
       </button>
     </div>
