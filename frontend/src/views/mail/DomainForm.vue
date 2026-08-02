@@ -63,7 +63,7 @@ function setField(name: string, value: string | boolean) {
 
 <template>
   <div>
-    <EntityForm entity="mail-domains" api-base="/api/mail/domains" back-to="/mail" :id="id" />
+    <EntityForm entity="domains" api-base="/api/mail/domains" back-to="/mail" :id="id" />
 
     <section class="mt-6 max-w-2xl border border-border bg-surface p-4" data-test="dkim-panel">
       <h2 class="mb-2 text-base font-bold">{{ t('mail.dkim') }}</h2>
