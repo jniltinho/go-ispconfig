@@ -90,18 +90,22 @@ body,
   height: 100%;
 }
 
-:root {
-  color-scheme: light;
-}
+/* Element defaults live in the base layer so utility classes always win
+   (unlayered element rules would beat layered utilities in the cascade). */
+@layer base {
+  :root {
+    color-scheme: light;
+  }
 
-body {
-  margin: 0;
-  font-family: var(--font-sans);
-  font-size: 14px;
-  line-height: 1.428;
-  color: var(--color-text);
-  background: var(--color-bg);
-  -webkit-font-smoothing: antialiased;
+  body {
+    margin: 0;
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.428;
+    color: var(--color-text);
+    background: var(--color-bg);
+    -webkit-font-smoothing: antialiased;
+  }
 }
 
 /* radius 0 GLOBAL — no rounded corner may survive. */
@@ -112,11 +116,13 @@ body {
   border-radius: 0 !important;
 }
 
-button,
-input,
-select,
-textarea {
-  font-family: inherit;
+@layer base {
+  button,
+  input,
+  select,
+  textarea {
+    font-family: inherit;
+  }
 }
 
 /* Visible AA keyboard focus for every interactive element (D5). The
@@ -172,10 +178,12 @@ textarea {
   }
 }
 
-a {
-  color: var(--color-link);
-  text-decoration: none;
-}
-a:hover {
-  text-decoration: underline;
+@layer base {
+  a {
+    color: var(--color-link);
+    text-decoration: none;
+  }
+  a:hover {
+    text-decoration: underline;
+  }
 }
