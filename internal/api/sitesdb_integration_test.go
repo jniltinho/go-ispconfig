@@ -78,24 +78,39 @@ func TestSitesDatabaseAPI(t *testing.T) {
 
 	t.Run("validation is 422 with field keys", func(t *testing.T) {
 		status, data := call(t, srv, http.MethodPost, "/api/sites/databases", env.aCookie, env.aCSRF,
-			map[string]any{"server_id": 1, "parent_domain_id": domainID, "database_name": "a"})
+			map[string]any{"server_id": 1, "parent_domain_id": domainID, "database_name": "a",
+				"database_user_id": userID})
 		require.Equal(t, http.StatusUnprocessableEntity, status)
 		require.Contains(t, errKeyOf(t, data).Fields["database_name"], "database_name_error_regex")
 
+		// The read-write user is required on create.
+		status, data = call(t, srv, http.MethodPost, "/api/sites/databases", env.aCookie, env.aCSRF,
+			map[string]any{"server_id": 1, "parent_domain_id": domainID, "database_name": "nouser_db"})
+		require.Equal(t, http.StatusUnprocessableEntity, status)
+		require.Contains(t, errKeyOf(t, data).Fields["database_user_id"], "database_user_missing_error")
+
+		// Nonexistent / non-DB servers are rejected on create.
+		status, data = call(t, srv, http.MethodPost, "/api/sites/databases", env.aCookie, env.aCSRF,
+			map[string]any{"server_id": 999, "parent_domain_id": domainID,
+				"database_name": "srvbad", "database_user_id": userID})
+		require.Equal(t, http.StatusUnprocessableEntity, status)
+		require.Contains(t, errKeyOf(t, data).Fields["server_id"], "database_server_invalid_error")
+
 		status, data = call(t, srv, http.MethodPost, "/api/sites/databases", env.aCookie, env.aCSRF,
 			map[string]any{"server_id": 1, "parent_domain_id": domainID,
-				"database_name": "chdb", "database_charset": "latin2"})
+				"database_name": "chdb", "database_charset": "latin2", "database_user_id": userID})
 		require.Equal(t, http.StatusUnprocessableEntity, status)
 		require.Contains(t, errKeyOf(t, data).Fields["database_charset"], "database_charset_error_regex")
 
 		status, data = call(t, srv, http.MethodPost, "/api/sites/databases", env.aCookie, env.aCSRF,
 			map[string]any{"server_id": 1, "parent_domain_id": domainID, "database_name": "ipdb",
-				"remote_access": "y", "remote_ips": "not valid!"})
+				"database_user_id": userID, "remote_access": "y", "remote_ips": "not valid!"})
 		require.Equal(t, http.StatusUnprocessableEntity, status)
 		require.Contains(t, errKeyOf(t, data).Fields["remote_ips"], "database_remote_error_ips")
 
 		status, data = call(t, srv, http.MethodPost, "/api/sites/databases", env.aCookie, env.aCSRF,
-			map[string]any{"server_id": 1, "parent_domain_id": domainID, "database_name": "mysql"})
+			map[string]any{"server_id": 1, "parent_domain_id": domainID, "database_name": "mysql",
+				"database_user_id": userID})
 		require.Equal(t, http.StatusUnprocessableEntity, status)
 		require.Contains(t, errKeyOf(t, data).Fields["database_name"], "database_name_error_blacklist")
 
@@ -181,8 +196,15 @@ func TestSitesDatabaseAPI(t *testing.T) {
 		require.NoError(t, db.Model(&model.SysGroup{}).Where("name = ?", "clienta").
 			Update("client_id", client.ClientID).Error)
 
+		// A second real DB server outside the allow-list (a nonexistent
+		// server is a 422 database_server_invalid_error instead).
+		server2 := model.Server{SysUserID: 1, SysGroupID: 1, ServerName: "server2.example.com",
+			DBServer: 1, Active: 1}
+		require.NoError(t, db.Create(&server2).Error)
+
 		status, data := call(t, srv, http.MethodPost, "/api/sites/databases", env.aCookie, env.aCSRF,
-			map[string]any{"server_id": 7, "parent_domain_id": domainID, "database_name": "srv_db"})
+			map[string]any{"server_id": server2.ServerID, "parent_domain_id": domainID,
+				"database_name": "srv_db", "database_user_id": userID})
 		require.Equal(t, http.StatusForbidden, status, "%s", data)
 		require.Equal(t, "error.not_allowed_server_id", errKeyOf(t, data).Key)
 
@@ -190,7 +212,8 @@ func TestSitesDatabaseAPI(t *testing.T) {
 		require.NoError(t, db.Model(&model.Client{}).Where("client_id = ?", client.ClientID).
 			Update("limit_database", 1).Error)
 		status, data = call(t, srv, http.MethodPost, "/api/sites/databases", env.aCookie, env.aCSRF,
-			map[string]any{"server_id": 1, "parent_domain_id": domainID, "database_name": "over_db"})
+			map[string]any{"server_id": 1, "parent_domain_id": domainID,
+				"database_name": "over_db", "database_user_id": userID})
 		require.Equal(t, http.StatusForbidden, status, "%s", data)
 		require.Equal(t, "error.limit_database", errKeyOf(t, data).Key)
 
@@ -199,7 +222,7 @@ func TestSitesDatabaseAPI(t *testing.T) {
 			Updates(map[string]any{"limit_database": -1, "limit_database_quota": 100}).Error)
 		status, data = call(t, srv, http.MethodPost, "/api/sites/databases", env.aCookie, env.aCSRF,
 			map[string]any{"server_id": 1, "parent_domain_id": domainID,
-				"database_name": "quota_db", "database_quota": -1})
+				"database_name": "quota_db", "database_quota": -1, "database_user_id": userID})
 		require.Equal(t, http.StatusForbidden, status, "%s", data)
 		require.Equal(t, "error.limit_database_quota", errKeyOf(t, data).Key)
 

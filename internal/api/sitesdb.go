@@ -410,11 +410,26 @@ func sitesDatabasePrepare(c *echo.Context, d *Deps, id *repository.Identity, bod
 		body["database_charset"] = old.DatabaseCharset
 	}
 
+	// The chosen server must be a database server (PHP restricts the
+	// select to db_server = 1); the create path validates it once, the
+	// server is immutable afterwards.
+	if old == nil {
+		if sid := bodyInt(body, "server_id"); sid > 0 {
+			var server model.Server
+			err := d.DB.WithContext(ctx).Select("db_server").Take(&server, sid).Error
+			if err != nil || server.DBServer != 1 {
+				fields["server_id"] = append(fields["server_id"], "database_server_invalid_error")
+			}
+		}
+	}
+
 	// The referenced database users must belong to the same client group
 	// as the website (PHP database_client_differs guard) — otherwise a
 	// client could point a database at another tenant's login and the
 	// daemon would GRANT across clients. Partial update bodies fall back
-	// to the stored references.
+	// to the stored references. The read-write user is required
+	// (database_user_missing_txt parity — a database without a login is
+	// unreachable).
 	for _, col := range []string{"database_user_id", "database_ro_user_id"} {
 		uid := bodyInt(body, col)
 		if uid == 0 && old != nil {
@@ -426,7 +441,13 @@ func sitesDatabasePrepare(c *echo.Context, d *Deps, id *repository.Identity, bod
 				uid = int64(*ref)
 			}
 		}
-		if uid == 0 || parent == nil {
+		if uid == 0 {
+			if col == "database_user_id" {
+				fields[col] = append(fields[col], "database_user_missing_error")
+			}
+			continue
+		}
+		if parent == nil {
 			continue
 		}
 		var user model.WebDatabaseUser
