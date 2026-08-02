@@ -198,3 +198,120 @@ func TestSitesDatabaseAPI(t *testing.T) {
 		require.Equal(t, fmt.Sprintf("database_id:%d", int(databaseID)), dl.DBIdx)
 	})
 }
+
+// TestSitesDatabaseUserAPI covers /api/sites/database-users (task 5.2):
+// write-only dual-hash passwords with redacted reads, password policy,
+// unchanged-on-empty updates, per-server datalog fan-out, FK nulling on
+// delete and cross-client denial.
+func TestSitesDatabaseUserAPI(t *testing.T) {
+	env := newSitesTestEnv(t, "sitesdbu")
+	db, srv := env.db, env.srv
+
+	var userID float64
+
+	t.Run("create stores both hashes and redacts them", func(t *testing.T) {
+		status, data := call(t, srv, http.MethodPost, "/api/sites/database-users", env.aCookie, env.aCSRF,
+			map[string]any{"database_user": "c1web", "database_password": "Sup3r-Secret!"})
+		require.Equal(t, http.StatusCreated, status, "%s", data)
+		var rec map[string]any
+		require.NoError(t, json.Unmarshal(data, &rec))
+		userID = rec["database_user_id"].(float64)
+		require.NotContains(t, rec, "database_password", "hashes never leave the API")
+		require.NotContains(t, rec, "database_password_sha2")
+		require.EqualValues(t, 0, rec["server_id"], "user exists on every server")
+
+		var stored model.WebDatabaseUser
+		require.NoError(t, db.First(&stored, int(userID)).Error)
+		require.Regexp(t, `^\*[0-9A-F]{40}$`, stored.DatabasePassword, "native hash stored")
+		require.Regexp(t, `^\$A\$005\$`, stored.DatabasePasswordSha2, "sha2 hash stored")
+		require.NotContains(t, stored.DatabasePassword, "Sup3r-Secret!")
+	})
+
+	t.Run("password policy and emptiness are 422", func(t *testing.T) {
+		status, data := call(t, srv, http.MethodPost, "/api/sites/database-users", env.aCookie, env.aCSRF,
+			map[string]any{"database_user": "weakpw", "database_password": "short"})
+		require.Equal(t, http.StatusUnprocessableEntity, status)
+		require.Contains(t, errKeyOf(t, data).Fields["database_password"], "weak_password_txt")
+
+		status, data = call(t, srv, http.MethodPost, "/api/sites/database-users", env.aCookie, env.aCSRF,
+			map[string]any{"database_user": "nopw"})
+		require.Equal(t, http.StatusUnprocessableEntity, status)
+		require.Contains(t, errKeyOf(t, data).Fields["database_password"], "database_password_error_empty")
+
+		status, data = call(t, srv, http.MethodPost, "/api/sites/database-users", env.aCookie, env.aCSRF,
+			map[string]any{"database_user": "root", "database_password": "Sup3r-Secret!"})
+		require.Equal(t, http.StatusUnprocessableEntity, status)
+		require.Contains(t, errKeyOf(t, data).Fields["database_user"], "database_user_error_blacklist")
+	})
+
+	t.Run("empty update password leaves the hashes unchanged", func(t *testing.T) {
+		var before model.WebDatabaseUser
+		require.NoError(t, db.First(&before, int(userID)).Error)
+
+		status, data := call(t, srv, http.MethodPut,
+			fmt.Sprintf("/api/sites/database-users/%d", int(userID)), env.aCookie, env.aCSRF,
+			map[string]any{"database_user": "c1web", "database_password": ""})
+		require.Equal(t, http.StatusOK, status, "%s", data)
+
+		var after model.WebDatabaseUser
+		require.NoError(t, db.First(&after, int(userID)).Error)
+		require.Equal(t, before.DatabasePassword, after.DatabasePassword)
+		require.Equal(t, before.DatabasePasswordSha2, after.DatabasePasswordSha2)
+	})
+
+	t.Run("password change fans out per referencing server", func(t *testing.T) {
+		// A database on server 1 references the user.
+		domainID := env.createDomain(t, env.aCookie, env.aCSRF,
+			map[string]any{"server_id": 1, "domain": "clienta-dbu.com", "type": "vhost"})
+		status, data := call(t, srv, http.MethodPost, "/api/sites/databases", env.aCookie, env.aCSRF,
+			map[string]any{"server_id": 1, "parent_domain_id": domainID,
+				"database_name": "fanout_db", "database_user_id": userID})
+		require.Equal(t, http.StatusCreated, status, "%s", data)
+
+		status, data = call(t, srv, http.MethodPut,
+			fmt.Sprintf("/api/sites/database-users/%d", int(userID)), env.aCookie, env.aCSRF,
+			map[string]any{"database_password": "An0ther-Secret!"})
+		require.Equal(t, http.StatusOK, status, "%s", data)
+
+		var fanned []model.SysDatalog
+		require.NoError(t, db.Where("dbtable = ? AND action = 'u' AND server_id = 1", "web_database_user").
+			Find(&fanned).Error)
+		require.NotEmpty(t, fanned, "fan-out row targeted at the database's server")
+
+		var stored model.WebDatabaseUser
+		require.NoError(t, db.First(&stored, int(userID)).Error)
+		require.Regexp(t, `^\*[0-9A-F]{40}$`, stored.DatabasePassword, "new native hash stored")
+	})
+
+	t.Run("cross-client access is denied", func(t *testing.T) {
+		status, _ := call(t, srv, http.MethodGet,
+			fmt.Sprintf("/api/sites/database-users/%d", int(userID)), env.bCookie, "", nil)
+		require.Equal(t, http.StatusForbidden, status)
+
+		status, _ = call(t, srv, http.MethodPut,
+			fmt.Sprintf("/api/sites/database-users/%d", int(userID)), env.bCookie, env.bCSRF,
+			map[string]any{"database_user": "hijack"})
+		require.Equal(t, http.StatusForbidden, status)
+	})
+
+	t.Run("delete nulls the database references with journaled updates", func(t *testing.T) {
+		status, _ := call(t, srv, http.MethodDelete,
+			fmt.Sprintf("/api/sites/database-users/%d", int(userID)), env.aCookie, env.aCSRF, nil)
+		require.Equal(t, http.StatusNoContent, status)
+
+		var dbs []model.WebDatabase
+		require.NoError(t, db.Where("database_name = ?", "fanout_db").Find(&dbs).Error)
+		require.Len(t, dbs, 1)
+		require.Nil(t, dbs[0].DatabaseUserID, "FK nulled on user delete")
+
+		var dl model.SysDatalog
+		require.NoError(t, db.Where("dbtable = ? AND action = 'u'", "web_database").
+			Order("datalog_id DESC").First(&dl).Error)
+		require.Contains(t, dl.Data, `"database_user_id":null`)
+
+		var userLog model.SysDatalog
+		require.NoError(t, db.Where("dbtable = ? AND action = 'd'", "web_database_user").
+			Order("datalog_id DESC").First(&userLog).Error)
+		require.Equal(t, fmt.Sprintf("database_user_id:%d", int(userID)), userLog.DBIdx)
+	})
+}

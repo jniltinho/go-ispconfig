@@ -34,7 +34,7 @@
 ## 5. REST API
 
 - [x] 5.1 Database endpoints under `/api/sites/databases` (list/get/create/update/delete) via declarative Entity + swaggo annotations; handler tests incl. 403 cross-client. Commit.
-- [ ] 5.2 Database-user endpoints under `/api/sites/database-users` (list/get/create/update/delete) with write-only password; swaggo; tests. Commit.
+- [x] 5.2 Database-user endpoints under `/api/sites/database-users` (list/get/create/update/delete) with write-only password; swaggo; tests. Commit.
 - [ ] 5.3 Regenerate swagger (`make swagger` / `swag init`), verify Swagger UI lists database endpoints, CI staleness check green. Commit.
 
 ## 6. Panel UI (Vue)
