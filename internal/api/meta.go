@@ -6,6 +6,7 @@ import (
 
 	"github.com/labstack/echo/v5"
 
+	"go-ispconfig/internal/auth"
 	"go-ispconfig/internal/validator"
 )
 
@@ -69,10 +70,12 @@ func registerMetaRoutes(g *echo.Group) {
 	g.GET("/meta/forms/:entity", formMetaHandler())
 }
 
-// formMetaHandler implements GET /api/meta/forms/{entity}.
+// formMetaHandler implements GET /api/meta/forms/{entity}. AdminOnly tabs
+// and fields are omitted for non-admin sessions (tform admin-only tabs), so
+// clients render exactly the form the API accepts from them.
 //
 //	@Summary		Form metadata of an entity
-//	@Description	Returns the tabs, fields, types, defaults and validator hints of a registered entity so the SPA renders its form from the same source of truth used for validation.
+//	@Description	Returns the tabs, fields, types, defaults and validator hints of a registered entity so the SPA renders its form from the same source of truth used for validation. Admin-only tabs/fields are omitted for non-admin sessions.
 //	@Tags			meta
 //	@Produce		json
 //	@Param			entity	path		string	true	"Entity name"	example(server_ip)
@@ -88,15 +91,23 @@ func formMetaHandler() echo.HandlerFunc {
 		if !ok {
 			return echo.NewHTTPError(http.StatusNotFound, "unknown entity")
 		}
-		meta := FormMeta{Name: ent.Name, Title: ent.Title, Tabs: make([]FormTabMeta, len(ent.Tabs))}
-		for ti, tab := range ent.Tabs {
-			fields := make([]FormFieldMeta, len(tab.Fields))
-			for fi, f := range tab.Fields {
+		sess := auth.FromContext(c)
+		admin := sess != nil && sess.Typ == "admin"
+		meta := FormMeta{Name: ent.Name, Title: ent.Title, Tabs: []FormTabMeta{}}
+		for _, tab := range ent.Tabs {
+			if tab.AdminOnly && !admin {
+				continue
+			}
+			fields := []FormFieldMeta{}
+			for _, f := range tab.Fields {
+				if f.AdminOnly && !admin {
+					continue
+				}
 				typ, ok := formTypes[f.Formtype]
 				if !ok {
 					typ = strings.ToLower(f.Formtype)
 				}
-				fields[fi] = FormFieldMeta{
+				fields = append(fields, FormFieldMeta{
 					Name:       f.Name,
 					Label:      f.Label,
 					Type:       typ,
@@ -105,9 +116,9 @@ func formMetaHandler() echo.HandlerFunc {
 					Default:    f.Default,
 					Options:    f.Options,
 					Validators: f.Validators,
-				}
+				})
 			}
-			meta.Tabs[ti] = FormTabMeta{Name: tab.Name, Label: tab.Label, Fields: fields}
+			meta.Tabs = append(meta.Tabs, FormTabMeta{Name: tab.Name, Label: tab.Label, Fields: fields})
 		}
 		return c.JSON(http.StatusOK, meta)
 	}

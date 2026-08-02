@@ -93,7 +93,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Returns the tabs, fields, types, defaults and validator hints of a registered entity so the SPA renders its form from the same source of truth used for validation.",
+                "description": "Returns the tabs, fields, types, defaults and validator hints of a registered entity so the SPA renders its form from the same source of truth used for validation. Admin-only tabs/fields are omitted for non-admin sessions.",
                 "produces": [
                     "application/json"
                 ],
@@ -440,6 +440,804 @@ const docTemplate = `{
                 }
             }
         },
+        "/sites/web-domains": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Paginated, permission-scoped list of vhost/subdomain/alias domains. Any declared field name may be passed as a query parameter for substring filtering (e.g. ?domain=example). Items carry _datalog_state (\"pending\"/\"error\") and _datalog_error while a change is being applied by the daemon or failed there.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sites"
+                ],
+                "summary": "List web domains",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "1-based page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 25,
+                        "description": "Page size (max 100)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Substring filter on domain",
+                        "name": "domain",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.ListResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Validates the tform-ported field rules (domain syntax/uniqueness, quotas, nginx_directives blacklist), derives document_root, system_user and system_group server-side (ISPConfig onAfterInsert semantics) and journals the insert to sys_datalog in the same transaction; the daemon then provisions the site. Admin-only Options fields are ignored for non-admin callers.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sites"
+                ],
+                "summary": "Create a web domain",
+                "parameters": [
+                    {
+                        "description": "Field values (declared fields only; sys_ columns are ignored)",
+                        "name": "record",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.WebDomain"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/model.WebDomain"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Per-field validation errors",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/sites/web-domains/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns the record plus _datalog_state/_datalog_error when the daemon has not yet applied (or failed to apply) the latest change.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sites"
+                ],
+                "summary": "Get a web domain",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "domain_id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.WebDomain"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied or record not found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Merges the declared body fields over the stored record, validates the result and saves it under the u-flag permission scope with a sys_datalog diff consumed by the daemon.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sites"
+                ],
+                "summary": "Update a web domain",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "domain_id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Changed field values",
+                        "name": "record",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.WebDomain"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.WebDomain"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Per-field validation errors",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "sites"
+                ],
+                "summary": "Delete a web domain",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "domain_id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Deleted (vhost/pool/dirs removed asynchronously by the daemon)"
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/sites/web-folder-users": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sites"
+                ],
+                "summary": "List protected folder users",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "1-based page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 25,
+                        "description": "Page size (max 100)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter on web_folder_id",
+                        "name": "web_folder_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.ListResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "The plaintext password is stored SHA-512 crypted (never plain); the daemon copies the hash into the folder's .htpasswd file. server_id is derived from the referenced folder, which must be readable by the caller.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sites"
+                ],
+                "summary": "Create a protected folder user",
+                "parameters": [
+                    {
+                        "description": "Field values",
+                        "name": "record",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.WebFolderUser"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/model.WebFolderUser"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Per-field validation errors",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/sites/web-folder-users/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sites"
+                ],
+                "summary": "Get a protected folder user",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "web_folder_user_id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.WebFolderUser"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied or record not found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sites"
+                ],
+                "summary": "Update a protected folder user",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "web_folder_user_id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Changed field values (a plaintext password is re-crypted)",
+                        "name": "record",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.WebFolderUser"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.WebFolderUser"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Per-field validation errors",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "sites"
+                ],
+                "summary": "Delete a protected folder user",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "web_folder_user_id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Deleted"
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/sites/web-folders": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sites"
+                ],
+                "summary": "List protected folders",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "1-based page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 25,
+                        "description": "Page size (max 100)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.ListResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "server_id is derived from the referenced parent domain, which must be readable by the caller (cross-client references are denied). The daemon maintains the .htpasswd file and the auth_basic vhost location.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sites"
+                ],
+                "summary": "Create a protected folder",
+                "parameters": [
+                    {
+                        "description": "Field values",
+                        "name": "record",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.WebFolder"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/model.WebFolder"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Per-field validation errors",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/sites/web-folders/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sites"
+                ],
+                "summary": "Get a protected folder",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "web_folder_id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.WebFolder"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied or record not found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sites"
+                ],
+                "summary": "Update a protected folder",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "web_folder_id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Changed field values",
+                        "name": "record",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.WebFolder"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.WebFolder"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Per-field validation errors",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "sites"
+                ],
+                "summary": "Delete a protected folder",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "web_folder_id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Deleted"
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/system/scheduler": {
             "get": {
                 "security": [
@@ -773,6 +1571,358 @@ const docTemplate = `{
                 "virtualhost_port": {
                     "type": "string",
                     "example": "80,443"
+                }
+            }
+        },
+        "model.WebDomain": {
+            "type": "object",
+            "properties": {
+                "active": {
+                    "type": "string"
+                },
+                "addedBy": {
+                    "type": "string"
+                },
+                "addedDate": {
+                    "type": "string"
+                },
+                "allowOverride": {
+                    "type": "string"
+                },
+                "apacheDirectives": {
+                    "type": "string"
+                },
+                "backupCopies": {
+                    "type": "integer"
+                },
+                "backupEncrypt": {
+                    "type": "string"
+                },
+                "backupExcludes": {
+                    "type": "string"
+                },
+                "backupFormatDB": {
+                    "type": "string"
+                },
+                "backupFormatWeb": {
+                    "type": "string"
+                },
+                "backupInterval": {
+                    "type": "string"
+                },
+                "backupPassword": {
+                    "type": "string"
+                },
+                "cgi": {
+                    "type": "string"
+                },
+                "customPHPIni": {
+                    "type": "string"
+                },
+                "deleteUnusedJailkit": {
+                    "type": "string"
+                },
+                "directiveSnippetsID": {
+                    "type": "integer"
+                },
+                "disableSymlinknotowner": {
+                    "type": "string"
+                },
+                "documentRoot": {
+                    "type": "string"
+                },
+                "domain": {
+                    "type": "string"
+                },
+                "domainID": {
+                    "type": "integer"
+                },
+                "enablePagespeed": {
+                    "type": "string"
+                },
+                "errordocs": {
+                    "type": "integer"
+                },
+                "folderDirectiveSnippets": {
+                    "type": "string"
+                },
+                "hdQuota": {
+                    "type": "integer"
+                },
+                "httpport": {
+                    "type": "integer"
+                },
+                "httpsport": {
+                    "type": "integer"
+                },
+                "ipaddress": {
+                    "type": "string"
+                },
+                "ipv6Address": {
+                    "type": "string"
+                },
+                "isSubdomainWWW": {
+                    "type": "integer"
+                },
+                "jailkitChrootAppPrograms": {
+                    "type": "string"
+                },
+                "jailkitChrootAppSections": {
+                    "type": "string"
+                },
+                "lastJailkitHash": {
+                    "type": "string"
+                },
+                "lastJailkitUpdate": {
+                    "type": "string"
+                },
+                "lastQuotaNotification": {
+                    "type": "string"
+                },
+                "logRetention": {
+                    "type": "integer"
+                },
+                "nginxDirectives": {
+                    "type": "string"
+                },
+                "parentDomainID": {
+                    "type": "integer"
+                },
+                "perl": {
+                    "type": "string"
+                },
+                "php": {
+                    "type": "string"
+                },
+                "phpfpmchroot": {
+                    "type": "string"
+                },
+                "phpfpmuseSocket": {
+                    "type": "string"
+                },
+                "phpopenBasedir": {
+                    "type": "string"
+                },
+                "pm": {
+                    "type": "string"
+                },
+                "pmmaxChildren": {
+                    "type": "integer"
+                },
+                "pmmaxRequests": {
+                    "type": "integer"
+                },
+                "pmmaxSpareServers": {
+                    "type": "integer"
+                },
+                "pmminSpareServers": {
+                    "type": "integer"
+                },
+                "pmprocessIdleTimeout": {
+                    "type": "integer"
+                },
+                "pmstartServers": {
+                    "type": "integer"
+                },
+                "proxyDirectives": {
+                    "type": "string"
+                },
+                "proxyProtocol": {
+                    "type": "string"
+                },
+                "python": {
+                    "type": "string"
+                },
+                "redirectPath": {
+                    "type": "string"
+                },
+                "redirectType": {
+                    "type": "string"
+                },
+                "rewriteRules": {
+                    "type": "string"
+                },
+                "rewriteToHTTPS": {
+                    "type": "string"
+                },
+                "ruby": {
+                    "type": "string"
+                },
+                "seoRedirect": {
+                    "type": "string"
+                },
+                "serverID": {
+                    "type": "integer"
+                },
+                "serverPHPID": {
+                    "type": "integer"
+                },
+                "ssi": {
+                    "type": "string"
+                },
+                "ssl": {
+                    "type": "string"
+                },
+                "sslaction": {
+                    "type": "string"
+                },
+                "sslbundle": {
+                    "type": "string"
+                },
+                "sslcert": {
+                    "type": "string"
+                },
+                "sslcountry": {
+                    "type": "string"
+                },
+                "ssldomain": {
+                    "type": "string"
+                },
+                "sslkey": {
+                    "type": "string"
+                },
+                "sslletsencrypt": {
+                    "type": "string"
+                },
+                "sslletsencryptExclude": {
+                    "type": "string"
+                },
+                "ssllocality": {
+                    "type": "string"
+                },
+                "sslorganisation": {
+                    "type": "string"
+                },
+                "sslorganisationUnit": {
+                    "type": "string"
+                },
+                "sslrequest": {
+                    "type": "string"
+                },
+                "sslstate": {
+                    "type": "string"
+                },
+                "statsPassword": {
+                    "type": "string"
+                },
+                "statsType": {
+                    "type": "string"
+                },
+                "subdomain": {
+                    "type": "string"
+                },
+                "suexec": {
+                    "type": "string"
+                },
+                "sysGroupID": {
+                    "type": "integer"
+                },
+                "sysPermGroup": {
+                    "type": "string"
+                },
+                "sysPermOther": {
+                    "type": "string"
+                },
+                "sysPermUser": {
+                    "type": "string"
+                },
+                "sysUserID": {
+                    "type": "integer"
+                },
+                "systemGroup": {
+                    "type": "string"
+                },
+                "systemUser": {
+                    "type": "string"
+                },
+                "trafficQuota": {
+                    "type": "integer"
+                },
+                "trafficQuotaLock": {
+                    "description": "default tag: not a form field; the DB default 'n' must apply on\ninsert (a zero-value \"\" would fail the NOT NULL enum in strict mode).",
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "vhostType": {
+                    "type": "string"
+                },
+                "webFolder": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.WebFolder": {
+            "type": "object",
+            "properties": {
+                "active": {
+                    "type": "string"
+                },
+                "parentDomainID": {
+                    "type": "integer"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "serverID": {
+                    "type": "integer"
+                },
+                "sysGroupID": {
+                    "type": "integer"
+                },
+                "sysPermGroup": {
+                    "type": "string"
+                },
+                "sysPermOther": {
+                    "type": "string"
+                },
+                "sysPermUser": {
+                    "type": "string"
+                },
+                "sysUserID": {
+                    "type": "integer"
+                },
+                "webFolderID": {
+                    "type": "integer"
+                }
+            }
+        },
+        "model.WebFolderUser": {
+            "type": "object",
+            "properties": {
+                "active": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                },
+                "serverID": {
+                    "type": "integer"
+                },
+                "sysGroupID": {
+                    "type": "integer"
+                },
+                "sysPermGroup": {
+                    "type": "string"
+                },
+                "sysPermOther": {
+                    "type": "string"
+                },
+                "sysPermUser": {
+                    "type": "string"
+                },
+                "sysUserID": {
+                    "type": "integer"
+                },
+                "username": {
+                    "type": "string"
+                },
+                "webFolderID": {
+                    "type": "integer"
+                },
+                "webFolderUserID": {
+                    "type": "integer"
                 }
             }
         },
