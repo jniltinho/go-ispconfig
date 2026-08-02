@@ -74,14 +74,17 @@ async function submit() {
           </button>
         </div>
         <div class="border-t border-border pt-3 text-sm">
-          <a
-            href="#"
+          <button
+            type="button"
             data-test="password-lost"
-            @click.prevent="showLostHint = !showLostHint"
+            class="cursor-pointer border-0 bg-transparent p-0 text-sm text-link hover:underline"
+            :aria-expanded="showLostHint"
+            aria-controls="password-lost-hint"
+            @click="showLostHint = !showLostHint"
           >
             {{ t('login.password_lost') }}
-          </a>
-          <UiAlert v-if="showLostHint" variant="info" class="mt-2">
+          </button>
+          <UiAlert v-if="showLostHint" id="password-lost-hint" variant="info" class="mt-2">
             {{ t('login.password_lost_hint') }}
           </UiAlert>
         </div>

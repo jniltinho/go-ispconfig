@@ -7,6 +7,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { utilityIcons } from '../../icons'
 import { api, ApiError } from '../../api'
+import UiAlert from '../../components/UiAlert.vue'
 import { useI18n } from '../../i18n'
 
 const props = defineProps<{ zoneId: string }>()
@@ -216,12 +217,7 @@ async function toggleActive(row: RecordRow) {
       </span>
     </div>
 
-    <p
-      v-if="error"
-      class="mb-3 border border-danger-border bg-danger px-3 py-2 text-sm text-danger-text"
-    >
-      {{ t(error) }}
-    </p>
+    <UiAlert v-if="error" variant="danger" class="mb-3" :messages="[t(error)]" />
 
     <div class="overflow-x-auto border border-border bg-surface">
       <table class="w-full border-collapse text-sm" data-test="record-grid">

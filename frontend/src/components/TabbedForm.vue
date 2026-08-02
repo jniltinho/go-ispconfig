@@ -78,16 +78,19 @@ watch(
 <template>
   <form class="border border-border bg-surface" @submit.prevent="emit('save', { ...values })">
     <!-- Flat tabs -->
-    <div class="flex border-b border-border bg-bg">
+    <div role="tablist" class="flex border-b border-border bg-bg">
       <button
         v-for="tab in metadata.tabs"
         :key="tab.name"
         type="button"
+        role="tab"
+        :aria-selected="activeTab === tab.name"
+        :aria-controls="`tabpanel-${tab.name}`"
         class="-mb-px border-r border-border px-5 py-2.5 text-sm font-bold transition-colors duration-150"
         :class="
           activeTab === tab.name
             ? 'border-b border-b-surface bg-surface text-text'
-            : 'border-b border-b-border text-text/70 hover:bg-info'
+            : 'border-b border-b-border text-text-muted hover:bg-info'
         "
         @click="activeTab = tab.name"
       >
@@ -100,13 +103,18 @@ watch(
       v-if="errorList().length"
       variant="danger"
       class="m-4"
-      :messages="errorList().map(([, msgs]) => msgs.join(', '))"
+      :messages="errorList().map(([field, msgs]) => `${field}: ${msgs.join(', ')}`)"
     />
 
     <!-- Fields of the active tab -->
     <div class="px-3 py-6">
       <template v-for="tab in metadata.tabs" :key="tab.name">
-        <div v-show="activeTab === tab.name" class="space-y-4">
+        <div
+          v-show="activeTab === tab.name"
+          :id="`tabpanel-${tab.name}`"
+          role="tabpanel"
+          class="space-y-4"
+        >
           <template v-for="field in tab.fields" :key="field.name">
             <!-- Fieldset legend as a sub-heading (original trait) -->
             <p
@@ -145,6 +153,7 @@ watch(
                 v-else-if="field.type === 'select'"
                 :id="`field-${field.name}`"
                 v-model="values[field.name] as string"
+                :disabled="field.readonly"
                 class="w-full max-w-md border border-border bg-surface px-3 py-1.5 text-sm outline-none focus:border-link"
                 :class="{ 'border-danger-border': errors?.[field.name]?.length }"
               >

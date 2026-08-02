@@ -6,6 +6,7 @@ import { utilityIcons } from '../../icons'
 import DataTable, { type Column, type Row } from '../../components/DataTable.vue'
 import { useSitesStore, type ListResponse } from '../../stores/sites'
 import { api, ApiError } from '../../api'
+import UiAlert from '../../components/UiAlert.vue'
 import { useI18n } from '../../i18n'
 
 const { t } = useI18n()
@@ -77,12 +78,7 @@ async function remove(row: Row) {
       {{ t('dns.add_slave_zone') }}
     </button>
 
-    <p
-      v-if="error"
-      class="mb-3 border border-danger-border bg-danger px-3 py-2 text-sm text-danger-text"
-    >
-      {{ t(error) }}
-    </p>
+    <UiAlert v-if="error" variant="danger" class="mb-3" :messages="[t(error)]" />
 
     <DataTable
       :columns="columns"

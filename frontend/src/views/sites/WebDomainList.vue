@@ -7,6 +7,7 @@ import { utilityIcons } from '../../icons'
 import DataTable, { type Column, type Row } from '../../components/DataTable.vue'
 import { useSitesStore } from '../../stores/sites'
 import { api, ApiError } from '../../api'
+import UiAlert from '../../components/UiAlert.vue'
 import { useI18n } from '../../i18n'
 
 const { t } = useI18n()
@@ -54,12 +55,7 @@ async function remove(row: Row) {
       {{ t('sites.add_website') }}
     </button>
 
-    <p
-      v-if="store.error"
-      class="mb-3 border border-danger-border bg-danger px-3 py-2 text-sm text-danger-text"
-    >
-      {{ t(store.error) }}
-    </p>
+    <UiAlert v-if="store.error" variant="danger" class="mb-3" :messages="[t(store.error)]" />
 
     <DataTable
       :columns="columns"

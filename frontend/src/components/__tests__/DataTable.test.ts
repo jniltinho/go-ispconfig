@@ -75,7 +75,26 @@ describe('DataTable', () => {
     const empty = wrapper.find('[data-test="empty-state"]')
     expect(empty.exists()).toBe(true)
     expect(empty.text()).toContain('No records found.')
-    expect(empty.text()).toContain('Try clearing the column filters')
+    expect(empty.text()).toContain('Add a new record')
     expect(empty.find('svg').exists()).toBe(true)
+  })
+
+  it('filtered empty state hints at clearing filters', async () => {
+    const wrapper = mount(DataTable, {
+      props: { columns, rows: [], total: 0, page: 1, pageSize: 5 },
+    })
+    await wrapper.find('thead input').setValue('nope')
+    expect(wrapper.find('[data-test="empty-state"]').text()).toContain('clearing the column filters')
+  })
+
+  it('action-less tables still expose the filter button', async () => {
+    const wrapper = mount(DataTable, {
+      props: { columns, rows: [], total: 0, page: 1, pageSize: 5 },
+    })
+    const btn = wrapper.find('thead button[aria-label="Filter"]')
+    expect(btn.exists()).toBe(true)
+    await wrapper.find('thead input').setValue('abc')
+    await btn.trigger('click')
+    expect(wrapper.emitted('filter')).toEqual([[{ id: 'abc' }]])
   })
 })

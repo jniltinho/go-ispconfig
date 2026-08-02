@@ -412,8 +412,9 @@
   "topbar.dark_mode": "Switch to dark mode",
   "topbar.light_mode": "Switch to light mode",
   "sidebar.toggle": "Toggle navigation",
-  "table.empty_hint": "Try clearing the column filters or add a new record.",
+  "table.empty_hint": "Add a new record to get started.",
   "login.password_lost": "Password lost?",
   "login.password_lost_hint": "Ask your administrator to generate a one-time password-reset token for your account.",
-  "dashboard.open_module": "Open {module}"
+  "dashboard.open_module": "Open {module}",
+  "table.empty_hint_filtered": "No matches — try clearing the column filters."
 }

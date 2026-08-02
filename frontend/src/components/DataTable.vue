@@ -35,7 +35,12 @@ const { t } = useI18n()
 const filters = reactive<Record<string, string>>({})
 
 const pages = computed(() => Math.max(1, Math.ceil(props.total / props.pageSize)))
-const colCount = computed(() => props.columns.length + (props.hasActions ? 1 : 0))
+// A trailing cell always exists: the actions column or the filter-button
+// column on action-less tables.
+const colCount = computed(() => props.columns.length + 1)
+
+// hasActiveFilters steers the empty-state hint text.
+const hasActiveFilters = computed(() => Object.values(filters).some((v) => v !== ''))
 
 function applyFilters() {
   const active: Record<string, string> = {}
@@ -52,7 +57,7 @@ function goTo(page: number) {
 
 <template>
   <div class="overflow-x-auto border border-border bg-surface">
-    <table class="w-full border-collapse text-sm">
+    <table class="w-full border-collapse text-sm" :aria-busy="loading || undefined">
       <thead class="bg-thead text-white">
         <tr>
           <th
@@ -62,41 +67,29 @@ function goTo(page: number) {
           >
             {{ col.label }}
           </th>
-          <th v-if="hasActions" class="px-3 py-2.5 text-right text-xs font-bold uppercase">
-            {{ t('table.actions') }}
+          <th class="px-3 py-2.5 text-right text-xs font-bold uppercase">
+            <template v-if="hasActions">{{ t('table.actions') }}</template>
           </th>
         </tr>
-        <!-- Inline filter row (signature ISPConfig trait). The filter
-             button also renders on tables without an actions column. -->
+        <!-- Inline filter row (signature ISPConfig trait); the trailing
+             cell always hosts the filter action button. -->
         <tr>
-          <th v-for="(col, idx) in columns" :key="col.key" class="px-2 py-1.5">
-            <div class="flex items-center gap-1">
-              <input
-                v-if="col.filterable !== false"
-                v-model="filters[col.key]"
-                type="text"
-                :aria-label="`${t('table.filter')}: ${col.label}`"
-                class="w-full border border-border bg-surface px-2 py-1 text-xs font-normal text-text outline-none focus:border-link"
-                @keyup.enter="applyFilters"
-              />
-              <button
-                v-if="!hasActions && idx === columns.length - 1"
-                type="button"
-                :title="t('table.filter')"
-                :aria-label="t('table.filter')"
-                class="border border-border bg-surface p-1 text-text transition-colors duration-150 hover:bg-info"
-                @click="applyFilters"
-              >
-                <component :is="utilityIcons.filter" :size="14" />
-              </button>
-            </div>
+          <th v-for="col in columns" :key="col.key" class="px-2 py-1.5">
+            <input
+              v-if="col.filterable !== false"
+              v-model="filters[col.key]"
+              type="text"
+              :aria-label="`${t('table.filter')}: ${col.label}`"
+              class="w-full border border-border bg-surface px-2 py-1 text-xs font-normal text-text outline-none focus:border-link"
+              @keyup.enter="applyFilters"
+            />
           </th>
-          <th v-if="hasActions" class="px-2 py-1.5 text-right">
+          <th class="px-2 py-1.5 text-right">
             <button
               type="button"
               :title="t('table.filter')"
               :aria-label="t('table.filter')"
-              class="border border-border bg-surface p-1 text-text transition-colors duration-150 hover:bg-info"
+              class="btn btn-default p-1"
               @click="applyFilters"
             >
               <component :is="utilityIcons.filter" :size="14" />
@@ -107,12 +100,12 @@ function goTo(page: number) {
       <tbody>
         <!-- Loading: skeleton rows sized like real ones -->
         <template v-if="loading">
-          <tr v-for="n in 5" :key="`skeleton-${n}`" class="border-t border-border" data-test="skeleton-row">
+          <tr v-for="n in Math.min(pageSize, 10)" :key="`skeleton-${n}`" class="border-t border-border" data-test="skeleton-row">
             <td v-for="col in columns" :key="col.key" class="px-3 py-2">
-              <div class="h-4 animate-pulse bg-border/60" />
+              <div class="h-4 motion-safe:animate-pulse bg-border/60" />
             </td>
-            <td v-if="hasActions" class="px-3 py-2">
-              <div class="ml-auto h-4 w-12 animate-pulse bg-border/60" />
+            <td class="px-3 py-2">
+              <div v-if="hasActions" class="ml-auto h-4 w-12 motion-safe:animate-pulse bg-border/60" />
             </td>
           </tr>
         </template>
@@ -121,11 +114,14 @@ function goTo(page: number) {
           <td :colspan="colCount" class="px-3 py-10 text-center">
             <component :is="utilityIcons.search" :size="28" class="mx-auto mb-2 text-text-muted" />
             <p class="text-sm font-semibold">{{ t('table.empty') }}</p>
-            <p class="mt-1 text-xs text-text-muted">{{ t('table.empty_hint') }}</p>
+            <p class="mt-1 text-xs text-text-muted">
+              {{ t(hasActiveFilters ? 'table.empty_hint_filtered' : 'table.empty_hint') }}
+            </p>
           </td>
         </tr>
+        <template v-else>
         <tr
-          v-for="(row, i) in loading ? [] : rows"
+          v-for="(row, i) in rows"
           :key="i"
           class="cursor-pointer border-t border-border odd:bg-bg hover:bg-info"
           @click="emit('row-click', row)"
@@ -135,10 +131,11 @@ function goTo(page: number) {
               {{ row[col.key] }}
             </slot>
           </td>
-          <td v-if="hasActions" class="px-3 py-2 text-right whitespace-nowrap" @click.stop>
-            <slot name="actions" :row="row" />
+          <td class="px-3 py-2 text-right whitespace-nowrap" @click.stop>
+            <slot v-if="hasActions" name="actions" :row="row" />
           </td>
         </tr>
+        </template>
       </tbody>
       <tfoot>
         <tr class="border-t border-border bg-bg">
@@ -149,7 +146,7 @@ function goTo(page: number) {
                 <button
                   type="button"
                   class="btn btn-default px-2 py-1"
-                  :disabled="page <= 1"
+                  :disabled="loading || page <= 1"
                   @click="goTo(page - 1)"
                 >
                   {{ t('table.prev') }}
@@ -158,7 +155,7 @@ function goTo(page: number) {
                 <button
                   type="button"
                   class="btn btn-default px-2 py-1"
-                  :disabled="page >= pages"
+                  :disabled="loading || page >= pages"
                   @click="goTo(page + 1)"
                 >
                   {{ t('table.next') }}

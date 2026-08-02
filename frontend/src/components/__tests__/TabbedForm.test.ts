@@ -47,4 +47,29 @@ describe('TabbedForm', () => {
     await cancel!.trigger('click')
     expect(wrapper.emitted('cancel')).toHaveLength(1)
   })
+
+  it('renders legend fields as sub-headings and errors via UiAlert', () => {
+    const wrapper = mount(TabbedForm, {
+      props: {
+        metadata: {
+          tabs: [
+            {
+              name: 'main',
+              label: 'Main',
+              fields: [
+                { name: 'sec', type: 'legend', label: 'Section heading' },
+                { name: 'domain', type: 'text', label: 'Domain' },
+              ],
+            },
+          ],
+        },
+        errors: { domain: ['is invalid'] },
+      },
+    })
+    expect(wrapper.text()).toContain('Section heading')
+    const alert = wrapper.find('[data-test="alert-danger"]')
+    expect(alert.exists()).toBe(true)
+    expect(alert.text()).toContain('domain: is invalid')
+    expect(alert.classes()).toContain('m-4')
+  })
 })

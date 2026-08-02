@@ -8,6 +8,7 @@ import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import TabbedForm, { type FormMetadata } from '../../components/TabbedForm.vue'
 import { api, ApiError } from '../../api'
+import UiAlert from '../../components/UiAlert.vue'
 import { useI18n } from '../../i18n'
 
 const props = defineProps<{
@@ -198,12 +199,7 @@ async function save(values: Record<string, unknown>) {
       {{ t('sites.state.error') }}: {{ datalogError }}
     </p>
 
-    <p
-      v-if="loadError"
-      class="mb-3 border border-danger-border bg-danger px-3 py-2 text-sm text-danger-text"
-    >
-      {{ t(loadError) }}
-    </p>
+    <UiAlert v-if="loadError" variant="danger" class="mb-3" :messages="[t(loadError)]" />
 
     <TabbedForm
       v-if="metadata"

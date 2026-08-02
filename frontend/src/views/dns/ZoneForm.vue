@@ -6,6 +6,7 @@
 // rendered_zone cache. DNSSEC info is shown read-only under the settings.
 import { onMounted, ref } from 'vue'
 import { api, ApiError } from '../../api'
+import UiAlert from '../../components/UiAlert.vue'
 import { useI18n } from '../../i18n'
 import EntityForm from '../sites/EntityForm.vue'
 import RecordGrid from './RecordGrid.vue'
@@ -62,12 +63,7 @@ onMounted(loadZone)
     >
       {{ t('sites.state.error') }}: {{ datalogError }}
     </p>
-    <p
-      v-if="loadError"
-      class="mb-3 border border-danger-border bg-danger px-3 py-2 text-sm text-danger-text"
-    >
-      {{ t(loadError) }}
-    </p>
+    <UiAlert v-if="loadError" variant="danger" class="mb-3" :messages="[t(loadError)]" />
 
     <!-- Top-level tabs (Records / Zone settings / Zone rendering) -->
     <div class="flex border border-border border-b-0 bg-bg">

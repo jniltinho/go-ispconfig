@@ -7,6 +7,7 @@ import { utilityIcons } from '../../icons'
 import DataTable, { type Column, type Row } from '../../components/DataTable.vue'
 import { useSitesStore } from '../../stores/sites'
 import { api, ApiError } from '../../api'
+import UiAlert from '../../components/UiAlert.vue'
 import { useI18n } from '../../i18n'
 
 const props = defineProps<{ folderId: string }>()
@@ -29,6 +30,7 @@ const loading = ref(false)
 
 async function load(toPage = page.value) {
   error.value = ''
+  loading.value = true
   try {
     const res = await store.fetchList('/api/sites/web-folder-users', toPage, pageSize, {
       web_folder_id: props.folderId,
@@ -38,6 +40,8 @@ async function load(toPage = page.value) {
     page.value = res.page
   } catch (e) {
     error.value = e instanceof ApiError ? e.key : 'error.request_failed'
+  } finally {
+    loading.value = false
   }
 }
 
@@ -70,12 +74,7 @@ async function remove(row: Row) {
       {{ t('sites.add_folder_user') }}
     </button>
 
-    <p
-      v-if="error"
-      class="mb-3 border border-danger-border bg-danger px-3 py-2 text-sm text-danger-text"
-    >
-      {{ t(error) }}
-    </p>
+    <UiAlert v-if="error" variant="danger" class="mb-3" :messages="[t(error)]" />
 
     <DataTable
       :columns="columns"
