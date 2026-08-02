@@ -72,7 +72,7 @@ var daemonCmd = &cobra.Command{
 		plugins := []engine.Plugin{nginxPlugin}
 		// Mail module: only on mail servers (mail-module-events spec:
 		// server.mail_server = 1).
-		if srv.MailServer == 1 {
+		if srv.MailServer == 1 && !cfg.Daemon.DisableMailModule {
 			modules = append(modules, mail.NewModule())
 			plugins = append(plugins, mail.NewPlugin(db, services, runner, srv.ServerID, logger))
 			mail.RegisterServices(services)

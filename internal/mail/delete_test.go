@@ -86,3 +86,39 @@ func TestDomainDeleteRemovesTrees(t *testing.T) {
 	}))
 	assert.Empty(t, runner.all())
 }
+
+func TestMoveMaildirRefusesUnsafePaths(t *testing.T) {
+	home := t.TempDir()
+	cfg := getconf.DefaultMailConfig()
+	cfg.HomedirPath = home
+	p, runner := testPlugin(t, cfg)
+
+	require.NoError(t, os.MkdirAll(home+"/example.com/src", 0o700))
+	p.moveMaildir(context.Background(), cfg, home+"/example.com/src", "/etc/target")
+	p.moveMaildir(context.Background(), cfg, "/etc/passwd", home+"/example.com/dst")
+	assert.Empty(t, runner.all(), "unsafe endpoints must never reach rm/mv")
+
+	p.moveMaildir(context.Background(), cfg, home+"/example.com/src", home+"/example.com/dst")
+	assert.Contains(t, runner.all(), "mv -f "+home+"/example.com/src "+home+"/example.com/dst")
+}
+
+func TestDomainDeleteSoftDeletesMailfilters(t *testing.T) {
+	home := t.TempDir()
+	require.NoError(t, os.MkdirAll(home+"/mailfilters/example.com", 0o700))
+	require.NoError(t, os.MkdirAll(home+"/example.com", 0o700))
+	cfg := getconf.DefaultMailConfig()
+	cfg.HomedirPath = home
+	cfg.MailboxSoftDelete = "y"
+	p, runner := testPlugin(t, cfg)
+
+	require.NoError(t, p.domainDelete(context.Background(), engine.Data{
+		Old: map[string]any{"domain": "example.com"},
+	}))
+	var moved int
+	for _, c := range runner.all() {
+		if strings.HasPrefix(c, "mv ") {
+			moved++
+		}
+	}
+	assert.Equal(t, 2, moved, "domain and mailfilters trees both soft-renamed")
+}

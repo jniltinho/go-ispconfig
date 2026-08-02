@@ -85,6 +85,10 @@ func (p *Plugin) config(ctx context.Context) (getconf.MailConfig, error) {
 	if err != nil {
 		return getconf.DefaultMailConfig(), err
 	}
+	if cfg.Mail.HomedirPath == "" {
+		// A blanked-out homedir_path would disarm every path guard.
+		cfg.Mail.HomedirPath = getconf.DefaultMailConfig().HomedirPath
+	}
 	return cfg.Mail, nil
 }
 
@@ -99,7 +103,9 @@ func (p *Plugin) resolveUIDGID(ctx context.Context, cfg getconf.MailConfig, newR
 		return uid, gid
 	}
 	if cfg.MailboxVirtualUidgidMaps == "y" {
-		if mapped, ok := p.webDomainUID(ctx, newRow.str("email"), newRow.num("server_id")); ok {
+		// mapped must be a real unprivileged uid: 0 (root) or a failed
+		// lookup falls through to the mailuser default.
+		if mapped, ok := p.webDomainUID(ctx, newRow.str("email"), newRow.num("server_id")); ok && mapped > 0 {
 			uid = mapped
 		}
 	}

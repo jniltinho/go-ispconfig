@@ -92,14 +92,8 @@ func (p *Plugin) domainDelete(ctx context.Context, data engine.Data) error {
 		return nil
 	}
 	p.removeTree(ctx, cfg, cfg.HomedirPath+"/"+domain)
-
-	filterPath := cfg.HomedirPath + "/mailfilters/" + domain
-	if safeMailPath(filterPath, cfg.HomedirPath+"/mailfilters") && strings.HasPrefix(filterPath, cfg.HomedirPath) {
-		if _, err := p.runner.Run(ctx, "rm", "-rf", filterPath); err != nil {
-			p.log.Error("mail: mailfilter delete failed", "path", filterPath, "error", err)
-		}
-	} else {
-		p.log.Error("mail: possible security violation when deleting the mailfilter directory", "path", filterPath)
-	}
+	// Spec: the mailfilters tree follows the same guards and soft-delete
+	// semantics (PHP hard-deletes it; the spec supersedes).
+	p.removeTree(ctx, cfg, cfg.HomedirPath+"/mailfilters/"+domain)
 	return nil
 }

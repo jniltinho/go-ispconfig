@@ -92,6 +92,9 @@ type DaemonConfig struct {
 	// DatalogRetentionDays is how long processed sys_datalog rows are kept
 	// before the daily pruning job removes them.
 	DatalogRetentionDays int `toml:"datalog_retention_days" mapstructure:"datalog_retention_days"`
+	// DisableMailModule turns off the daemon mail module and plugins on
+	// a mail server (spec mail-module-events: config.toml enablement).
+	DisableMailModule bool `toml:"disable_mail_module" mapstructure:"disable_mail_module"`
 	// DisableClientEvents turns off the daemon client module (emergency
 	// rollback only; client_delete teardown stops firing while set).
 	DisableClientEvents bool `toml:"disable_client_events" mapstructure:"disable_client_events"`
@@ -119,6 +122,7 @@ func setDefaults() {
 	viper.SetDefault("daemon.tick_seconds", 10)
 	viper.SetDefault("daemon.datalog_retention_days", 30)
 	viper.SetDefault("daemon.disable_client_events", false)
+	viper.SetDefault("daemon.disable_mail_module", false)
 	viper.SetDefault("auth.rehash_legacy", false)
 	viper.SetDefault("queue.addr", "localhost:6379")
 	viper.SetDefault("queue.db", 0)

@@ -216,7 +216,7 @@ func (p *Plugin) userUpdate(ctx context.Context, data engine.Data) error {
 
 	if newRow.str("maildir_format") == "mdbox" {
 		if newMaildir != oldMaildir && isDir(oldMaildir) {
-			p.moveMaildir(ctx, oldMaildir, newMaildir)
+			p.moveMaildir(ctx, cfg, oldMaildir, newMaildir)
 		}
 		if !isDir(newMaildir + "/mdbox") {
 			return p.mdboxCreate(ctx, newRow.str("email"))
@@ -228,7 +228,7 @@ func (p *Plugin) userUpdate(ctx context.Context, data engine.Data) error {
 		return err
 	}
 	if newMaildir != oldMaildir && isDir(oldMaildir) {
-		p.moveMaildir(ctx, oldMaildir, newMaildir)
+		p.moveMaildir(ctx, cfg, oldMaildir, newMaildir)
 	}
 	// Maildrop quota refresh (never on Dovecot: SQL quota is live).
 	if cfg.POP3IMAPDaemon != "dovecot" && isDir(newMaildir+"/new") {
@@ -245,8 +245,13 @@ func (p *Plugin) userUpdate(ctx context.Context, data engine.Data) error {
 
 // moveMaildir replaces the target with the source tree (PHP: rm -fr new,
 // mv -f old new — the freshly provisioned structure is superseded by the
-// real mailbox data).
-func (p *Plugin) moveMaildir(ctx context.Context, oldPath, newPath string) {
+// real mailbox data). Both paths must pass the delete guards (spec:
+// move only after safety checks; PHP trusts the payload here).
+func (p *Plugin) moveMaildir(ctx context.Context, cfg getconf.MailConfig, oldPath, newPath string) {
+	if !safeMailPath(oldPath, cfg.HomedirPath) || !safeMailPath(newPath, cfg.HomedirPath) {
+		p.log.Error("mail: possible security violation on maildir move, refused", "from", oldPath, "to", newPath)
+		return
+	}
 	if isDir(newPath) {
 		if _, err := p.runner.Run(ctx, "rm", "-fr", newPath); err != nil {
 			p.log.Error("mail: could not remove target maildir before move", "path", newPath, "error", err)
