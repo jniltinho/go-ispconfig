@@ -8,6 +8,1356 @@
     },
     "basePath": "/api",
     "paths": {
+        "/dns/record-types": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "The declarative descriptor table of every supported DNS record type (18 dns_rr types plus the TXT-derived SPF/DKIM/DMARC helper forms): stored type, name/data validation rules, aux usage and defaults. The Vue record editor renders its add/edit dialog from this metadata — the same source of truth the API validates against.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "dns"
+                ],
+                "summary": "DNS record type metadata",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/api.DNSRecordType"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/dns/records/{id}": {
+            "put": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Merges the submitted fields over the stored dns_rr row, revalidates them against the per-type metadata and saves under the u-flag permission scope, bumping the SOA serial in the same transaction (unless update_serial=false) with datalog rows for both.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "dns"
+                ],
+                "summary": "Update a DNS record",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "record id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Changed field values plus the optional update_serial flag",
+                        "name": "record",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.DNSRr"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.DNSRr"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Record not accessible",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Per-field validation errors",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Removes the dns_rr row under the d-flag permission scope, journals the delete and bumps the SOA serial in the same transaction (unless ?update_serial=false).",
+                "tags": [
+                    "dns"
+                ],
+                "summary": "Delete a DNS record",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "record id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Bump the SOA serial (default true)",
+                        "name": "update_serial",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Deleted"
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Record not accessible",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/dns/slave-zones": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Paginated, permission-scoped list of dns_slave zones with _datalog_state indicators.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "dns"
+                ],
+                "summary": "List secondary DNS zones",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "1-based page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 25,
+                        "description": "Page size (max 100)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Substring filter on origin",
+                        "name": "origin",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.ListResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Port of dns_slave_add: origin validated like a zone, ns is the required master IP list, xfer an optional IP list; the insert is journaled so the daemon configures the slave zone.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "dns"
+                ],
+                "summary": "Create a secondary DNS zone",
+                "parameters": [
+                    {
+                        "description": "Field values",
+                        "name": "record",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.DNSSlave"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/model.DNSSlave"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Per-field validation errors",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/dns/slave-zones/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "dns"
+                ],
+                "summary": "Get a secondary DNS zone",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "slave zone id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.DNSSlave"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied or record not found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "dns"
+                ],
+                "summary": "Update a secondary DNS zone",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "slave zone id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Changed field values",
+                        "name": "record",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.DNSSlave"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.DNSSlave"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "dns"
+                ],
+                "summary": "Delete a secondary DNS zone",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "slave zone id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Deleted"
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/dns/templates": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "The dns_template rows with visible = 'y', offered to every authenticated user by the zone wizard (port of the dns_wizard template list; admin CRUD lives at /dns/zone-templates).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "dns"
+                ],
+                "summary": "List zone wizard templates",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/api.DNSTemplateInfo"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/dns/zone-templates": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Full dns_template CRUD list for administrators. Non-admins use GET /dns/templates for the visible wizard templates.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "dns"
+                ],
+                "summary": "List zone templates (admin)",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "1-based page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 25,
+                        "description": "Page size (max 100)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.ListResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Not an admin",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "name required; fields is a CSV subset of DOMAIN,IP,IPV6,NS1,NS2,EMAIL,DKIM,DNSSEC; template holds the [ZONE]/[DNS_RECORDS] definition.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "dns"
+                ],
+                "summary": "Create a zone template (admin)",
+                "parameters": [
+                    {
+                        "description": "Field values",
+                        "name": "record",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.DNSTemplate"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/model.DNSTemplate"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Not an admin",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/dns/zone-templates/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "dns"
+                ],
+                "summary": "Get a zone template (admin)",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "template id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.DNSTemplate"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Not an admin",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "dns"
+                ],
+                "summary": "Update a zone template (admin)",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "template id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Changed field values",
+                        "name": "record",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.DNSTemplate"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.DNSTemplate"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Not an admin",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "dns"
+                ],
+                "summary": "Delete a zone template (admin)",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "template id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Deleted"
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Not an admin",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/dns/zones": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Paginated, permission-scoped list of dns_soa zones (port of dns_zone_get_by_user). Any declared field name may be passed as a query parameter for substring filtering (e.g. ?origin=example). Items carry _datalog_state (\"pending\"/\"error\") and _datalog_error while a change is being applied by the daemon or failed there.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "dns"
+                ],
+                "summary": "List DNS zones",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "1-based page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 25,
+                        "description": "Page size (max 100)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Substring filter on origin",
+                        "name": "origin",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.ListResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Port of dns_zone_add: validates the dns_soa.tform rules (origin FQDN + unique + IDN/lowercase, ns/mbox formats, refresh/retry/expire/minimum/ttl \u003e= 60, xfer/also_notify IP lists, DNS-capable server), sets the initial serial to \u003ctoday\u003e01, stamps ownership server-side and journals the insert to sys_datalog; the daemon then writes the zone. update_acl is accepted from admins only.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "dns"
+                ],
+                "summary": "Create a DNS zone",
+                "parameters": [
+                    {
+                        "description": "Field values (declared fields only; sys_ columns are ignored)",
+                        "name": "record",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.DNSSoa"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/model.DNSSoa"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Per-field validation errors",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/dns/zones/origin/{origin}": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Resolves an origin (with or without trailing dot) to the id of an accessible zone (port of dns_zone_get_id). 404 when no accessible zone matches.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "dns"
+                ],
+                "summary": "Zone id by origin",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "example": "example.com",
+                        "description": "Zone origin",
+                        "name": "origin",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.DNSZoneIDResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No accessible zone with this origin",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/dns/zones/wizard": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Port of dns_templatezone_add: replaces the {DOMAIN}/{IP}/{IPV6}/{NS1}/{NS2}/{EMAIL} placeholders in the selected dns_template, parses its [ZONE]/[DNS_RECORDS] sections and creates the SOA plus all records plus their datalog rows in one transaction, with the initial serial \u003ctoday\u003e01. The DNSSEC flag injects dnssec_wanted=Y. Admins may assign the zone to a client group via client_group_id. Legacy ISPConfig3 templates expand unchanged.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "dns"
+                ],
+                "summary": "Create a zone from a template (wizard)",
+                "parameters": [
+                    {
+                        "description": "Template id and wizard field values",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.DNSWizardRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/model.DNSSoa"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Per-field validation errors",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/dns/zones/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns the dns_soa record (port of dns_zone_get) including the daemon-written rendered_zone and dnssec_info columns, plus _datalog_state/_datalog_error while a change is pending or failed.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "dns"
+                ],
+                "summary": "Get a DNS zone",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "zone id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.DNSSoa"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied or record not found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Port of dns_zone_update: merges the declared body fields over the stored record, validates, bumps the SOA serial when any field changed (skippable with \"update_serial\": false in the body) and saves under the u-flag permission scope with a sys_datalog diff.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "dns"
+                ],
+                "summary": "Update a DNS zone",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "zone id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Changed field values",
+                        "name": "record",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.DNSSoa"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.DNSSoa"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Per-field validation errors",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Port of dns_zone_delete: removes the dns_soa row under the d-flag scope and journals the delete; the daemon then removes the zone file and its named.conf.local entry.",
+                "tags": [
+                    "dns"
+                ],
+                "summary": "Delete a DNS zone",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "zone id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Deleted"
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/dns/zones/{id}/dnssec": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Port of dns_zone_set_dnssec: sets dnssec_wanted (Y/N) and optionally dnssec_algo, bumps the serial and journals the change; the daemon then runs the key/sign lifecycle.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "dns"
+                ],
+                "summary": "Toggle DNSSEC on a zone",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "zone id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "dnssec_wanted Y/N and optional dnssec_algo",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.DNSZoneDNSSECRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.DNSSoa"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/dns/zones/{id}/records": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "All dns_rr rows of an accessible zone ordered by type then name (port of dns_rr_get_all_by_zone).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "dns"
+                ],
+                "summary": "List the records of a zone",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "zone id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/model.DNSRr"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Zone not accessible",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Creates a dns_rr row of the given type (A, AAAA, ALIAS, CAA, CNAME, DNAME, DS, HINFO, LOC, MX, NAPTR, NS, PTR, RP, SRV, SSHFP, TLSA, TXT or the TXT-derived SPF/DKIM/DMARC helpers), validated by the per-type metadata. The record inherits the zone's server and ownership; the SOA serial is bumped in the same transaction unless update_serial=false, and datalog rows are journaled for the record and the SOA.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "dns"
+                ],
+                "summary": "Add a record to a zone",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "zone id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "type, name, data, aux, ttl, active plus the optional update_serial flag",
+                        "name": "record",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.DNSRr"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/model.DNSRr"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Zone not updatable by the caller",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Per-field validation errors",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/dns/zones/{id}/status": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Port of dns_zone_set_status: sets dns_soa.active to Y/N, bumps the serial and journals the change; the daemon then adds/removes the zone from named.conf.local.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "dns"
+                ],
+                "summary": "Activate or deactivate a zone",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "zone id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "active or inactive",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.DNSZoneStatusRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.DNSSoa"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/login": {
             "post": {
                 "description": "Verifies sys_user credentials (bcrypt or legacy ISPConfig3 crypt hashes) with brute-force lockout, creates a sys_session and returns the CSRF token and session id. The session id is also set as an HTTP-only cookie; non-browser clients may present it as a bearer token instead. With stay_logged_in the session lives 30 days (sliding) instead of the 1-hour idle TTL.",
@@ -1276,6 +2626,159 @@
         }
     },
     "definitions": {
+        "api.DNSRecordType": {
+            "type": "object",
+            "properties": {
+                "aux_default": {
+                    "description": "AuxDefault is the default aux value.",
+                    "type": "integer"
+                },
+                "aux_label": {
+                    "description": "AuxLabel is the i18n label key of the aux input (priority).",
+                    "type": "string"
+                },
+                "aux_used": {
+                    "description": "AuxUsed marks types whose aux column is meaningful (MX/SRV/NAPTR).",
+                    "type": "boolean"
+                },
+                "data_kind": {
+                    "description": "DataKind selects the data check: \"ipv4\", \"ipv6\" or \"text\".",
+                    "type": "string"
+                },
+                "data_label": {
+                    "description": "DataLabel is the i18n label key of the data input.",
+                    "type": "string"
+                },
+                "data_not_contains": {
+                    "description": "DataNotContains rejects data containing any of these substrings\n(plain TXT refuses DKIM/DMARC/SPF payloads — dedicated forms exist).",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "data_prefix": {
+                    "description": "DataPrefix requires the data to start with this string (SPF/DMARC).",
+                    "type": "string"
+                },
+                "data_regex": {
+                    "description": "DataRegex additionally validates textual data when set.",
+                    "type": "string"
+                },
+                "name_regex": {
+                    "description": "NameRegex validates the record name (Go regex, exported for the UI).",
+                    "type": "string"
+                },
+                "name_required": {
+                    "description": "NameRequired marks types whose name must not be empty.",
+                    "type": "boolean"
+                },
+                "stored_type": {
+                    "description": "StoredType is the dns_rr.type enum value written to the DB.",
+                    "type": "string"
+                },
+                "ttl_default": {
+                    "description": "TTLDefault is the default TTL.",
+                    "type": "integer"
+                },
+                "type": {
+                    "description": "Type is the API discriminator (A, MX, ... plus the TXT-derived\nSPF/DKIM/DMARC helper forms).",
+                    "type": "string"
+                }
+            }
+        },
+        "api.DNSTemplateInfo": {
+            "type": "object",
+            "properties": {
+                "fields": {
+                    "description": "Fields is the CSV of wizard inputs the template declares\n(DOMAIN,IP,IPV6,NS1,NS2,EMAIL,DKIM,DNSSEC).",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "Name is the display name.",
+                    "type": "string"
+                },
+                "template_id": {
+                    "description": "TemplateID identifies the dns_template row.",
+                    "type": "integer"
+                }
+            }
+        },
+        "api.DNSWizardRequest": {
+            "type": "object",
+            "properties": {
+                "client_group_id": {
+                    "description": "ClientGroupID optionally assigns the zone to a client group\n(admin only).",
+                    "type": "integer"
+                },
+                "dnssec": {
+                    "description": "DNSSEC injects dnssec_wanted=Y into the [ZONE] section.",
+                    "type": "boolean"
+                },
+                "domain": {
+                    "description": "Domain fills {DOMAIN}.",
+                    "type": "string"
+                },
+                "email": {
+                    "description": "Email fills {EMAIL}.",
+                    "type": "string"
+                },
+                "ip": {
+                    "description": "IP fills {IP}.",
+                    "type": "string"
+                },
+                "ipv6": {
+                    "description": "IPv6 fills {IPV6}.",
+                    "type": "string"
+                },
+                "ns1": {
+                    "description": "NS1 fills {NS1}.",
+                    "type": "string"
+                },
+                "ns2": {
+                    "description": "NS2 fills {NS2}.",
+                    "type": "string"
+                },
+                "server_id": {
+                    "description": "ServerID optionally selects the DNS server; the first dns_server=1\nserver is used when omitted.",
+                    "type": "integer"
+                },
+                "template_id": {
+                    "description": "TemplateID selects the dns_template row.",
+                    "type": "integer"
+                }
+            }
+        },
+        "api.DNSZoneDNSSECRequest": {
+            "type": "object",
+            "properties": {
+                "dnssec_algo": {
+                    "description": "Algo optionally replaces dnssec_algo (CSV subset of\nNSEC3RSASHA1/ECDSAP256SHA256).",
+                    "type": "string"
+                },
+                "dnssec_wanted": {
+                    "description": "Wanted is Y/N (dns_soa.dnssec_wanted).",
+                    "type": "string"
+                }
+            }
+        },
+        "api.DNSZoneIDResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "description": "ID is the dns_soa primary key.",
+                    "type": "integer"
+                }
+            }
+        },
+        "api.DNSZoneStatusRequest": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "description": "Status is \"active\" or \"inactive\" (dns_zone_set_status semantics).",
+                    "type": "string"
+                }
+            }
+        },
         "api.ErrorInfo": {
             "type": "object",
             "properties": {
@@ -1519,6 +3022,215 @@
                     "description": "Username is the sys_user login name.",
                     "type": "string",
                     "example": "admin"
+                }
+            }
+        },
+        "model.DNSRr": {
+            "type": "object",
+            "properties": {
+                "active": {
+                    "type": "string"
+                },
+                "aux": {
+                    "type": "integer"
+                },
+                "data": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "serial": {
+                    "type": "integer"
+                },
+                "serverID": {
+                    "type": "integer"
+                },
+                "stamp": {
+                    "type": "string"
+                },
+                "sysGroupID": {
+                    "type": "integer"
+                },
+                "sysPermGroup": {
+                    "type": "string"
+                },
+                "sysPermOther": {
+                    "type": "string"
+                },
+                "sysPermUser": {
+                    "type": "string"
+                },
+                "sysUserID": {
+                    "type": "integer"
+                },
+                "ttl": {
+                    "type": "integer"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "zone": {
+                    "type": "integer"
+                }
+            }
+        },
+        "model.DNSSlave": {
+            "type": "object",
+            "properties": {
+                "active": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "ns": {
+                    "type": "string"
+                },
+                "origin": {
+                    "type": "string"
+                },
+                "serverID": {
+                    "type": "integer"
+                },
+                "sysGroupID": {
+                    "type": "integer"
+                },
+                "sysPermGroup": {
+                    "type": "string"
+                },
+                "sysPermOther": {
+                    "type": "string"
+                },
+                "sysPermUser": {
+                    "type": "string"
+                },
+                "sysUserID": {
+                    "type": "integer"
+                },
+                "xfer": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.DNSSoa": {
+            "type": "object",
+            "properties": {
+                "active": {
+                    "type": "string"
+                },
+                "alsoNotify": {
+                    "type": "string"
+                },
+                "dnssecalgo": {
+                    "type": "string"
+                },
+                "dnssecinfo": {
+                    "type": "string"
+                },
+                "dnssecinitialized": {
+                    "type": "string"
+                },
+                "dnsseclastSigned": {
+                    "type": "integer"
+                },
+                "dnssecwanted": {
+                    "type": "string"
+                },
+                "expire": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "mbox": {
+                    "type": "string"
+                },
+                "minimum": {
+                    "type": "integer"
+                },
+                "ns": {
+                    "type": "string"
+                },
+                "origin": {
+                    "type": "string"
+                },
+                "refresh": {
+                    "type": "integer"
+                },
+                "renderedZone": {
+                    "type": "string"
+                },
+                "retry": {
+                    "type": "integer"
+                },
+                "serial": {
+                    "type": "integer"
+                },
+                "serverID": {
+                    "type": "integer"
+                },
+                "sysGroupID": {
+                    "type": "integer"
+                },
+                "sysPermGroup": {
+                    "type": "string"
+                },
+                "sysPermOther": {
+                    "type": "string"
+                },
+                "sysPermUser": {
+                    "type": "string"
+                },
+                "sysUserID": {
+                    "type": "integer"
+                },
+                "ttl": {
+                    "type": "integer"
+                },
+                "updateACL": {
+                    "type": "string"
+                },
+                "xfer": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.DNSTemplate": {
+            "type": "object",
+            "properties": {
+                "fields": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "sysGroupID": {
+                    "type": "integer"
+                },
+                "sysPermGroup": {
+                    "type": "string"
+                },
+                "sysPermOther": {
+                    "type": "string"
+                },
+                "sysPermUser": {
+                    "type": "string"
+                },
+                "sysUserID": {
+                    "type": "integer"
+                },
+                "template": {
+                    "type": "string"
+                },
+                "templateID": {
+                    "type": "integer"
+                },
+                "visible": {
+                    "type": "string"
                 }
             }
         },

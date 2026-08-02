@@ -36,6 +36,7 @@ func registerDNSEntities(g *echo.Group, d *Deps) error {
 	registerDNSRecordTypeRoutes(g)
 	registerDNSRecordRoutes(g, d)
 	registerDNSWizardRoutes(g, d)
+	registerDNSZoneRoutes(g, d)
 	return nil
 }
 
