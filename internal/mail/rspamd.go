@@ -49,6 +49,13 @@ func (r *RspamdPlugin) OnLoad(reg *engine.Registry) error {
 			subs[table+"_"+action] = r.userSettingsUpdate
 		}
 	}
+	for _, ev := range []string{"spamfilter_wblist_insert", "spamfilter_wblist_update",
+		"mail_access_insert", "mail_access_update"} {
+		subs[ev] = r.wblistUpdate
+	}
+	for _, ev := range []string{"spamfilter_wblist_delete", "mail_access_delete"} {
+		subs[ev] = r.wblistDelete
+	}
 	for event, handler := range subs {
 		h := handler
 		if err := reg.RegisterEvent(event, func(ctx context.Context, ev string, data engine.Data) error {

@@ -35,7 +35,7 @@
 ## 6. rspamd plugin
 
 - [x] 6.1 Implement user_settings_update for spamfilter_users / mail_user / mail_forwarding (IDN filenames, domain child fan-out, policy rspamd_* fields, greylist); delete path; no-op without `/etc/rspamd`; tests. Commit.
-- [ ] 6.2 Embed `rspamd_wblist.inc.conf.master`; implement spamfilter_wblist + mail_access map rendering (priority offsets 40/30, global vs per-user, ip/hostname for client type); golden tests; delayed rspamd reload. Commit.
+- [x] 6.2 Embed `rspamd_wblist.inc.conf.master`; implement spamfilter_wblist + mail_access map rendering (priority offsets 40/30, global vs per-user, ip/hostname for client type); golden tests; delayed rspamd reload. Commit.
 - [ ] 6.3 Implement server/server_ip-driven server-level Rspamd snippet regeneration from embedded masters used by PHP; tests with temp config dir. Commit.
 
 ## 7. REST API

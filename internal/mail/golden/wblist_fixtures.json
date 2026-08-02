@@ -1,0 +1,27 @@
+{
+  "whitelist-pair": {
+    "list_scope": "spamfilter", "record_id": "7", "priority": "45",
+    "from": "friend@good.example", "recipient": "user1@example.com",
+    "hostname": "", "ip": "", "wblist": "W"
+  },
+  "blacklist-pair": {
+    "list_scope": "spamfilter", "record_id": "8", "priority": "42",
+    "from": "@bad.example", "recipient": "user2@example.com",
+    "hostname": "", "ip": "", "wblist": "B"
+  },
+  "global-sender-block": {
+    "list_scope": "global", "record_id": "3", "priority": "30",
+    "from": "spammer@bad.example", "recipient": "",
+    "hostname": "", "ip": "", "wblist": "B"
+  },
+  "global-client-ip": {
+    "list_scope": "global", "record_id": "4", "priority": "35",
+    "from": "", "recipient": "",
+    "hostname": "", "ip": "192.0.2.7", "wblist": "W"
+  },
+  "global-client-hostname": {
+    "list_scope": "global", "record_id": "5", "priority": "31",
+    "from": "", "recipient": "",
+    "hostname": "relay.partner.example", "ip": "", "wblist": "W"
+  }
+}
