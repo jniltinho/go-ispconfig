@@ -44,5 +44,6 @@
 
 ## 8. Real-server validation (read-only)
 
-- [ ] 8.1 Validate the legacy API client against the real ISPConfig3 server (Apache2 + PHP-FPM, see AGENTS.local.md — read-only): remote API login, inventory counts (clients/sites/zones), dry-run report; agent-browser read-only walkthrough with screenshots to docs/prints/
-- [ ] 8.2 Compare a mysqldump of the real server's schema (analysis only, dump never committed) against the embedded DDL to confirm drop-in adoption compatibility of a long-lived production database
+- [ ] 8.1 (partial — see note) Validate the legacy API client against the real ISPConfig3 server (Apache2 + PHP-FPM, see AGENTS.local.md — read-only): remote API login, inventory counts (clients/sites/zones), dry-run report; agent-browser read-only walkthrough with screenshots to docs/prints/
+  - NOTE: transport/TLS/fault/exit-code paths, panel walkthrough (real-legacy-*.png) and panel-vs-DB count cross-check all validated read-only; the API inventory/dry-run happy path is blocked because no remote_user exists on the real panel and creating one is a write — pending operator action (create read-only remote_user with the 11 grants from docs/legacy-migration.md §1)
+- [x] 8.2 Compare a mysqldump of the real server's schema (analysis only, dump never committed) against the embedded DDL to confirm drop-in adoption compatibility of a long-lived production database — done: real 3.3.0p1 DB (79 tables, dbversion 101) is clean ISPConfig lineage; only divergences are upstream incrementals 102-104 (2 columns + utf8mb4), correctly refused by the MinDBVersion=104 gate; drop-in adoptable after the PHP updater; all remaining drift classified harmless

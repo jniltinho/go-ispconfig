@@ -37,6 +37,21 @@ On the **legacy** ISPConfig panel, as admin:
    calls a mutating function. The connection test verifies every grant
    upfront and names the exact missing functions before anything is fetched.
 3. If the remote user restricts source IPs, add the new panel host's IP.
+4. **Update the legacy panel to the latest ISPConfig 3.3.x first** if it is
+   older. Adopting the legacy database directly (Path A in
+   `docs/MIGRATION.md`) requires `server.dbversion >= 104` (3.3.1);
+   `go-ispconfig migrate` refuses older databases with an actionable
+   error naming the required version — run the PHP `ispconfig_update.sh`
+   to close the gap (validated against a real 3.3.0p1 install at
+   dbversion 101). The remote-API import described here talks to the
+   API, not the DB, and works on any 3.x with the grants above.
+
+> **TLS note**: many legacy panels run a self-signed certificate without
+> a SAN extension. Go rejects those with
+> `x509: certificate is not valid for any names` — that error means the
+> cert has no SAN, not that the host is unreachable. Fix the cert on the
+> legacy panel or use *skip TLS verification* / `--insecure` (loudly
+> warned and repeated in the final report).
 
 ## 2. Wizard walkthrough (System → Migrate from ISPConfig3)
 
