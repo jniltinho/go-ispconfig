@@ -3,7 +3,7 @@
 ## 1. Models and foundations wiring
 
 - [x] 1.1 Add GORM models for `web_database` and `web_database_user` with explicit `gorm:"column:..."` tags matching the ISPConfig3 schema (`database_id`, `sys_*`, `server_id`, `parent_domain_id`, `type`, `database_name`, `database_name_prefix`, `database_quota`, `quota_exceeded`, `last_quota_notification`, `database_user_id`, `database_ro_user_id`, `database_charset`, `remote_access`, `remote_ips`, `backup_interval`, `backup_copies`, `active`; user: `database_user_id`, `sys_*`, `server_id`, `database_user`, `database_user_prefix`, `database_password`, `database_password_sha2`, `database_password_mongo`, `database_password_postgres`); unit-test round-trip against MariaDB. Commit.
-- [ ] 1.2 Add client-DB admin config loading (path or TOML section for `clientdb_host` / `clientdb_user` / `clientdb_password` / optional port; file mode expectations documented; never log the password); unit tests for missing file and successful parse. Commit.
+- [x] 1.2 Add client-DB admin config loading (path or TOML section for `clientdb_host` / `clientdb_user` / `clientdb_password` / optional port; file mode expectations documented; never log the password); unit tests for missing file and successful parse. Commit.
 - [ ] 1.3 Wire module enablement flag in `config.toml` defaults and document the `sites` getconf keys consumed (`dbname_prefix`, `dbuser_prefix`, `phpmyadmin_url`, `default_dbserver`, `default_remote_dbserver`, `disable_client_remote_dbserver`). Commit.
 
 ## 2. database module (daemon events)

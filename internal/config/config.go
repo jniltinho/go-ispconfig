@@ -83,6 +83,10 @@ type ServerConfig struct {
 // DatabaseConfig holds the MariaDB/MySQL connection string.
 type DatabaseConfig struct {
 	DSN string `toml:"dsn" mapstructure:"dsn"`
+	// ClientDBConf is the path of the client-DB admin credentials file
+	// (TOML, mode 0600, ISPConfig mysql_clientdb.conf equivalent) used by
+	// the daemon database module to provision client databases.
+	ClientDBConf string `toml:"clientdb_conf" mapstructure:"clientdb_conf"`
 }
 
 // DaemonConfig controls the config-apply daemon (sys_datalog consumer).
@@ -123,6 +127,7 @@ func setDefaults() {
 	viper.SetDefault("server.swagger_public", false)
 	viper.SetDefault("server.trusted_proxies", []string{})
 	viper.SetDefault("database.dsn", "root:@tcp(127.0.0.1:3306)/dbispconfig?charset=utf8mb4&parseTime=True&loc=Local")
+	viper.SetDefault("database.clientdb_conf", "/etc/go-ispconfig/mysql_clientdb.conf")
 	viper.SetDefault("daemon.tick_seconds", 10)
 	viper.SetDefault("daemon.datalog_retention_days", 30)
 	viper.SetDefault("daemon.disable_client_events", false)
