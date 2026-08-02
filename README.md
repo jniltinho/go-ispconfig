@@ -40,8 +40,22 @@ Foundation implemented (see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)):
 - REST API with CRUD framework, tform-style validators, Swagger UI at `/swagger/`
 - Vue 3 + Tailwind v4 panel skeleton (login, layout, DataTable, TabbedForm, i18n)
 
-Next up: nginx and Bind modules, installer CLI, panel theme, legacy migration
-wizard — the full plan is in [`docs/ROADMAP.md`](docs/ROADMAP.md).
+Web module (nginx) implemented (see
+[`docs/nginx-module.md`](docs/nginx-module.md)):
+
+- nginx vhosts rendered from the ISPConfig `.master` templates: activation
+  guarded by `nginx -t` with rollback + `.err` quarantine, custom directive
+  merge with server-side blacklist, SEO/https redirects, site tree + system
+  user provisioning
+- PHP-FPM pools per site (pm modes, socket/TCP, per-version `server_php`
+  pinning, open_basedir, custom php.ini)
+- SSL: self-signed/pasted certs and Let's Encrypt (acme.sh/certbot) with a
+  daily renewal job in the daemon scheduler
+- Sites REST API + Vue UI (metadata-driven tabbed form, web folders and
+  folder users with HTTP basic auth)
+
+Next up: Bind DNS module (in progress), installer CLI, panel theme, legacy
+migration wizard — the full plan is in [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 ## Quick start
 
