@@ -168,10 +168,26 @@ func SyncIdentity(ctx context.Context, tx *gorm.DB, old, updated *model.Client, 
 				return err
 			}
 		}
+		// Re-stamp the client row's ownership to the new parent context
+		// (PHP onAfterUpdate parity): reseller identity when reparented
+		// under one, admin (1/1) when moved to admin-owned.
+		newUser, newGroup := uint32(1), uint32(1)
 		if updated.ParentClientID > 0 {
 			if err := attachGroupToParent(ctx, tx, updated.ParentClientID, group.GroupID); err != nil {
 				return err
 			}
+			parentUser, err := parentSysUser(ctx, tx, updated.ParentClientID)
+			if err != nil {
+				return err
+			}
+			newUser, newGroup = parentUser.UserID, parentUser.DefaultGroup
+		}
+		updated.SysUserID, updated.SysGroupID = newUser, newGroup
+		err := tx.WithContext(ctx).Model(&model.Client{}).
+			Where("client_id = ?", updated.ClientID).
+			Updates(map[string]any{"sys_userid": newUser, "sys_groupid": newGroup}).Error
+		if err != nil {
+			return fmt.Errorf("clients: re-owning reparented client: %w", err)
 		}
 	}
 	return nil

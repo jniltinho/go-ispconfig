@@ -152,8 +152,12 @@ func TestLimitHookEnforcement(t *testing.T) {
 		require.NoError(t, db.Transaction(func(tx *gorm.DB) error {
 			return ProvisionIdentity(ctx, tx, reseller, hash, "admin")
 		}))
-		insertClient(t, db, "kid1", 0, reseller.ClientID)
-		insertClient(t, db, "kid2", 0, reseller.ClientID)
+		for _, kid := range []string{"kid1", "kid2"} {
+			k := insertClient(t, db, kid, 0, reseller.ClientID)
+			require.NoError(t, db.Transaction(func(tx *gorm.DB) error {
+				return ProvisionIdentity(ctx, tx, k, hash, "admin")
+			}))
+		}
 		var ru model.SysUser
 		require.NoError(t, db.Where("client_id = ?", reseller.ClientID).Take(&ru).Error)
 		rid := &repository.Identity{UserID: ru.UserID, Username: ru.Username, Typ: "user"}

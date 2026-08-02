@@ -129,6 +129,9 @@ func TestProvisionerLifecycle(t *testing.T) {
 	}))
 	require.NoError(t, db.Where("client_id = ?", reseller.ClientID).Take(&rUser).Error)
 	require.NotContains(t, splitCSV(rUser.Groups), itoa(cGroup.GroupID))
+	require.NoError(t, db.Take(&childRow, child.ClientID).Error)
+	require.Equal(t, uint32(1), childRow.SysUserID, "admin-owned after reparent to 0")
+	require.Equal(t, uint32(1), childRow.SysGroupID)
 
 	// --- delete: identity rows gone, reseller CSV untouched-by-now ---
 	// Re-attach first so the delete path exercises the detach.

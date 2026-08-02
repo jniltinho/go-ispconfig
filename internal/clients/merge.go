@@ -78,6 +78,7 @@ var mergeKinds = map[string]mergeKind{
 	"web_php_options": kindUnion, "ssh_chroot": kindUnion,
 	"mail_servers": kindUnion, "web_servers": kindUnion,
 	"dns_servers": kindUnion, "db_servers": kindUnion,
+	"xmpp_servers": kindUnion,
 
 	"limit_cron_type": kindSelectCron,
 

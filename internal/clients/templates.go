@@ -75,20 +75,13 @@ func MigrateLegacyAdditional(ctx context.Context, tx *gorm.DB, c *model.Client) 
 	if c.TemplateAdditional == "" {
 		return false, nil
 	}
+	// PHP update_client_templates (old-style branch) reconciles the DB to
+	// exactly the submitted slash list — no merge with existing rows.
 	ids := ParseAdditionalList(c.TemplateAdditional)
-	// Legacy list is merged on top of whatever is already assigned.
-	var existing []model.ClientTemplateAssigned
-	err := tx.WithContext(ctx).Where("client_id = ?", c.ClientID).Find(&existing).Error
-	if err != nil {
-		return false, fmt.Errorf("clients: loading template assignments: %w", err)
-	}
-	for _, row := range existing {
-		ids = append(ids, row.ClientTemplateID)
-	}
 	if err := SetAssignedTemplates(ctx, tx, int64(c.ClientID), ids); err != nil {
 		return false, err
 	}
-	err = tx.WithContext(ctx).Model(&model.Client{}).
+	err := tx.WithContext(ctx).Model(&model.Client{}).
 		Where("client_id = ?", c.ClientID).Update("template_additional", "").Error
 	if err != nil {
 		return false, fmt.Errorf("clients: clearing template_additional: %w", err)

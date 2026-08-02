@@ -60,7 +60,8 @@ func TestTemplateAssignmentStore(t *testing.T) {
 	}))
 	require.Equal(t, []int32{tplA}, assignedIDs(t, db, cid))
 
-	// Legacy slash-list migration merges on top and clears the column.
+	// Legacy slash-list migration reconciles to EXACTLY the list (PHP
+	// old-style branch: no merge with existing rows) and clears the column.
 	require.NoError(t, db.Model(&model.Client{}).Where("client_id = ?", cid).
 		Update("template_additional", "0/x/"+itoa(uint32(tplB))+"/"+itoa(uint32(tplB))).Error)
 	var withLegacy model.Client
@@ -70,7 +71,7 @@ func TestTemplateAssignmentStore(t *testing.T) {
 		require.True(t, migrated)
 		return err
 	}))
-	require.ElementsMatch(t, []int32{tplA, tplB, tplB}, assignedIDs(t, db, cid))
+	require.ElementsMatch(t, []int32{tplB, tplB}, assignedIDs(t, db, cid))
 	var after model.Client
 	require.NoError(t, db.Take(&after, cid).Error)
 	require.Empty(t, after.TemplateAdditional)
@@ -83,6 +84,9 @@ func TestTemplateAssignmentStore(t *testing.T) {
 	}))
 
 	// AssignedTemplates resolves rows and skips deleted templates.
+	require.NoError(t, db.Transaction(func(tx *gorm.DB) error {
+		return SetAssignedTemplates(ctx, tx, cid, []int32{tplA, tplB})
+	}))
 	require.NoError(t, db.Where("template_id = ?", tplB).Delete(&model.ClientTemplate{}).Error)
 	tpls, err := AssignedTemplates(ctx, db, cid)
 	require.NoError(t, err)

@@ -131,18 +131,12 @@ func resolveRule(entity string, body map[string]any) (limitRule, bool) {
 			count: countByGroup("dns_rr", ""),
 		}, true
 	case "clients", "resellers":
+		// PHP counts child clients by the reseller's group ownership
+		// (client rows under a reseller are re-owned to its group).
 		return limitRule{
 			key:   "error.limit_client",
 			limit: func(c *model.Client) int32 { return c.LimitClient },
-			count: func(ctx context.Context, db *gorm.DB, c *model.Client) (int64, error) {
-				var n int64
-				err := db.WithContext(ctx).Model(&model.Client{}).
-					Where("parent_client_id = ?", c.ClientID).Count(&n).Error
-				if err != nil {
-					return 0, fmt.Errorf("clients: counting child clients: %w", err)
-				}
-				return n, nil
-			},
+			count: countByGroup("client", ""),
 		}, true
 	default:
 		// Reserved for future modules (mail/ftp/shell/db/cron): unknown
