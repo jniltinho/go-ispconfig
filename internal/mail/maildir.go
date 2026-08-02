@@ -88,6 +88,7 @@ func (p *Plugin) provisionMailbox(ctx context.Context, newRow row) error {
 	if _, err := p.runner.Run(ctx, "chown", "-R", owner, maildir); err != nil {
 		p.log.Error("mail: chown -R failed", "path", maildir, "error", err)
 	}
+	p.applyMaildropQuota(ctx, cfg, newRow)
 	p.log.Debug("mail: provisioned maildir", "path", maildir, "owner", owner)
 	return nil
 }
@@ -215,13 +216,13 @@ func (p *Plugin) userUpdate(ctx context.Context, data engine.Data) error {
 	oldMaildir, newMaildir := oldRow.str("maildir"), newRow.str("maildir")
 
 	if newRow.str("maildir_format") == "mdbox" {
+		// PHP moves first, then (re)creates; provisionMailbox also
+		// resolves uid/gid, writes them back and ensures the base dir —
+		// the update path must not skip that (cross-review fix).
 		if newMaildir != oldMaildir && isDir(oldMaildir) {
 			p.moveMaildir(ctx, cfg, oldMaildir, newMaildir)
 		}
-		if !isDir(newMaildir + "/mdbox") {
-			return p.mdboxCreate(ctx, newRow.str("email"))
-		}
-		return nil
+		return p.provisionMailbox(ctx, newRow)
 	}
 
 	if err := p.provisionMailbox(ctx, newRow); err != nil {
@@ -230,17 +231,25 @@ func (p *Plugin) userUpdate(ctx context.Context, data engine.Data) error {
 	if newMaildir != oldMaildir && isDir(oldMaildir) {
 		p.moveMaildir(ctx, cfg, oldMaildir, newMaildir)
 	}
-	// Maildrop quota refresh (never on Dovecot: SQL quota is live).
-	if cfg.POP3IMAPDaemon != "dovecot" && isDir(newMaildir+"/new") {
-		if quota := newRow.num("quota"); quota > 0 {
-			if _, err := p.runner.Run(ctx, "maildirmake", "-q", fmt.Sprintf("%dS", quota), newMaildir); err != nil {
-				p.log.Error("mail: maildirmake quota failed", "path", newMaildir, "error", err)
-			}
-		} else if err := os.Remove(newMaildir + "/maildirsize"); err == nil {
-			p.log.Debug("mail: maildir quota set to unlimited", "path", newMaildir)
-		}
-	}
+	p.applyMaildropQuota(ctx, cfg, newRow)
 	return nil
+}
+
+// applyMaildropQuota refreshes the maildrop quota on non-Dovecot
+// daemons (maildirmake -qS when quota>0, maildirsize removed when
+// unlimited). Dovecot quota is SQL-authoritative — never touched.
+func (p *Plugin) applyMaildropQuota(ctx context.Context, cfg getconf.MailConfig, newRow row) {
+	maildir := newRow.str("maildir")
+	if cfg.POP3IMAPDaemon == "dovecot" || !isDir(maildir+"/new") {
+		return
+	}
+	if quota := newRow.num("quota"); quota > 0 {
+		if _, err := p.runner.Run(ctx, "maildirmake", "-q", fmt.Sprintf("%dS", quota), maildir); err != nil {
+			p.log.Error("mail: maildirmake quota failed", "path", maildir, "error", err)
+		}
+	} else if err := os.Remove(maildir + "/maildirsize"); err == nil {
+		p.log.Debug("mail: maildir quota set to unlimited", "path", maildir)
+	}
 }
 
 // moveMaildir replaces the target with the source tree (PHP: rm -fr new,

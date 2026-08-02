@@ -133,8 +133,9 @@ type MailConfig struct {
 	RelayhostPassword        string `ini:"relayhost_password"`
 	MailboxSizeLimit         string `ini:"mailbox_size_limit"`
 	MessageSizeLimit         string `ini:"message_size_limit"`
-	// MailboxSoftDelete is 0 (off) or the retention days for soft-deleted
-	// maildirs.
+	// MailboxSoftDelete enables soft-deleted maildirs: 'y' or a positive
+	// day count turn it on (the number doubles as purge retention);
+	// '', '0' and 'n' disable.
 	MailboxSoftDelete string `ini:"mailbox_soft_delete"`
 	SendmailPath      string `ini:"sendmail_path"`
 }

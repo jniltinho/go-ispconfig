@@ -252,3 +252,40 @@ func TestWelcomeMailGatedAndRendered(t *testing.T) {
 	assert.Contains(t, sent[0], "Subject: =?utf-8?B?")
 	assert.Contains(t, sent[0], "Welcome to your new email account.")
 }
+
+func TestUserInsertAppliesMaildropQuotaOnCourier(t *testing.T) {
+	home := t.TempDir()
+	cfg := getconf.DefaultMailConfig()
+	cfg.HomedirPath = home
+	cfg.POP3IMAPDaemon = "courier"
+	p, runner := testPlugin(t, cfg)
+
+	maildir := home + "/example.com/cq"
+	require.NoError(t, p.userInsert(context.Background(), engine.Data{New: map[string]any{
+		"mailuser_id": float64(11), "email": "cq@example.com",
+		"uid": float64(5000), "gid": float64(5000),
+		"maildir": maildir, "maildir_format": "maildir",
+		"quota": float64(2048), "server_id": float64(1),
+	}}))
+	assert.Contains(t, runner.all(), "maildirmake -q 2048S "+maildir,
+		"insert on non-dovecot must set the maildrop quota (PHP user_insert)")
+}
+
+func TestUserUpdateMdboxResolvesAndProvisions(t *testing.T) {
+	home := t.TempDir()
+	cfg := getconf.DefaultMailConfig()
+	cfg.HomedirPath = home
+	p, runner := testPlugin(t, cfg)
+
+	maildir := home + "/example.com/mb"
+	require.NoError(t, p.userUpdate(context.Background(), engine.Data{
+		Old: map[string]any{"maildir": maildir, "maildir_format": "mdbox"},
+		New: map[string]any{
+			"mailuser_id": float64(12), "email": "mb@example.com",
+			"uid": float64(5000), "gid": float64(5000),
+			"maildir": maildir, "maildir_format": "mdbox", "server_id": float64(1),
+		},
+	}))
+	assert.DirExists(t, home+"/example.com", "base dir ensured on mdbox update too")
+	assert.Contains(t, runner.all(), "doveadm mailbox create -u mb@example.com INBOX")
+}

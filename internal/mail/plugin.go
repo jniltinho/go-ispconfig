@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"os/user"
 	"strconv"
+	"strings"
 
 	"gorm.io/gorm"
 
@@ -89,6 +90,8 @@ func (p *Plugin) config(ctx context.Context) (getconf.MailConfig, error) {
 		// A blanked-out homedir_path would disarm every path guard.
 		cfg.Mail.HomedirPath = getconf.DefaultMailConfig().HomedirPath
 	}
+	// PHP strips a trailing slash; the guards depend on it.
+	cfg.Mail.HomedirPath = strings.TrimSuffix(cfg.Mail.HomedirPath, "/")
 	return cfg.Mail, nil
 }
 
