@@ -102,6 +102,10 @@ type DNSConfig struct {
 	NamedConfPath          string `ini:"named_conf_path"`
 	NamedConfLocalPath     string `ini:"named_conf_local_path"`
 	DisableBindLog         string `ini:"disable_bind_log"`
+	// DNSSECResignDays is the dns_resign job threshold in days (Go
+	// addition, design D6; empty or non-positive means the built-in
+	// default).
+	DNSSECResignDays string `ini:"dnssec_resign_days"`
 }
 
 // ServerConfig is the parsed server.config of one server: the typed [web]

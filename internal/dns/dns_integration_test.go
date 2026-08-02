@@ -27,14 +27,18 @@ import (
 )
 
 // dnsToolsFake emulates dnssec-keygen and dnssec-signzone side effects
-// (key files, dsset, .signed) for the pipeline test.
-func dnsToolsFake(t *testing.T, keyDir string) func(name string, args ...string) ([]byte, error) {
+// (key files, dsset, .signed) for the pipeline test. Like the real
+// dnssec-signzone, the dsset file is written into the WORKING DIRECTORY
+// of the invocation — not into -K — so the pipeline only passes when the
+// plugin runs signzone with the keydir as working dir (PHP `cd <keydir>`
+// parity).
+func dnsToolsFake(t *testing.T, keyDir string) func(dir, name string, args ...string) ([]byte, error) {
 	t.Helper()
 	keygen := fakeKeygen(t, keyDir)
-	return func(name string, args ...string) ([]byte, error) {
+	return func(dir, name string, args ...string) ([]byte, error) {
 		switch name {
 		case "dnssec-keygen":
-			return keygen(name, args...)
+			return keygen(dir, name, args...)
 		case "dnssec-signzone":
 			var domain string
 			for i, a := range args {
@@ -43,7 +47,7 @@ func dnsToolsFake(t *testing.T, keyDir string) func(name string, args ...string)
 				}
 			}
 			zonefile := args[len(args)-1]
-			require.NoError(t, os.WriteFile(filepath.Join(keyDir, "dsset-"+domain+"."),
+			require.NoError(t, os.WriteFile(filepath.Join(dir, "dsset-"+domain+"."),
 				[]byte(domain+". IN DS 12345 13 2 ABCDEF\n"), 0o644))
 			require.NoError(t, os.WriteFile(zonefile+".signed", []byte("signed zone\n"), 0o644))
 		}
@@ -194,6 +198,13 @@ func TestDatalogToBindPipeline(t *testing.T) {
 		quarantined, err := os.ReadFile(zoneFile + ".err")
 		require.NoError(t, err)
 		assert.Contains(t, string(quarantined), "192.0.2.100", "bad render quarantined")
+
+		var rendered string
+		require.NoError(t, db.Table("dns_soa").Where("id = ?", soa.ID).
+			Pluck("rendered_zone", &rendered).Error)
+		assert.Contains(t, rendered, "192.0.2.99",
+			"rendered_zone keeps the last VALIDATED render, not the failed one")
+		assert.NotContains(t, rendered, "192.0.2.100")
 
 		var dlRow model.SysDatalog
 		require.NoError(t, db.Where("dbtable = 'dns_rr'").Order("datalog_id DESC").First(&dlRow).Error)

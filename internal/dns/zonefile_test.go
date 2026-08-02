@@ -86,7 +86,17 @@ func TestWriteZoneFileChownFailure(t *testing.T) {
 	cfg := testDNSConfig(base)
 	runner := &fakeRunner{failCmd: "chown"}
 	p := NewPlugin(nil, nil, runner, "", 1, nil)
+	file := zoneFilePath(cfg, "example.com.")
+	require.NoError(t, os.WriteFile(file, []byte("previous\n"), 0o644))
 
-	_, err := p.writeZoneFile(context.Background(), cfg, zoneFilePath(cfg, "example.com."), "zone\n")
+	old, err := p.writeZoneFile(context.Background(), cfg, file, "zone\n")
 	require.ErrorContains(t, err, "chown")
+	assert.Equal(t, "previous\n", old,
+		"chown failure after the write still returns the old content for rollback")
+}
+
+func TestContainedJoin(t *testing.T) {
+	assert.Equal(t, "/etc/bind/pri.example.com", containedJoin("/etc/bind", "pri.example.com"))
+	assert.Equal(t, "/etc/bind/_invalid_origin_rejected", containedJoin("/etc/bind", "../../etc/passwd"))
+	assert.Equal(t, "/etc/bind/_invalid_origin_rejected", containedJoin("/etc/bind", "a/../../x"))
 }

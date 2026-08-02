@@ -4,9 +4,12 @@ package dns
 // design D6). Deviations from PHP, both deliberate:
 //   - the entropy_avail check is dropped (kernels >= 5.6 have an
 //     always-seeded CSPRNG on every target distro);
-//   - dnssec-keygen/dnssec-signzone run with -K/-d <keydir> instead of a
-//     shell `cd <keydir>` (the command runner takes argv only); the key
-//     and dsset files land in the same directory either way.
+//   - dnssec-keygen writes its key files via -K <keydir>;
+//     dnssec-signzone runs with its working directory set to the keydir
+//     (PHP `cd <keydir>` parity), because signzone always writes the
+//     dsset file into the process CWD — its -d flag only sets the SEARCH
+//     directory for existing dsset/keyset files, it does not relocate
+//     the output.
 
 import (
 	"context"
@@ -14,6 +17,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -43,13 +47,13 @@ func dnssecAlgos(set string) []string {
 // dssetPath returns the dsset file dnssec-signzone writes for a domain
 // (trailing dot included, PHP parity).
 func dssetPath(cfg *getconf.DNSConfig, domain string) string {
-	return filepath.Join(cfg.BindKeyfilesDir, "dsset-"+domain+".")
+	return containedJoin(cfg.BindKeyfilesDir, "dsset-"+domain+".")
 }
 
 // keyFiles globs the key files of one algorithm for a domain, matching
 // the PHP pattern K<domain>.+<algo-id>*<suffix>.
 func keyFiles(cfg *getconf.DNSConfig, domain, algo, suffix string) []string {
-	pattern := filepath.Join(cfg.BindKeyfilesDir, "K"+domain+".+"+dnssecAlgoIDs[algo]+"*"+suffix)
+	pattern := containedJoin(cfg.BindKeyfilesDir, "K"+domain+".+"+dnssecAlgoIDs[algo]+"*"+suffix)
 	matches, err := filepath.Glob(pattern)
 	if err != nil {
 		return nil
@@ -60,7 +64,7 @@ func keyFiles(cfg *getconf.DNSConfig, domain, algo, suffix string) []string {
 // allKeyFiles globs every key file of a domain regardless of algorithm
 // (PHP K<domain>*.key).
 func allKeyFiles(cfg *getconf.DNSConfig, domain, suffix string) []string {
-	matches, err := filepath.Glob(filepath.Join(cfg.BindKeyfilesDir, "K"+domain+"*"+suffix))
+	matches, err := filepath.Glob(containedJoin(cfg.BindKeyfilesDir, "K"+domain+"*"+suffix))
 	if err != nil {
 		return nil
 	}
@@ -187,11 +191,13 @@ func (p *Plugin) dnssecSign(ctx context.Context, cfg *getconf.DNSConfig, newRow 
 		return fmt.Errorf("dns: writing zone file %s: %w", zoneFile, err)
 	}
 
-	// -d <keydir> replaces PHP's `cd <keydir>` so the dsset file lands in
-	// the key directory (the runner takes argv only).
-	out, err := p.runner.Run(ctx, "dnssec-signzone",
+	// signzone runs with the keydir as working directory (PHP `cd
+	// <keydir>` parity): the dsset file is always written into the
+	// process CWD — -d would only change where existing dsset/keyset
+	// files are searched, not where the new one lands.
+	out, err := p.runInDir(ctx, cfg.BindKeyfilesDir, "dnssec-signzone",
 		"-A", "-e", "+1382400", "-3", "-", "-N", "increment",
-		"-o", domain, "-K", cfg.BindKeyfilesDir, "-d", cfg.BindKeyfilesDir,
+		"-o", domain, "-K", cfg.BindKeyfilesDir,
 		"-t", zoneFile)
 	if err != nil {
 		return fmt.Errorf("dns: dnssec-signzone for %s: %w: %s", domain, err, out)
@@ -258,6 +264,12 @@ func (p *Plugin) dnssecDelete(ctx context.Context, cfg *getconf.DNSConfig, origi
 		p.log.Warn("dns: dnssec delete without a domain")
 		return nil
 	}
+	// Defense in depth on top of the handler-entry checks: a glob
+	// metacharacter in the domain would widen K<domain>* to other
+	// zones' key material.
+	if err := checkOrigin(origin); err != nil {
+		return err
+	}
 	domain := domainOf(origin)
 	files, _ := filepath.Glob(filepath.Join(cfg.BindKeyfilesDir, "K"+domain+".+*"))
 	files = append(files, zoneFilePath(cfg, origin)+".signed", dssetPath(cfg, domain))
@@ -276,9 +288,20 @@ func (p *Plugin) dnssecDelete(ctx context.Context, cfg *getconf.DNSConfig, origi
 	return nil
 }
 
+// runInDir runs a command in a working directory via the runner's
+// DirRunner extension (ExecRunner and the test fakes implement it).
+func (p *Plugin) runInDir(ctx context.Context, dir, name string, args ...string) ([]byte, error) {
+	dr, ok := p.runner.(engine.DirRunner)
+	if !ok {
+		return nil, fmt.Errorf("dns: runner %T does not support a working directory", p.runner)
+	}
+	return dr.RunInDir(ctx, dir, name, args...)
+}
+
 // DefaultResignThreshold is the signature age after which the dns_resign
 // job re-signs a zone — well inside the 16-day validity of
-// dnssec-signzone -e +1382400.
+// dnssec-signzone -e +1382400. The [dns] dnssec_resign_days server
+// config key overrides it.
 const DefaultResignThreshold = 5 * 24 * time.Hour
 
 // RegisterResign adds the daily dns_resign scheduler job (design D6,
@@ -298,6 +321,9 @@ func (p *Plugin) resignJob(ctx context.Context) error {
 	threshold := p.resignThreshold
 	if threshold == 0 {
 		threshold = DefaultResignThreshold
+		if days, err := strconv.Atoi(strings.TrimSpace(cfg.DNSSECResignDays)); err == nil && days > 0 {
+			threshold = time.Duration(days) * 24 * time.Hour
+		}
 	}
 	cutoff := time.Now().Add(-threshold).Unix()
 	var zones []map[string]any

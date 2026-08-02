@@ -31,10 +31,17 @@ func (p *Plugin) soaDelete(ctx context.Context, _ string, data engine.Data) erro
 		origin = row(data.Old).str("origin")
 	}
 	if origin != "" {
-		if err := p.dnssecDelete(ctx, cfg, origin, 0, false); err != nil {
+		// Reject malicious origins before they reach globs/paths; the
+		// named.conf rebuild above already happened, so the stale entry
+		// is gone either way.
+		if err := checkOrigin(origin); err != nil {
 			errs = append(errs, err)
+		} else {
+			if err := p.dnssecDelete(ctx, cfg, origin, 0, false); err != nil {
+				errs = append(errs, err)
+			}
+			p.cleanupZoneFiles(zoneFilePath(cfg, origin))
 		}
-		p.cleanupZoneFiles(zoneFilePath(cfg, origin))
 	}
 	p.services.RestartServiceDelayed(BindService, engine.ActionReload)
 	return errors.Join(errs...)
@@ -84,9 +91,13 @@ func (p *Plugin) slaveDelete(ctx context.Context, _ string, data engine.Data) er
 		errs = append(errs, err)
 	}
 	if origin := row(data.Old).str("origin"); origin != "" {
-		file := slaveZoneFilePath(cfg, origin)
-		if err := os.Remove(file); err != nil && !os.IsNotExist(err) {
-			p.log.Warn("dns: could not remove slave zone file", "file", file, "error", err)
+		if err := checkOrigin(origin); err != nil {
+			errs = append(errs, err)
+		} else {
+			file := slaveZoneFilePath(cfg, origin)
+			if err := os.Remove(file); err != nil && !os.IsNotExist(err) {
+				p.log.Warn("dns: could not remove slave zone file", "file", file, "error", err)
+			}
 		}
 	}
 	p.services.RestartServiceDelayed(BindService, engine.ActionReload)

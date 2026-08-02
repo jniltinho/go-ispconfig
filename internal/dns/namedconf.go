@@ -3,8 +3,10 @@ package dns
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"go-ispconfig/internal/getconf"
@@ -17,29 +19,66 @@ const (
 	namedConfSlaveTemplate  = "bind_named.conf.local.slave"
 )
 
+// aclPattern is the charset accepted for named.conf address-match-list
+// values from the DB (xfer/also_notify/update_acl/ns): addresses,
+// prefixes, acl names and `!` negation. Quotes, braces and `;` are
+// excluded so a DB value can never break out of its `{...;};` list
+// (hardening: the API validates, the daemon does not trust the DB).
+var aclPattern = regexp.MustCompile(`^[A-Za-z0-9 !.,:/_-]+$`)
+
+// aclList converts a comma-separated DB value into a named.conf address
+// list body ("a;b"). ok is false for values that could inject config.
+func aclList(v string) (string, bool) {
+	if !aclPattern.MatchString(v) {
+		return "", false
+	}
+	return strings.ReplaceAll(v, ",", ";"), true
+}
+
 // primaryZoneRows builds the template rows for the active primary zones
 // (port of the first write_named_conf loop): zone file path suffixed
-// `.signed` when DNSSEC is wanted, options from xfer/also_notify/
+// `.signed` when DNSSEC is wanted and the signed file exists (missing
+// signed file falls back to the unsigned zone with an error log instead
+// of dropping the zone from named.conf), options from xfer/also_notify/
 // update_acl with commas replaced by `;`, and only zones whose file
 // exists on disk (a zone without records has no file yet). exists is
 // injectable for deterministic tests.
-func primaryZoneRows(cfg *getconf.DNSConfig, zones []map[string]any, exists func(string) bool) []map[string]any {
+func primaryZoneRows(cfg *getconf.DNSConfig, zones []map[string]any, exists func(string) bool, log *slog.Logger) []map[string]any {
+	if log == nil {
+		log = slog.New(slog.DiscardHandler)
+	}
 	var out []map[string]any
 	for _, z := range zones {
 		r := row(z)
+		if err := checkOrigin(r.str("origin")); err != nil {
+			log.Error("dns: skipping zone with invalid origin in named.conf.local", "error", err)
+			continue
+		}
 		zoneFile := zoneFilePath(cfg, r.str("origin"))
 		if r.str("dnssec_wanted") == "Y" {
-			zoneFile += ".signed"
+			if exists(zoneFile + ".signed") {
+				zoneFile += ".signed"
+			} else {
+				log.Error("dns: signed zone file missing, serving the unsigned zone until the next re-sign",
+					"origin", r.str("origin"), "missing", zoneFile+".signed")
+			}
 		}
 		var options strings.Builder
-		if strings.TrimSpace(r.str("xfer")) != "" {
-			options.WriteString("        allow-transfer {" + strings.ReplaceAll(r.str("xfer"), ",", ";") + ";};\n")
-		}
-		if strings.TrimSpace(r.str("also_notify")) != "" {
-			options.WriteString("        also-notify {" + strings.ReplaceAll(r.str("also_notify"), ",", ";") + ";};\n")
-		}
-		if strings.TrimSpace(r.str("update_acl")) != "" {
-			options.WriteString("        allow-update {" + strings.ReplaceAll(r.str("update_acl"), ",", ";") + ";};\n")
+		for _, o := range []struct{ clause, value string }{
+			{"allow-transfer", r.str("xfer")},
+			{"also-notify", r.str("also_notify")},
+			{"allow-update", r.str("update_acl")},
+		} {
+			if strings.TrimSpace(o.value) == "" {
+				continue
+			}
+			list, ok := aclList(o.value)
+			if !ok {
+				log.Error("dns: dropping unsafe named.conf option value",
+					"origin", r.str("origin"), "clause", o.clause, "value", o.value)
+				continue
+			}
+			options.WriteString("        " + o.clause + " {" + list + ";};\n")
 		}
 		if !exists(zoneFile) {
 			continue
@@ -55,15 +94,34 @@ func primaryZoneRows(cfg *getconf.DNSConfig, zones []map[string]any, exists func
 
 // secondaryZoneRows builds the template rows for the active secondary
 // zones (port of the second write_named_conf loop): masters from ns,
-// allow-transfer from xfer or {none;} when empty.
-func secondaryZoneRows(cfg *getconf.DNSConfig, zones []map[string]any) []map[string]any {
+// allow-transfer from xfer or {none;} when empty. Zones with an invalid
+// origin or an unsafe masters value are skipped; an unsafe xfer value
+// degrades to {none;}.
+func secondaryZoneRows(cfg *getconf.DNSConfig, zones []map[string]any, log *slog.Logger) []map[string]any {
+	if log == nil {
+		log = slog.New(slog.DiscardHandler)
+	}
 	var out []map[string]any
 	for _, z := range zones {
 		r := row(z)
-		options := "        masters {" + strings.ReplaceAll(r.str("ns"), ",", ";") + ";};\n"
-		if strings.TrimSpace(r.str("xfer")) != "" {
-			options += "        allow-transfer {" + strings.ReplaceAll(r.str("xfer"), ",", ";") + ";};\n"
+		if err := checkOrigin(r.str("origin")); err != nil {
+			log.Error("dns: skipping slave zone with invalid origin in named.conf.local", "error", err)
+			continue
+		}
+		masters, ok := aclList(r.str("ns"))
+		if !ok {
+			log.Error("dns: skipping slave zone with unsafe masters value",
+				"origin", r.str("origin"), "ns", r.str("ns"))
+			continue
+		}
+		options := "        masters {" + masters + ";};\n"
+		if xfer, ok := aclList(r.str("xfer")); ok && strings.TrimSpace(r.str("xfer")) != "" {
+			options += "        allow-transfer {" + xfer + ";};\n"
 		} else {
+			if strings.TrimSpace(r.str("xfer")) != "" {
+				log.Error("dns: dropping unsafe slave allow-transfer value",
+					"origin", r.str("origin"), "xfer", r.str("xfer"))
+			}
 			options += "        allow-transfer {none;};\n"
 		}
 		out = append(out, map[string]any{
@@ -123,8 +181,8 @@ func (p *Plugin) writeNamedConf(ctx context.Context, cfg *getconf.DNSConfig) err
 	}
 
 	content, err := renderNamedConf(
-		primaryZoneRows(cfg, zones, fileExists),
-		secondaryZoneRows(cfg, slaves),
+		primaryZoneRows(cfg, zones, fileExists, p.log),
+		secondaryZoneRows(cfg, slaves, p.log),
 		p.customTplDir,
 	)
 	if err != nil {

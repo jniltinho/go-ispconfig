@@ -82,6 +82,18 @@ func (p *Plugin) soaApply(ctx context.Context, data engine.Data) error {
 		return err
 	}
 	newRow, oldRow := row(data.New), row(data.Old)
+	// Strict origin validation before anything touches the filesystem or
+	// named.conf (the API validates on write, the daemon does not trust
+	// the DB). The rejection is returned so the daemon records it on the
+	// datalog row (datalog error mechanism).
+	for _, o := range []string{oldRow.str("origin"), newRow.str("origin")} {
+		if o == "" {
+			continue
+		}
+		if err := checkOrigin(o); err != nil {
+			return err
+		}
+	}
 	var errs []error
 
 	if newRow.num("id") != 0 {
@@ -104,10 +116,13 @@ func (p *Plugin) soaApply(ctx context.Context, data engine.Data) error {
 		if err != nil {
 			return err
 		}
-		if err := p.saveRenderedZone(ctx, newRow.num("id"), content); err != nil {
-			errs = append(errs, err)
-		}
+		// rendered_zone is only cached after named-checkzone passed
+		// (spec: rendered_zone holds validated content); on failure the
+		// previous validated render stays in the DB, matching the file
+		// rollback.
 		if err := p.validateZone(ctx, cfg, newRow.str("origin"), filename, oldContent); err != nil {
+			errs = append(errs, err)
+		} else if err := p.saveRenderedZone(ctx, newRow.num("id"), content); err != nil {
 			errs = append(errs, err)
 		}
 	}

@@ -21,7 +21,7 @@ func TestPrimaryZoneRowsOptions(t *testing.T) {
 	cfg := testDNSConfig("/etc/bind")
 	rows := primaryZoneRows(cfg, []map[string]any{
 		soaZone("example.com.", "1.2.3.4,5.6.7.8", "", "", "N"),
-	}, always)
+	}, always, nil)
 	require.Len(t, rows, 1)
 	assert.Equal(t, "example.com", rows[0]["zone"])
 	assert.Equal(t, "/etc/bind/pri.example.com", rows[0]["zonefile_path"])
@@ -32,7 +32,7 @@ func TestPrimaryZoneRowsSignedPathAndFullOptions(t *testing.T) {
 	cfg := testDNSConfig("/etc/bind")
 	rows := primaryZoneRows(cfg, []map[string]any{
 		soaZone("example.org.", "10.0.0.1", "10.0.0.2", "10.0.0.3", "Y"),
-	}, always)
+	}, always, nil)
 	require.Len(t, rows, 1)
 	assert.Equal(t, "/etc/bind/pri.example.org.signed", rows[0]["zonefile_path"])
 	assert.Equal(t,
@@ -49,7 +49,7 @@ func TestPrimaryZoneRowsSkipsMissingFile(t *testing.T) {
 	rows := primaryZoneRows(cfg, []map[string]any{
 		soaZone("norecords.com.", "", "", "", "N"),
 		soaZone("example.com.", "", "", "", "N"),
-	}, func(path string) bool { return path == "/etc/bind/pri.example.com" })
+	}, func(path string) bool { return path == "/etc/bind/pri.example.com" }, nil)
 	require.Len(t, rows, 1)
 	assert.Equal(t, "example.com", rows[0]["zone"])
 }
@@ -59,7 +59,7 @@ func TestSecondaryZoneRows(t *testing.T) {
 	rows := secondaryZoneRows(cfg, []map[string]any{
 		{"origin": "customer.net.", "ns": "192.168.10.20,192.168.10.21", "xfer": ""},
 		{"origin": "other.net.", "ns": "192.168.10.20", "xfer": "10.0.0.9"},
-	})
+	}, nil)
 	require.Len(t, rows, 2)
 	assert.Equal(t, "/etc/bind/slave/sec.customer.net", rows[0]["zonefile_path"])
 	assert.Equal(t,
@@ -72,6 +72,44 @@ func TestSecondaryZoneRows(t *testing.T) {
 		rows[1]["options"])
 }
 
+// TestPrimaryZoneRowsSignedFallback: dnssec_wanted=Y without a .signed
+// file on disk serves the unsigned zone file instead of dropping the
+// zone from named.conf entirely.
+func TestPrimaryZoneRowsSignedFallback(t *testing.T) {
+	cfg := testDNSConfig("/etc/bind")
+	rows := primaryZoneRows(cfg, []map[string]any{
+		soaZone("example.org.", "", "", "", "Y"),
+	}, func(path string) bool { return path == "/etc/bind/pri.example.org" }, nil)
+	require.Len(t, rows, 1)
+	assert.Equal(t, "/etc/bind/pri.example.org", rows[0]["zonefile_path"],
+		"missing .signed falls back to the unsigned zone file")
+}
+
+// TestZoneRowsRejectUnsafeDBValues: quotes, braces and semicolons from
+// the DB can never break out of named.conf.local blocks — bad origins
+// drop the zone, bad ACL values drop the option (or the slave zone for
+// masters).
+func TestZoneRowsRejectUnsafeDBValues(t *testing.T) {
+	cfg := testDNSConfig("/etc/bind")
+
+	rows := primaryZoneRows(cfg, []map[string]any{
+		soaZone(`evil.com." { }; include "/etc/passwd`, "", "", "", "N"),
+		soaZone("victim.com.", `1.2.3.4;}; zone "inj" {`, "", "", "N"),
+	}, always, nil)
+	require.Len(t, rows, 1, "zone with unsafe origin skipped")
+	assert.Equal(t, "victim.com", rows[0]["zone"])
+	assert.Empty(t, rows[0]["options"], "unsafe allow-transfer value dropped")
+
+	slaves := secondaryZoneRows(cfg, []map[string]any{
+		{"origin": "bad.net.", "ns": `1.2.3.4;}; zone "inj" {`, "xfer": ""},
+		{"origin": "ok.net.", "ns": "192.168.10.20", "xfer": `"quoted"`},
+	}, nil)
+	require.Len(t, slaves, 1, "slave zone with unsafe masters skipped")
+	assert.Contains(t, slaves[0]["options"], "masters {192.168.10.20;};")
+	assert.Contains(t, slaves[0]["options"], "allow-transfer {none;};",
+		"unsafe xfer degrades to none")
+}
+
 // TestGoldenNamedConfLocal renders a realistic primary+slave mix and
 // compares byte-for-byte against the PHP-shaped golden file.
 func TestGoldenNamedConfLocal(t *testing.T) {
@@ -80,11 +118,11 @@ func TestGoldenNamedConfLocal(t *testing.T) {
 		soaZone("example.com.", "192.168.10.6,192.168.10.7", "192.168.10.6", "", "N"),
 		soaZone("example.org.", "", "", "", "Y"),
 		soaZone("dynamic.example.", "", "", "10.0.0.5", "N"),
-	}, always)
+	}, always, nil)
 	secondary := secondaryZoneRows(cfg, []map[string]any{
 		{"origin": "customer.net.", "ns": "192.168.10.20", "xfer": ""},
 		{"origin": "partner.example.", "ns": "192.168.10.30,192.168.10.31", "xfer": "192.168.10.6"},
-	})
+	}, nil)
 	got, err := renderNamedConf(primary, secondary, "")
 	require.NoError(t, err)
 	checkGolden(t, "named_conf_local", got)

@@ -16,24 +16,33 @@ import (
 
 // scriptRunner extends fakeRunner with per-command behavior so tests can
 // emulate the side effects of the BIND tools (key/dsset/signed files).
+// The handler receives the working directory: the process CWD for Run,
+// the explicit dir for RunInDir — so fakes can reproduce CWD-dependent
+// tool behavior (dnssec-signzone writes its dsset file into the CWD).
 type scriptRunner struct {
 	fakeRunner
-	handler func(name string, args ...string) ([]byte, error)
+	handler func(dir, name string, args ...string) ([]byte, error)
 }
 
 func (s *scriptRunner) Run(ctx context.Context, name string, args ...string) ([]byte, error) {
+	cwd, _ := os.Getwd()
+	return s.RunInDir(ctx, cwd, name, args...)
+}
+
+func (s *scriptRunner) RunInDir(ctx context.Context, dir, name string, args ...string) ([]byte, error) {
 	out, err := s.fakeRunner.Run(ctx, name, args...)
 	if err != nil || s.handler == nil {
 		return out, err
 	}
-	return s.handler(name, args...)
+	return s.handler(dir, name, args...)
 }
 
-// fakeKeygen creates plausible key files like dnssec-keygen would.
-func fakeKeygen(t *testing.T, keyDir string) func(name string, args ...string) ([]byte, error) {
+// fakeKeygen creates plausible key files like dnssec-keygen would (into
+// the -K directory, independent of the working dir).
+func fakeKeygen(t *testing.T, keyDir string) func(dir, name string, args ...string) ([]byte, error) {
 	t.Helper()
 	tag := 10000
-	return func(name string, args ...string) ([]byte, error) {
+	return func(_, name string, args ...string) ([]byte, error) {
 		if name != "dnssec-keygen" {
 			return nil, nil
 		}
@@ -97,6 +106,32 @@ func TestDNSSECDeleteRemovesAllMaterials(t *testing.T) {
 		assert.NoFileExists(t, f)
 	}
 	assert.FileExists(t, unrelated, "other domains' keys untouched")
+}
+
+// TestDNSSECDeleteRejectsMaliciousOrigin: a glob metacharacter in the
+// origin would widen K<domain>* to every zone's key material; the origin
+// check must reject it before any file is touched.
+func TestDNSSECDeleteRejectsMaliciousOrigin(t *testing.T) {
+	base := t.TempDir()
+	cfg := testDNSConfig(base)
+	victim := filepath.Join(base, "Kvictim.com.+013+11111.key")
+	require.NoError(t, os.WriteFile(victim, []byte("key"), 0o644))
+	p := NewPlugin(nil, nil, &scriptRunner{}, "", 1, nil)
+
+	for _, origin := range []string{"*.", "?", "[a-z].com.", "../../etc.", `x"; }; zone "evil`} {
+		err := p.dnssecDelete(context.Background(), cfg, origin, 0, false)
+		require.ErrorContains(t, err, "invalid zone origin", "origin %q", origin)
+	}
+	assert.FileExists(t, victim, "other zones' keys must survive a malicious origin")
+}
+
+func TestCheckOrigin(t *testing.T) {
+	for _, ok := range []string{"example.com.", "example.com", "0/25.2.0.192.in-addr.arpa.", "_dmarc.example.com.", "xn--bcher-kva.example."} {
+		assert.NoError(t, checkOrigin(ok), ok)
+	}
+	for _, bad := range []string{"", "*.", "K*", "a?.com.", "[abc].com.", "a..b.com.", "../escape.", `a";};`, "a{b}.com.", "white space.com."} {
+		assert.Error(t, checkOrigin(bad), bad)
+	}
 }
 
 func TestDNSSECAlgos(t *testing.T) {

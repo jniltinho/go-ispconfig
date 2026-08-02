@@ -34,8 +34,10 @@ func IsTracked(rec any) bool {
 }
 
 // Diff holds the {"old","new"} payload stored in sys_datalog.data. For
-// inserts Old is empty; for deletes New is empty; for updates both contain
-// only the changed fields (PHP db::diffrec semantics).
+// inserts Old is empty; for deletes New is empty; for updates both carry
+// the FULL old and new records — the field comparison only gates whether
+// a row is written at all (PHP db::diffrec/datalogSave parity, see
+// buildDiff).
 type Diff struct {
 	Old map[string]any `json:"old"`
 	New map[string]any `json:"new"`

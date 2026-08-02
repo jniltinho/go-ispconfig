@@ -29,8 +29,9 @@ type Plugin struct {
 	caaSupported bool
 	caaProbed    *bool
 
-	// resignThreshold overrides DefaultResignThreshold for the dns_resign
-	// job (0 means the default).
+	// resignThreshold overrides the resign threshold for the dns_resign
+	// job (0 means the [dns] dnssec_resign_days server config key, or
+	// DefaultResignThreshold when unset).
 	resignThreshold time.Duration
 }
 
