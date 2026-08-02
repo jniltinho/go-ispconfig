@@ -37,9 +37,11 @@ Created via the DNS wizard (template "Default") on both panels:
 
 ## Email (legacy only, excluded from parity)
 
-- Mail domain `parity1.goisp.test`, mailbox `info@parity1.goisp.test`.
-- Skipped entirely when the legacy VM was provisioned with `--no-mail`
-  (no mail stack): record it in the parity report as "not applicable".
+- Not applicable: the legacy VM is provisioned with `--no-mail` (no mail
+  stack), recorded as such in the parity report.
+- Baseline DB dump of the legacy record set (client, web_domain, dns_soa,
+  dns_rr, mail_*): `vagrant/parity/baseline-legacy.sql.gz` (gitignored,
+  regenerate with mysqldump on the legacy guest).
 
 ## Screenshots
 

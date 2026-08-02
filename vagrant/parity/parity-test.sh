@@ -54,8 +54,12 @@ compare "web_domain (domain, type, active, subdomain, vhost_type)" \
 compare "dns_soa (origin, ns, mbox, refresh, retry, expire, minimum, ttl, active)" \
   "SELECT origin, ns, mbox, refresh, retry, expire, minimum, ttl, active FROM dns_soa ORDER BY origin"
 
+# A-record data holds each panel's own server IP (.20 legacy, .10 go-ispconfig)
+# by design — normalize both to SERVER_IP so only real divergences surface.
 compare "dns_rr (zone origin, name, type, data, aux, ttl, active)" \
-  "SELECT s.origin, r.name, r.type, r.data, r.aux, r.ttl, r.active
+  "SELECT s.origin, r.name, r.type,
+          REPLACE(REPLACE(r.data,'$LEGACY_IP','SERVER_IP'),'$GOISP_IP','SERVER_IP'),
+          r.aux, r.ttl, r.active
      FROM dns_rr r JOIN dns_soa s ON s.id = r.zone ORDER BY s.origin, r.type, r.name, r.data"
 
 # --- generated configs -------------------------------------------------------
@@ -93,6 +97,7 @@ done
   echo
   echo "Generated: $(date -u +%FT%TZ)"
   echo "Scope: clients + sites + DNS (emails are legacy-only baseline, not compared)."
+  echo "Email accounts: not applicable — legacy VM provisioned with --no-mail (no mail stack)."
   echo
   echo "## Intended differences (allowlisted)"
   echo

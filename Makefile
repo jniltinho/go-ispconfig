@@ -121,7 +121,8 @@ swagger-check: swagger
 		|| { echo "swagger docs are stale: run 'make swagger' and commit"; exit 1; }
 
 ## Cross-build the linux/amd64 binary consumed by the Vagrant rig
-build-linux:
+## (frontend first, so the embedded SPA is the real panel, not the placeholder)
+build-linux: frontend
 	@echo "Building linux/amd64 binary for the Vagrant rig..."
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o $(LINUX_BIN) $(LDFLAGS) .
 

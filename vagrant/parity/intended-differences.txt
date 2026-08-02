@@ -9,6 +9,10 @@
 # - The go-ispconfig panel is served by the binary itself over its own
 #   self-signed TLS (port 8080), not via an nginx/apache vhost.
 #
+# - DNS A records point at each panel's own server IP (192.168.56.20 vs
+#   .10); parity-test.sh normalizes both to SERVER_IP before comparing, so
+#   this needs no allowlist entry.
+#
 # Data-level entries (substring of the parity-test label):
 #
 # go-ispconfig has no client module yet (openspec add-client-module is a
