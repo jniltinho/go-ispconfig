@@ -29,6 +29,7 @@ type SchedulerJob struct {
 // group (admin-only).
 func registerSystemRoutes(g *echo.Group, d *Deps) {
 	g.GET("/system/scheduler", schedulerJobsHandler(d), requireAdmin)
+	registerMigrationRoutes(g, d)
 }
 
 // requireAdmin rejects sessions whose access level is not "admin" with 403.

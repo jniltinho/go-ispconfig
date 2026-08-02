@@ -30,7 +30,7 @@
 
 ## 5. Wizard API (`/api/system/migration/*`)
 
-- [ ] 5.1 Add admin-only endpoints: POST connect/test (login + preflight, returns panel info or fault/missing grants/cert error), GET inventory (incl. multi-server guard state), POST dry-run, POST execute (rejected for multi-server legacy without explicit confirmation), POST reset-passwords (bulk one-time tokens for reset-required users), GET status (snapshot), GET progress (SSE). Credentials stored only in the server-side session; never in DB/config/logs/responses. Swaggo annotations. Commit.
+- [x] 5.1 Add admin-only endpoints: POST connect/test (login + preflight, returns panel info or fault/missing grants/cert error), GET inventory (incl. multi-server guard state), POST dry-run, POST execute (rejected for multi-server legacy without explicit confirmation), POST reset-passwords (bulk one-time tokens for reset-required users), GET status (snapshot), GET progress (SSE). Credentials stored only in the server-side session; never in DB/config/logs/responses. Swaggo annotations. Commit.
 - [ ] 5.2 Implement run manager: single active run (in-process lock, reject second start with already-running error), goroutine execution surviving page reloads, progress events (entity, done, total, errors) fanned to SSE and snapshot. Integration tests: SSE event stream, concurrent-start rejection, status reattach. Commit.
 
 ## 6. Wizard UI (Vue, System → Tools)

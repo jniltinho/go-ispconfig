@@ -43,16 +43,16 @@ type Options struct {
 // Item is one planned record.
 type Item struct {
 	// Table is the local table the record belongs to.
-	Table string
+	Table string `json:"table"`
 	// Key is the natural key, for display and reports.
-	Key string
+	Key string `json:"key"`
 	// LegacyID is the legacy primary key (for sys_user/sys_group items it
 	// is the legacy client id they are derived from).
-	LegacyID int
+	LegacyID int `json:"legacy_id"`
 	// Action is the classification.
-	Action Action
+	Action Action `json:"action"`
 	// Reason names the conflict cause (conflict items only).
-	Reason string
+	Reason string `json:"reason,omitempty"`
 
 	rec     any      // desired model pointer
 	localID uint32   // existing local pk (update/skip)

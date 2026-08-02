@@ -2588,6 +2588,385 @@ const docTemplate = `{
                 }
             }
         },
+        "/system/migration/connect": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Logs into the legacy ISPConfig3 remote JSON API with the given remote_user, verifies every required *_get grant and returns the legacy server list. Credentials are held only in server memory for the wizard session — never stored, logged or echoed. Admin only.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "migration"
+                ],
+                "summary": "Test the legacy panel connection",
+                "parameters": [
+                    {
+                        "description": "Legacy panel coordinates",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.MigrationConnectRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.MigrationConnectResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Login fault, missing grants or TLS/certificate error",
+                        "schema": {
+                            "$ref": "#/definitions/api.MigrationError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Not an admin",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "A migration run is active",
+                        "schema": {
+                            "$ref": "#/definitions/api.MigrationError"
+                        }
+                    }
+                }
+            }
+        },
+        "/system/migration/dry-run": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Classifies every legacy record as create/update/skip-identical/conflict against the local database, without writing anything. Returns per-entity counts, the full conflict list with reasons and the password-reset user list. Admin only.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "migration"
+                ],
+                "summary": "Build the migration plan (dry-run)",
+                "parameters": [
+                    {
+                        "description": "Selection and target server",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.MigrationRunRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.MigrationPlanResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Legacy fetch or planning failed",
+                        "schema": {
+                            "$ref": "#/definitions/api.MigrationError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Not an admin",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Not connected or a run is active",
+                        "schema": {
+                            "$ref": "#/definitions/api.MigrationError"
+                        }
+                    }
+                }
+            }
+        },
+        "/system/migration/execute": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Re-fetches the legacy snapshot, rebuilds the plan and applies it in a background goroutine (progress via SSE/status; the run survives page reloads). A multi-server legacy panel is rejected unless confirm_map_all_to_local_server is set. One run at a time. Admin only.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "migration"
+                ],
+                "summary": "Execute the migration",
+                "parameters": [
+                    {
+                        "description": "Selection, target server and multi-server confirmation",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.MigrationRunRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Run started",
+                        "schema": {
+                            "$ref": "#/definitions/api.MigrationStatus"
+                        }
+                    },
+                    "400": {
+                        "description": "Multi-server without confirmation, or planning failed",
+                        "schema": {
+                            "$ref": "#/definitions/api.MigrationError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Not an admin",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Not connected or a run is already active",
+                        "schema": {
+                            "$ref": "#/definitions/api.MigrationError"
+                        }
+                    }
+                }
+            }
+        },
+        "/system/migration/inventory": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Fetches everything the import needs from the legacy panel (read-only) and returns the per-entity counts, the legacy server list and the multi-server guard flag. Admin only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "migration"
+                ],
+                "summary": "Legacy panel inventory",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/importer.Inventory"
+                        }
+                    },
+                    "400": {
+                        "description": "Legacy fetch failed",
+                        "schema": {
+                            "$ref": "#/definitions/api.MigrationError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Not an admin",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Not connected or a run is active",
+                        "schema": {
+                            "$ref": "#/definitions/api.MigrationError"
+                        }
+                    }
+                }
+            }
+        },
+        "/system/migration/progress": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Server-sent events stream: first the current status snapshot, then one event per apply progress step ({entity,done,total}) and a final status event when the run finishes or fails. Use the status endpoint as a polling fallback. Admin only.",
+                "produces": [
+                    "text/event-stream"
+                ],
+                "tags": [
+                    "migration"
+                ],
+                "summary": "Migration progress stream (SSE)",
+                "responses": {
+                    "200": {
+                        "description": "SSE stream",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Not an admin",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/system/migration/reset-passwords": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Generates one one-time reset token per panel user recreated by the finished run (their imported password is an unusable placeholder). The cleartext tokens appear only in this response; the database stores digests. Admin only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "migration"
+                ],
+                "summary": "Bulk one-time password-reset tokens",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/importer.ResetToken"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Not an admin",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "No finished run with reset-required users",
+                        "schema": {
+                            "$ref": "#/definitions/api.MigrationError"
+                        }
+                    }
+                }
+            }
+        },
+        "/system/migration/status": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns the wizard state machine snapshot (state, inventory, per-entity progress, error, final report). Polling this endpoint is the documented fallback for proxies that buffer SSE. Admin only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "migration"
+                ],
+                "summary": "Migration run status snapshot",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.MigrationStatus"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Not an admin",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/system/scheduler": {
             "get": {
                 "security": [
@@ -2968,6 +3347,202 @@ const docTemplate = `{
                 }
             }
         },
+        "api.MigrationConnectRequest": {
+            "type": "object",
+            "properties": {
+                "insecure": {
+                    "description": "Insecure disables TLS certificate verification (echoed as a warning).",
+                    "type": "boolean"
+                },
+                "password": {
+                    "description": "Password is the legacy remote_user password.",
+                    "type": "string",
+                    "example": "secret"
+                },
+                "url": {
+                    "description": "URL is the legacy panel base URL.",
+                    "type": "string",
+                    "example": "https://legacy.example.com:8080"
+                },
+                "username": {
+                    "description": "Username is the legacy remote_user name.",
+                    "type": "string",
+                    "example": "migrator"
+                }
+            }
+        },
+        "api.MigrationConnectResponse": {
+            "type": "object",
+            "properties": {
+                "insecure": {
+                    "description": "Insecure echoes that TLS verification is disabled.",
+                    "type": "boolean"
+                },
+                "multi_server": {
+                    "description": "MultiServer flags more than one legacy server (execute will require\nexplicit confirmation).",
+                    "type": "boolean"
+                },
+                "plain_http": {
+                    "description": "PlainHTTP echoes an unencrypted panel URL.",
+                    "type": "boolean"
+                },
+                "servers": {
+                    "description": "Servers is the legacy server list.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/client.Record"
+                    }
+                }
+            }
+        },
+        "api.MigrationError": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "description": "Error is the human-readable failure.",
+                    "type": "string"
+                },
+                "fault_code": {
+                    "description": "FaultCode is the legacy fault code, when the legacy panel answered\nwith a fault.",
+                    "type": "string"
+                },
+                "missing_functions": {
+                    "description": "MissingFunctions lists remote functions the remote_user lacks.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "api.MigrationPlanResponse": {
+            "type": "object",
+            "properties": {
+                "conflicts": {
+                    "description": "Conflicts lists every conflicting record with its reason.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/importer.Item"
+                    }
+                },
+                "counts": {
+                    "description": "Counts is the per-table create/update/skip/conflict tally.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/importer.EntityCount"
+                    }
+                },
+                "reset_required": {
+                    "description": "ResetRequired lists panel users that will need a password reset.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "warnings": {
+                    "description": "Warnings collects non-blocking notes.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "api.MigrationRunRequest": {
+            "type": "object",
+            "properties": {
+                "assign_orphan_zones_to_admin": {
+                    "description": "AssignOrphanZonesToAdmin assigns zones with absent owners to admin.",
+                    "type": "boolean"
+                },
+                "confirm_map_all_to_local_server": {
+                    "description": "ConfirmMapAllToLocalServer explicitly confirms mapping a\nmulti-server legacy panel onto the single local server (execute\nonly).",
+                    "type": "boolean"
+                },
+                "selection": {
+                    "description": "Selection is the entity subset (empty = everything).",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/api.MigrationSelection"
+                        }
+                    ]
+                },
+                "target_server_id": {
+                    "description": "TargetServerID maps every legacy server_id; 0 uses the first local\nserver.",
+                    "type": "integer"
+                }
+            }
+        },
+        "api.MigrationSelection": {
+            "type": "object",
+            "properties": {
+                "clients": {
+                    "description": "Clients selects client import.",
+                    "type": "boolean"
+                },
+                "dns": {
+                    "description": "DNS selects DNS zone/record/slave/template import.",
+                    "type": "boolean"
+                },
+                "sites": {
+                    "description": "Sites selects web domain/folder/folder user import.",
+                    "type": "boolean"
+                }
+            }
+        },
+        "api.MigrationStatus": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "description": "Error is the failure message of a failed run.",
+                    "type": "string"
+                },
+                "insecure": {
+                    "description": "Insecure echoes disabled TLS verification.",
+                    "type": "boolean"
+                },
+                "inventory": {
+                    "description": "Inventory is the last fetched inventory.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/importer.Inventory"
+                        }
+                    ]
+                },
+                "legacy_url": {
+                    "description": "LegacyURL is the connected panel URL (no credentials).",
+                    "type": "string"
+                },
+                "multi_server": {
+                    "description": "MultiServer flags a multi-server legacy panel.",
+                    "type": "boolean"
+                },
+                "plain_http": {
+                    "description": "PlainHTTP echoes an unencrypted panel URL.",
+                    "type": "boolean"
+                },
+                "progress": {
+                    "description": "Progress is the per-entity apply progress.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/importer.Progress"
+                    }
+                },
+                "report": {
+                    "description": "Report is the final report of a finished run.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/importer.Report"
+                        }
+                    ]
+                },
+                "state": {
+                    "description": "State is the wizard state machine position.",
+                    "type": "string",
+                    "example": "running"
+                }
+            }
+        },
         "api.Option": {
             "type": "object",
             "properties": {
@@ -3029,6 +3604,202 @@ const docTemplate = `{
                     "description": "Username is the sys_user login name.",
                     "type": "string",
                     "example": "admin"
+                }
+            }
+        },
+        "client.Record": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "string"
+            }
+        },
+        "importer.Action": {
+            "type": "string",
+            "enum": [
+                "create",
+                "update",
+                "skip-identical",
+                "conflict"
+            ],
+            "x-enum-varnames": [
+                "ActionCreate",
+                "ActionUpdate",
+                "ActionSkip",
+                "ActionConflict"
+            ]
+        },
+        "importer.EntityCount": {
+            "type": "object",
+            "properties": {
+                "conflicts": {
+                    "description": "Conflicts counts ActionConflict items.",
+                    "type": "integer"
+                },
+                "created": {
+                    "description": "Created counts ActionCreate items.",
+                    "type": "integer"
+                },
+                "skipped": {
+                    "description": "Skipped counts ActionSkip items.",
+                    "type": "integer"
+                },
+                "updated": {
+                    "description": "Updated counts ActionUpdate items.",
+                    "type": "integer"
+                }
+            }
+        },
+        "importer.Inventory": {
+            "type": "object",
+            "properties": {
+                "clients": {
+                    "description": "Clients is the legacy client count.",
+                    "type": "integer"
+                },
+                "dns_records": {
+                    "description": "DNSRecords counts dns_rr records across all zones.",
+                    "type": "integer"
+                },
+                "dns_slave_zones": {
+                    "description": "DNSSlaveZones counts dns_slave records.",
+                    "type": "integer"
+                },
+                "dns_templates": {
+                    "description": "DNSTemplates counts dns_template records.",
+                    "type": "integer"
+                },
+                "dns_zones": {
+                    "description": "DNSZones counts dns_soa records.",
+                    "type": "integer"
+                },
+                "multi_server": {
+                    "description": "MultiServer flags a legacy panel with more than one server: the run\nmust be blocked until the operator explicitly confirms mapping\neverything onto the single local server (design D3 guard).",
+                    "type": "boolean"
+                },
+                "servers": {
+                    "description": "Servers is the legacy server list (server_id, server_name rows).",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/client.Record"
+                    }
+                },
+                "web_domains": {
+                    "description": "WebDomains counts web_domain records of all imported types.",
+                    "type": "integer"
+                },
+                "web_folder_users": {
+                    "description": "WebFolderUsers counts web_folder_user records.",
+                    "type": "integer"
+                },
+                "web_folders": {
+                    "description": "WebFolders counts web_folder records.",
+                    "type": "integer"
+                }
+            }
+        },
+        "importer.Item": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "description": "Action is the classification.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/importer.Action"
+                        }
+                    ]
+                },
+                "key": {
+                    "description": "Key is the natural key, for display and reports.",
+                    "type": "string"
+                },
+                "legacy_id": {
+                    "description": "LegacyID is the legacy primary key (for sys_user/sys_group items it\nis the legacy client id they are derived from).",
+                    "type": "integer"
+                },
+                "reason": {
+                    "description": "Reason names the conflict cause (conflict items only).",
+                    "type": "string"
+                },
+                "table": {
+                    "description": "Table is the local table the record belongs to.",
+                    "type": "string"
+                }
+            }
+        },
+        "importer.Progress": {
+            "type": "object",
+            "properties": {
+                "done": {
+                    "description": "Done counts processed items of the entity.",
+                    "type": "integer"
+                },
+                "entity": {
+                    "description": "Entity is the local table being applied.",
+                    "type": "string"
+                },
+                "total": {
+                    "description": "Total is the entity's item count in the plan.",
+                    "type": "integer"
+                }
+            }
+        },
+        "importer.Report": {
+            "type": "object",
+            "properties": {
+                "conflicts": {
+                    "description": "Conflicts lists every conflicting record with its reason.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/importer.Item"
+                    }
+                },
+                "counts": {
+                    "description": "Counts is the per-table created/updated/skipped/conflict tally.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/importer.EntityCount"
+                    }
+                },
+                "operational_order": {
+                    "description": "OperationalOrder states the mandatory post-import sequence.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "reset_required": {
+                    "description": "ResetRequired lists panel users created with an unusable password;\nthe bulk reset flow issues their one-time tokens.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "rsync_suggestions": {
+                    "description": "RsyncSuggestions is one suggested command per imported vhost for\ntransferring site files (file transfer itself is out of scope),\nincluding uid/gid remapping.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "warnings": {
+                    "description": "Warnings collects everything the operator must not miss: insecure\ntransport, multi-server mapping, SSL re-issue, orphan assignments.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "importer.ResetToken": {
+            "type": "object",
+            "properties": {
+                "token": {
+                    "description": "Token is the one-time reset token (cleartext, never stored).",
+                    "type": "string"
+                },
+                "username": {
+                    "description": "Username is the panel login the token belongs to.",
+                    "type": "string"
                 }
             }
         },
