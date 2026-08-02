@@ -25,6 +25,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 // Rec is one canned fixture record; values are strings, exactly like the
@@ -58,6 +59,10 @@ type Server struct {
 	// LoginAttempts counts failed logins; at 10 or more the panel answers
 	// with the login-failure-limit fault, mirroring attempts_login.
 	LoginAttempts int
+	// Delay is an artificial per-request latency, letting tests keep a
+	// multi-request run in flight deterministically (e.g. concurrent-start
+	// rejection).
+	Delay time.Duration
 	// Sessions holds the currently valid remote_session ids.
 	Sessions map[string]bool
 	// Calls records every request in order, for assertions on call counts
@@ -299,6 +304,7 @@ func fault(w http.ResponseWriter, message string) {
 func (s *Server) handle(w http.ResponseWriter, r *http.Request) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	time.Sleep(s.Delay)
 
 	method := r.URL.RawQuery
 	if i := strings.IndexAny(method, "=&"); i >= 0 {
