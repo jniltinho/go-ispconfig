@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -25,6 +26,17 @@ import (
 	"go-ispconfig/internal/database"
 	"go-ispconfig/internal/engine"
 )
+
+// dsnHostPortFromPrefix returns "host:port" from a root DSN prefix
+// ("user:pass@tcp(host:port)").
+func dsnHostPortFromPrefix(dsnPrefix string) string {
+	start := strings.Index(dsnPrefix, "tcp(")
+	end := strings.LastIndex(dsnPrefix, ")")
+	if start < 0 || end <= start {
+		return "127.0.0.1:3306"
+	}
+	return dsnPrefix[start+4 : end]
+}
 
 // newDatabaseFlowEnv boots a single-server panel with a superadmin
 // session plus the root DSN prefix of the same MariaDB container, which
@@ -68,9 +80,14 @@ func TestDatabaseEndToEndFlow(t *testing.T) {
 	// Daemon-shaped engine: database module + the real mysql_clientdb
 	// plugin with a root admin connection into the same container.
 	plugin := clientdb.NewPlugin(db, engine.ExecRunner{}, "", 1, nil)
+	// Host/Port must match the container publish address for any CLI
+	// tools the plugin may spawn (mysqldump); do not hardcode :3306.
+	host, portStr, _ := strings.Cut(dsnHostPortFromPrefix(dsnPrefix), ":")
+	port, _ := strconv.Atoi(portStr)
+	adminCfg := clientdb.Config{Host: host, Port: port, User: "root", Password: "root"}
 	plugin.OpenAdmin = func(context.Context) (*sql.DB, clientdb.Config, error) {
 		adminDB, err := sql.Open("mysql", dsnPrefix+"/")
-		return adminDB, clientdb.Config{Host: "127.0.0.1", User: "root", Password: "root"}, err
+		return adminDB, adminCfg, err
 	}
 	reg := engine.NewRegistry(nil)
 	require.NoError(t, reg.Load([]engine.Module{clientdb.NewModule()}, []engine.Plugin{plugin}))

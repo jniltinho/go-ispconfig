@@ -5,6 +5,7 @@ package clientdb
 import (
 	"context"
 	"database/sql"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -17,18 +18,37 @@ import (
 // startAdmin spins up a MariaDB container and returns a plugin wired to
 // it via OpenAdmin, an open admin connection for direct assertions and
 // the root DSN prefix ("root:root@tcp(host:port)").
+//
+// Config.Host/Port MUST match the container's published address so
+// mysqldump/mysql CLI paths (rename with views) hit the same server as
+// database/sql — hardcoding 127.0.0.1:3306 fails on CI where the mapped
+// port is random.
 func startAdmin(t *testing.T, suffix string) (*Plugin, *adminConn, string) {
 	t.Helper()
 	dsnPrefix, _ := database.StartMariaDB(t, suffix)
+	host, port := dsnHostPort(t, dsnPrefix)
+	cfg := Config{Host: host, Port: port, User: "root", Password: "root"}
 	p := NewPlugin(nil, nil, "", 0, nil)
 	p.OpenAdmin = func(context.Context) (*sql.DB, Config, error) {
 		db, err := sql.Open("mysql", dsnPrefix+"/")
-		return db, Config{Host: "127.0.0.1", User: "root", Password: "root"}, err
+		return db, cfg, err
 	}
 	c, err := p.connect(context.Background())
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = c.Close() })
 	return p, c, dsnPrefix
+}
+
+// dsnHostPort extracts host and port from a StartMariaDB DSN prefix
+// ("user:pass@tcp(host:port)").
+func dsnHostPort(t *testing.T, dsnPrefix string) (string, int) {
+	t.Helper()
+	addr := dsnAddr(t, dsnPrefix)
+	host, portStr, ok := strings.Cut(addr, ":")
+	require.True(t, ok && host != "" && portStr != "", "dsn addr %q", addr)
+	port, err := strconv.Atoi(portStr)
+	require.NoError(t, err)
+	return host, port
 }
 
 // dsnAddr extracts the host:port from a StartMariaDB DSN prefix.

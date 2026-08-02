@@ -135,8 +135,8 @@ func (p *Plugin) renameDatabase(ctx context.Context, c *adminConn, data engine.D
 		var err error
 		viewDump, err = p.dumpToFile(ctx, c, "clientdb-*.views", append([]string{oldName}, views...)...)
 		if err != nil {
-			views = nil
-			p.log.Error("clientdb: unable to dump views", "database", oldName, "error", err)
+			p.log.Error("clientdb: unable to dump views, rename aborted", "database", oldName, "error", err)
+			return false
 		}
 	}
 	removeDumps := func() {
