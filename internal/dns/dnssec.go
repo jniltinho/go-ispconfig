@@ -11,8 +11,10 @@ package dns
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"go-ispconfig/internal/getconf"
 )
@@ -92,4 +94,139 @@ func (p *Plugin) dnssecCreateKeys(ctx context.Context, cfg *getconf.DNSConfig, d
 		p.log.Info("dns: generated dnssec keys", "domain", domain, "algorithm", algo)
 	}
 	return nil
+}
+
+// dnssecCreate ports soa_dnssec_create: guarded key generation followed by
+// the first signing. With an unchanged algorithm set, an existing dsset
+// file falls through to update/sign and existing keys of an initialized
+// zone are reused for signing (never regenerated). A zone without a
+// rendered zone file skips DNSSEC entirely.
+func (p *Plugin) dnssecCreate(ctx context.Context, cfg *getconf.DNSConfig, oldRow, newRow row) error {
+	domain := domainOf(newRow.str("origin"))
+	if !fileExists(zoneFilePath(cfg, newRow.str("origin"))) {
+		return nil
+	}
+	if oldRow.str("dnssec_algo") == newRow.str("dnssec_algo") {
+		if fileExists(dssetPath(cfg, domain)) {
+			return p.dnssecUpdate(ctx, cfg, oldRow, newRow, false)
+		}
+		if newRow.str("dnssec_initialized") == "Y" && len(allKeyFiles(cfg, domain, ".key")) > 0 {
+			// Keys were generated but the dsset file never appeared: sign.
+			return p.dnssecSign(ctx, cfg, newRow)
+		}
+	}
+	if err := p.dnssecCreateKeys(ctx, cfg, domain, dnssecAlgos(newRow.str("dnssec_algo"))); err != nil {
+		return err
+	}
+	return p.dnssecSign(ctx, cfg, newRow)
+}
+
+// dnssecUpdate ports soa_dnssec_update: create-if-missing-dsset, a
+// named-checkzone gate (a broken zone file aborts the re-sign with an
+// error log, PHP parity: no datalog error), then re-sign.
+func (p *Plugin) dnssecUpdate(ctx context.Context, cfg *getconf.DNSConfig, oldRow, newRow row, isNew bool) error {
+	domain := domainOf(newRow.str("origin"))
+	zoneFile := zoneFilePath(cfg, newRow.str("origin"))
+	if !fileExists(zoneFile) {
+		return nil
+	}
+	if !isNew && !fileExists(dssetPath(cfg, domain)) {
+		return p.dnssecCreate(ctx, cfg, oldRow, newRow)
+	}
+	if out, err := p.runner.Run(ctx, "named-checkzone", domain, zoneFile); err != nil {
+		p.log.Error("dns: dnssec re-sign aborted, zone file fails named-checkzone",
+			"domain", domain, "error", err, "output", string(out))
+		return nil
+	}
+	return p.dnssecSign(ctx, cfg, newRow)
+}
+
+// injectIncludes appends a `$INCLUDE <keyfile>` line for every key file
+// not yet referenced by the zone text and returns the new text plus the
+// number of key files seen.
+func injectIncludes(zone string, keyfiles []string) (string, int) {
+	for _, kf := range keyfiles {
+		line := "$INCLUDE " + kf
+		if !strings.Contains(zone, line) {
+			zone += "\n" + line + "\n"
+		}
+	}
+	return zone, len(keyfiles)
+}
+
+// dnssecSign ports soa_dnssec_sign: inject the key $INCLUDE lines, sign
+// the zone for 16 days (dnssec-signzone -A -e +1382400 -3 - -N increment)
+// and publish the DS + DNSKEY records into dns_soa.dnssec_info together
+// with dnssec_initialized/dnssec_last_signed.
+func (p *Plugin) dnssecSign(ctx context.Context, cfg *getconf.DNSConfig, newRow row) error {
+	domain := domainOf(newRow.str("origin"))
+	zoneFile := zoneFilePath(cfg, newRow.str("origin"))
+	if !fileExists(zoneFile) {
+		return nil
+	}
+	algos := dnssecAlgos(newRow.str("dnssec_algo"))
+
+	content, err := os.ReadFile(zoneFile)
+	if err != nil {
+		return fmt.Errorf("dns: reading zone file %s: %w", zoneFile, err)
+	}
+	zone := string(content)
+	keycount := 0
+	for _, algo := range algos {
+		var n int
+		zone, n = injectIncludes(zone, keyFiles(cfg, domain, algo, ".key"))
+		keycount += n
+	}
+	if want := len(algos) * 2; keycount != want {
+		p.log.Warn("dns: unexpected dnssec key file count",
+			"domain", domain, "found", keycount, "expected", want)
+	}
+	if err := os.WriteFile(zoneFile, []byte(zone), 0o644); err != nil {
+		return fmt.Errorf("dns: writing zone file %s: %w", zoneFile, err)
+	}
+
+	// -d <keydir> replaces PHP's `cd <keydir>` so the dsset file lands in
+	// the key directory (the runner takes argv only).
+	out, err := p.runner.Run(ctx, "dnssec-signzone",
+		"-A", "-e", "+1382400", "-3", "-", "-N", "increment",
+		"-o", domain, "-K", cfg.BindKeyfilesDir, "-d", cfg.BindKeyfilesDir,
+		"-t", zoneFile)
+	if err != nil {
+		return fmt.Errorf("dns: dnssec-signzone for %s: %w: %s", domain, err, out)
+	}
+
+	info, err := buildDNSSECInfo(cfg, domain, algos)
+	if err != nil {
+		return err
+	}
+	err = p.db.WithContext(ctx).Exec(
+		"UPDATE dns_soa SET dnssec_info = ?, dnssec_initialized = 'Y', dnssec_last_signed = ? WHERE id = ?",
+		info, time.Now().Unix(), newRow.num("id")).Error
+	if err != nil {
+		return fmt.Errorf("dns: storing dnssec info for %s: %w", domain, err)
+	}
+	p.log.Info("dns: zone signed", "domain", domain)
+	return nil
+}
+
+// buildDNSSECInfo assembles the dnssec_info text block: the DS records
+// (dsset file content) followed by the DNSKEY records (.key file
+// contents), byte-compatible with the PHP concatenation.
+func buildDNSSECInfo(cfg *getconf.DNSConfig, domain string, algos []string) (string, error) {
+	ds, err := os.ReadFile(dssetPath(cfg, domain))
+	if err != nil {
+		return "", fmt.Errorf("dns: reading dsset for %s: %w", domain, err)
+	}
+	info := "DS-Records:\n" + string(ds) +
+		"\n------------------------------------\n\nDNSKEY-Records:\n"
+	for _, algo := range algos {
+		for _, kf := range keyFiles(cfg, domain, algo, ".key") {
+			key, err := os.ReadFile(kf)
+			if err != nil {
+				return "", fmt.Errorf("dns: reading key file %s: %w", kf, err)
+			}
+			info += string(key) + "\n\n"
+		}
+	}
+	return info, nil
 }

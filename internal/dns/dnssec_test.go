@@ -87,6 +87,65 @@ func TestDNSSECCreateKeysGeneratesPairPerAlgorithm(t *testing.T) {
 	assert.Equal(t, 2, kskCalls)
 }
 
+func TestInjectIncludes(t *testing.T) {
+	zone := "@ IN SOA ...\n"
+	out, n := injectIncludes(zone, []string{"/etc/bind/Kx.+013+1.key", "/etc/bind/Kx.+013+2.key"})
+	assert.Equal(t, 2, n)
+	assert.Contains(t, out, "\n$INCLUDE /etc/bind/Kx.+013+1.key\n")
+	assert.Contains(t, out, "\n$INCLUDE /etc/bind/Kx.+013+2.key\n")
+
+	again, n := injectIncludes(out, []string{"/etc/bind/Kx.+013+1.key", "/etc/bind/Kx.+013+2.key"})
+	assert.Equal(t, 2, n)
+	assert.Equal(t, out, again, "existing $INCLUDE lines are not duplicated")
+}
+
+func TestBuildDNSSECInfo(t *testing.T) {
+	base := t.TempDir()
+	cfg := testDNSConfig(base)
+	require.NoError(t, os.WriteFile(dssetPath(cfg, "example.com"),
+		[]byte("example.com. IN DS 12345 13 2 ABCDEF\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(base, "Kexample.com.+013+11111.key"),
+		[]byte("example.com. IN DNSKEY 256 3 13 zsk\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(base, "Kexample.com.+013+22222.key"),
+		[]byte("example.com. IN DNSKEY 257 3 13 ksk\n"), 0o644))
+
+	info, err := buildDNSSECInfo(cfg, "example.com", []string{"ECDSAP256SHA256"})
+	require.NoError(t, err)
+	assert.True(t, strings.HasPrefix(info, "DS-Records:\nexample.com. IN DS 12345 13 2 ABCDEF\n"))
+	assert.Contains(t, info, "\n------------------------------------\n\nDNSKEY-Records:\n")
+	assert.Contains(t, info, "DNSKEY 256 3 13 zsk")
+	assert.Contains(t, info, "DNSKEY 257 3 13 ksk")
+}
+
+// TestDNSSECUpdateBrokenZoneBlocksResign covers the bind-dnssec scenario:
+// a zone file failing named-checkzone aborts the re-sign (no signzone
+// call) without escalating to a datalog error.
+func TestDNSSECUpdateBrokenZoneBlocksResign(t *testing.T) {
+	base := t.TempDir()
+	cfg := testDNSConfig(base)
+	require.NoError(t, os.WriteFile(zoneFilePath(cfg, "example.com."), []byte("zone"), 0o644))
+	require.NoError(t, os.WriteFile(dssetPath(cfg, "example.com"), []byte("ds"), 0o644))
+	runner := &scriptRunner{fakeRunner: fakeRunner{failCmd: "named-checkzone", failOut: "broken"}}
+	p := NewPlugin(nil, nil, runner, "", 1, nil)
+
+	soa := row{"origin": "example.com.", "dnssec_algo": "ECDSAP256SHA256", "id": 1}
+	require.NoError(t, p.dnssecUpdate(context.Background(), cfg, soa, soa, false))
+	assert.True(t, runner.has("named-checkzone", "example.com"), "checkzone gate uses the domain without trailing dot")
+	assert.False(t, runner.has("dnssec-signzone"), "broken zone must not be signed")
+}
+
+// TestDNSSECCreateSkipsWithoutZoneFile: no rendered zone file means no
+// key generation at all.
+func TestDNSSECCreateSkipsWithoutZoneFile(t *testing.T) {
+	base := t.TempDir()
+	cfg := testDNSConfig(base)
+	runner := &scriptRunner{}
+	p := NewPlugin(nil, nil, runner, "", 1, nil)
+	soa := row{"origin": "example.com.", "dnssec_algo": "ECDSAP256SHA256", "id": 1}
+	require.NoError(t, p.dnssecCreate(context.Background(), cfg, row{}, soa))
+	assert.Empty(t, runner.calls)
+}
+
 // TestDNSSECCreateKeysPreservesExisting covers "Existing keys are
 // preserved": key files present for the algorithm mean no keygen runs.
 func TestDNSSECCreateKeysPreservesExisting(t *testing.T) {
