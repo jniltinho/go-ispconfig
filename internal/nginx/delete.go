@@ -118,8 +118,10 @@ func (p *Plugin) deleteSite(ctx context.Context, cfg *getconf.WebConfig, old row
 		}
 	}
 	vhostFile := filepath.Join(cfg.NginxVhostConfDir, vhostFileName(domain))
-	if err := os.Remove(vhostFile); err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("nginx: removing vhost file %s: %w", vhostFile, err)
+	for _, f := range []string{vhostFile, vhostFile + ".err", vhostFile + "~"} {
+		if err := os.Remove(f); err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("nginx: removing vhost file %s: %w", f, err)
+		}
 	}
 	p.log.Info("nginx: removed vhost", "file", vhostFile)
 

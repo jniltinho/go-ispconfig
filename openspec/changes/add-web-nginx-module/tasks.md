@@ -51,6 +51,6 @@ Conventional commit after each finished + validated task.
 
 ## 8. Integration and docs
 
-- [ ] 8.1 End-to-end daemon integration test (MariaDB + temp fs + stub nginx/php-fpm/openssl binaries): API create → datalog → daemon run → vhost + pool + dirs on disk; update → rollback path on forced `nginx -t` failure
+- [x] 8.1 End-to-end daemon integration test (MariaDB + temp fs + stub nginx/php-fpm/openssl binaries): API create → datalog → daemon run → vhost + pool + dirs on disk; update → rollback path on forced `nginx -t` failure
 - [ ] 8.2 Manual validation on Vagrant Ubuntu 24.04 (real nginx/php-fpm): create site, PHP page served, self-signed SSL, custom directive merge, blacklist rejection; record findings
 - [ ] 8.3 Document the module in docs/ (architecture of the event flow, config keys, phase-2 items: quotas, traffic, stats); verify `openspec status` complete and archive-readiness
