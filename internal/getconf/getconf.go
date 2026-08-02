@@ -121,6 +121,10 @@ type MailConfig struct {
 	ContentFilter            string `ini:"content_filter"`
 	RspamdPassword           string `ini:"rspamd_password"`
 	RspamdURL                string `ini:"rspamd_url"`
+	RspamdRedisServers       string `ini:"rspamd_redis_servers"`
+	RspamdRedisPasswd        string `ini:"rspamd_redis_passwd"`
+	RspamdRedisBayesServers  string `ini:"rspamd_redis_bayes_servers"`
+	RspamdRedisBayesPasswd   string `ini:"rspamd_redis_bayes_passwd"`
 	POP3IMAPDaemon           string `ini:"pop3_imap_daemon"`
 	MailFilterSyntax         string `ini:"mail_filter_syntax"`
 	MailuserUID              string `ini:"mailuser_uid"`
@@ -160,6 +164,8 @@ func DefaultMailConfig() MailConfig {
 		MailuserName:             "vmail",
 		MailuserGroup:            "vmail",
 		MailboxVirtualUidgidMaps: "n",
+		RspamdRedisServers:       "127.0.0.1",
+		RspamdRedisBayesServers:  "127.0.0.1",
 		MailboxSizeLimit:         "0",
 		MessageSizeLimit:         "0",
 		MailboxSoftDelete:        "0",
