@@ -95,6 +95,10 @@ type DaemonConfig struct {
 	// DisableMailModule turns off the daemon mail module and plugins on
 	// a mail server (spec mail-module-events: config.toml enablement).
 	DisableMailModule bool `toml:"disable_mail_module" mapstructure:"disable_mail_module"`
+	// DisableFirewallModule turns off the daemon firewall module and
+	// UFW plugin even when server.firewall_server = 1 (spec
+	// firewall-module-events / design D3: config.toml enablement).
+	DisableFirewallModule bool `toml:"disable_firewall_module" mapstructure:"disable_firewall_module"`
 	// DisableClientEvents turns off the daemon client module (emergency
 	// rollback only; client_delete teardown stops firing while set).
 	DisableClientEvents bool `toml:"disable_client_events" mapstructure:"disable_client_events"`
@@ -123,6 +127,7 @@ func setDefaults() {
 	viper.SetDefault("daemon.datalog_retention_days", 30)
 	viper.SetDefault("daemon.disable_client_events", false)
 	viper.SetDefault("daemon.disable_mail_module", false)
+	viper.SetDefault("daemon.disable_firewall_module", false)
 	viper.SetDefault("auth.rehash_legacy", false)
 	viper.SetDefault("queue.addr", "localhost:6379")
 	viper.SetDefault("queue.db", 0)
