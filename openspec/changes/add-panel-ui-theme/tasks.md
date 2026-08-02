@@ -12,7 +12,7 @@
 - [x] 2.1 Style the topbar: logo, icon-over-title module buttons with active state and brand hover, global search field with search icon; commit
 - [x] 2.2 Add the red solid logout button ("Logout <username>") and the dark-mode toggle (localStorage persistence + `prefers-color-scheme` initial state, no flash on reload); commit
 - [x] 2.3 Convert the layout to fluid width with consistent gutters (remove any fixed content width) and style the per-module sidebar; commit
-- [ ] 2.4 Make the sidebar collapse into an off-canvas drawer below the large breakpoint with a toggle button (state in Pinia); commit
+- [x] 2.4 Make the sidebar collapse into an off-canvas drawer below the large breakpoint with a toggle button (state in Pinia); commit
 
 ## 3. Components: buttons, tables, forms, alerts
 

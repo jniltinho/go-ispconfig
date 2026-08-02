@@ -416,5 +416,6 @@
   "migration.report.copy_tokens": "Copy all",
   "migration.report.copied": "Copied",
   "topbar.dark_mode": "Switch to dark mode",
-  "topbar.light_mode": "Switch to light mode"
+  "topbar.light_mode": "Switch to light mode",
+  "sidebar.toggle": "Toggle navigation"
 }

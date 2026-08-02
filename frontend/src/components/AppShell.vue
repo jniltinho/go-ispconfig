@@ -1,17 +1,19 @@
 <script setup lang="ts">
 // Authenticated shell: topbar (logo, module tabs icon-over-title, global
 // search, red logout), per-module sidebar with sections, routed content area.
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Moon, Sun } from 'lucide-vue-next'
+import { Menu, Moon, Sun } from 'lucide-vue-next'
 import { moduleIcons, utilityIcons } from '../icons'
 import { isDark, toggleTheme } from '../theme'
 import { modules } from '../modules'
 import { useI18n } from '../i18n'
 import { useAuthStore } from '../stores/auth'
+import { useUiStore } from '../stores/ui'
 
 const { t } = useI18n()
 const auth = useAuthStore()
+const ui = useUiStore()
 const route = useRoute()
 const router = useRouter()
 const search = ref('')
@@ -25,6 +27,12 @@ const visibleSections = computed(() =>
   activeModule.value.sections.filter((s) => !s.adminOnly || auth.typ === 'admin'),
 )
 
+// Navigating closes the drawer (mobile: tap a section, see the content).
+watch(
+  () => route.path,
+  () => ui.closeSidebar(),
+)
+
 async function logout() {
   await auth.logout()
   router.push({ name: 'login' })
@@ -35,6 +43,15 @@ async function logout() {
   <div class="flex min-h-full flex-col">
     <header class="border-b border-border bg-surface">
       <div class="flex items-center gap-6 px-5">
+        <button
+          type="button"
+          data-test="sidebar-toggle"
+          :aria-label="t('sidebar.toggle')"
+          class="border border-border bg-surface p-2 text-text hover:bg-info lg:hidden"
+          @click="ui.toggleSidebar"
+        >
+          <Menu :size="18" />
+        </button>
         <!-- Logo placeholder (white-label logo arrives with add-panel-ui-theme) -->
         <RouterLink to="/dashboard" class="py-3 text-lg font-bold text-brand no-underline">
           {{ t('app.title') }}
@@ -87,8 +104,19 @@ async function logout() {
     </header>
 
     <div class="flex flex-1">
-      <!-- Per-module sidebar (215px like the original, fluid content) -->
-      <aside class="w-[215px] shrink-0 border-r border-border bg-surface">
+      <!-- Backdrop for the off-canvas drawer -->
+      <div
+        v-if="ui.sidebarOpen"
+        data-test="sidebar-backdrop"
+        class="fixed inset-0 z-30 bg-black/40 lg:hidden"
+        @click="ui.closeSidebar"
+      />
+      <!-- Per-module sidebar: static >= lg, off-canvas drawer below -->
+      <aside
+        data-test="sidebar"
+        class="w-[215px] shrink-0 border-r border-border bg-surface max-lg:fixed max-lg:inset-y-0 max-lg:left-0 max-lg:z-40 max-lg:transition-transform max-lg:duration-150"
+        :class="ui.sidebarOpen ? '' : 'max-lg:-translate-x-full'"
+      >
         <div class="border-b border-border bg-info px-4 py-2.5 text-sm font-bold text-info-text">
           {{ t(`module.${activeModule.id}`) }}
         </div>
