@@ -580,6 +580,14 @@ func (h *entityHandlers[T]) fieldString(ctx context.Context, rec *T, column stri
 	if v == nil {
 		return ""
 	}
+	// Nullable columns are pointers; validators consume the pointed-to
+	// value (a nil pointer reads as empty, SQL NULL).
+	if rv := reflect.ValueOf(v); rv.Kind() == reflect.Pointer {
+		if rv.IsNil() {
+			return ""
+		}
+		v = rv.Elem().Interface()
+	}
 	if s, ok := v.(string); ok {
 		return s
 	}

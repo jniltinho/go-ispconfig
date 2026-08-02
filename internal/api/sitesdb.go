@@ -366,8 +366,20 @@ func sitesDatabasePrepare(c *echo.Context, d *Deps, id *repository.Identity, bod
 		fields["type"] = append(fields["type"], "database_type_error")
 	}
 
-	// Parent site is required, must be readable by the caller and a vhost.
+	var old *model.WebDatabase
+	if idParam := c.Param("id"); idParam != "" {
+		old = &model.WebDatabase{}
+		if err := d.DB.WithContext(ctx).Take(old, idParam).Error; err != nil {
+			return err
+		}
+	}
+
+	// Parent site is required, must be readable by the caller and a
+	// vhost. Partial update bodies fall back to the stored reference.
 	pid := bodyInt(body, "parent_domain_id")
+	if pid == 0 && old != nil {
+		pid = int64(old.ParentDomainID)
+	}
 	var parent *model.WebDomain
 	if pid <= 0 {
 		fields["parent_domain_id"] = append(fields["parent_domain_id"], "database_site_error_empty")
@@ -385,12 +397,7 @@ func sitesDatabasePrepare(c *echo.Context, d *Deps, id *repository.Identity, bod
 	global := sitesGlobalConfig(d.DB)
 	expandedPrefix := expandSitesPrefix(ctx, d.DB, id, global["dbname_prefix"], body)
 
-	var old *model.WebDatabase
-	if idParam := c.Param("id"); idParam != "" {
-		old = &model.WebDatabase{}
-		if err := d.DB.WithContext(ctx).Take(old, idParam).Error; err != nil {
-			return err
-		}
+	if old != nil {
 		// server_id and charset are immutable once created (PHP restores
 		// the server and errors on charset change).
 		if v := bodyInt(body, "server_id"); v != 0 && uint32(v) != old.ServerID {
@@ -758,7 +765,7 @@ func sitesDatabaseEntity() *Entity {
 					{Name: "database_name", Label: "database_name_txt", Datatype: "VARCHAR",
 						Formtype: "TEXT", Validators: databaseNameRules()},
 					text("database_name_prefix", "database_name_prefix_txt"),
-					intField("database_quota", "database_quota_txt", "-1",
+					intField("database_quota", "database_quota_txt", -1,
 						validator.Rule{Type: "ISINT", ErrKey: "limit_database_quota_error_notint"}),
 					selectField("database_user_id", "database_user_txt", "INTEGER", nil, nil),
 					selectField("database_ro_user_id", "database_ro_user_txt", "INTEGER", nil, nil),
