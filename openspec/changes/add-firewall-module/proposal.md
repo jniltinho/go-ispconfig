@@ -18,11 +18,15 @@ A hosting server exposes many services; admins need a simple, panel-managed way 
 
 ### New Capabilities
 
-- `firewall-management`: firewall record CRUD (API + System UI) and the daemon plugin applying UFW rules with lock-out protection.
+- `firewall-module-events`: daemon firewall module — table hook for `firewall`, named event dispatch (`firewall_insert/update/delete`), enablement gated on `server.firewall_server` + config.toml.
+- `firewall-ufw-plugin`: UFW apply path (`clean_ports`, `ufw_update`, `ufw_delete`) with panel/SSH lock-out protection.
+- `firewall-record-management`: API-side domain logic — validation, one-row-per-server, admin + `admin_allow_firewall_config` policy, riud stamps, datalog writes.
+- `firewall-rest-api`: REST CRUD endpoints for `firewall` (Swagger, admin-only), panel/remote shared write path.
+- `firewall-panel-ui`: System → Firewall list + form (Vue DataTable/TabbedForm, i18n).
 
 ### Modified Capabilities
 
-(none — new plugin on the existing datalog/event engine)
+(none — new plugin on the existing datalog/event engine; installer `configure_ufw_firewall` is a Modified Capability of `add-installer-cli`, tracked there)
 
 ## Impact
 
