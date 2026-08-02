@@ -39,7 +39,7 @@ func TestEntityDefaultsAndBody(t *testing.T) {
 		"sys_userid": float64(99), // undeclared: must be ignored
 	}
 	require.NoError(t, h.applyDefaults(ctx, rec, body))
-	require.NoError(t, h.applyBody(ctx, rec, body))
+	require.NoError(t, h.applyBody(ctx, rec, body, &repository.Identity{Typ: "admin"}))
 
 	require.Equal(t, uint32(1), rec.ServerID)
 	require.Equal(t, "10.0.0.1", rec.IPAddress)

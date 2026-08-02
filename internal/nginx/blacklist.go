@@ -57,6 +57,31 @@ func mustCompileBlacklist(raw string) []*regexp.Regexp {
 	return patterns
 }
 
+// isBlacklisted reports whether one directive line matches a blacklist
+// pattern.
+func isBlacklisted(line string) bool {
+	for _, re := range blacklist {
+		if re.MatchString(line) {
+			return true
+		}
+	}
+	return false
+}
+
+// BlockedDirectives returns the trimmed blacklisted lines of a custom
+// nginx_directives value. The sites API uses it to reject offending
+// directives at save time with a per-field validation error; the daemon's
+// render-time strip (filterBlacklistedDirectives) stays as defense in depth.
+func BlockedDirectives(directives string) []string {
+	var blocked []string
+	for line := range strings.SplitSeq(directives, "\n") {
+		if isBlacklisted(line) {
+			blocked = append(blocked, strings.TrimSpace(line))
+		}
+	}
+	return blocked
+}
+
 // filterBlacklistedDirectives strips every line of the custom nginx
 // directives that matches a blacklist pattern (render-time defense in depth;
 // the sites API rejects the same lines at save time). It returns the kept
@@ -68,18 +93,12 @@ func filterBlacklistedDirectives(directives string) (kept string, rejected []err
 	lines := strings.Split(directives, "\n")
 	out := lines[:0]
 	for _, line := range lines {
-		blocked := false
-		for _, re := range blacklist {
-			if re.MatchString(line) {
-				blocked = true
-				rejected = append(rejected,
-					fmt.Errorf("nginx: blacklisted directive rejected: %s", strings.TrimSpace(line)))
-				break
-			}
+		if isBlacklisted(line) {
+			rejected = append(rejected,
+				fmt.Errorf("nginx: blacklisted directive rejected: %s", strings.TrimSpace(line)))
+			continue
 		}
-		if !blocked {
-			out = append(out, line)
-		}
+		out = append(out, line)
 	}
 	return strings.Join(out, "\n"), rejected
 }

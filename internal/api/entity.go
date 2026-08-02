@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/labstack/echo/v5"
+	"gorm.io/gorm"
 	"gorm.io/gorm/schema"
 
 	"go-ispconfig/internal/auth"
@@ -35,6 +36,9 @@ type Field struct {
 	Options []Option `json:"options,omitempty"`
 	// Validators are the declarative validation rules of the field.
 	Validators []validator.Rule `json:"validators,omitempty"`
+	// AdminOnly hides the field from non-admin form metadata and makes the
+	// API ignore it in non-admin request bodies (tform admin-only tabs).
+	AdminOnly bool `json:"admin_only,omitempty"`
 }
 
 // Option is one selectable value of a SELECT or CHECKBOX field.
@@ -53,6 +57,9 @@ type Tab struct {
 	Label string `json:"label"`
 	// Fields are the fields rendered on the tab.
 	Fields []Field `json:"fields"`
+	// AdminOnly marks every field of the tab as AdminOnly and hides the
+	// whole tab from non-admin form metadata (tform admin-only tabs).
+	AdminOnly bool `json:"admin_only,omitempty"`
 }
 
 // Entity is a declarative CRUD entity definition (the Go replacement of a
@@ -73,6 +80,18 @@ type Entity struct {
 	// Policy is an optional security policy flag (auth.RequirePolicy)
 	// enforced on every route of the entity.
 	Policy string `json:"-"`
+	// Prepare, when set, runs after JSON bind and before defaults and
+	// validation on create and update. It may mutate the body (derive
+	// fields, hash passwords, verify referenced parent records) or veto
+	// the request by returning an error.
+	Prepare func(c *echo.Context, d *Deps, id *repository.Identity, body map[string]any) error `json:"-"`
+	// AfterInsert, when set, runs inside the create transaction after the
+	// row exists (primary key assigned) and before the datalog insert row
+	// is written, so derived defaults land in both the row and the journal.
+	AfterInsert func(ctx context.Context, tx *gorm.DB, id *repository.Identity, rec any) error `json:"-"`
+	// Decorate, when set, may add computed keys (e.g. datalog pending/error
+	// state) to the JSON objects returned by list and get.
+	Decorate func(ctx context.Context, db *gorm.DB, items []map[string]any) error `json:"-"`
 }
 
 // fields iterates over every field of every tab.
@@ -152,6 +171,14 @@ func RegisterEntity[T any](g *echo.Group, d *Deps, ent *Entity) error {
 	}
 	ent.Table = s.Table
 	ent.PK = s.PrioritizedPrimaryField.DBName
+	for ti := range ent.Tabs {
+		if !ent.Tabs[ti].AdminOnly {
+			continue
+		}
+		for fi := range ent.Tabs[ti].Fields {
+			ent.Tabs[ti].Fields[fi].AdminOnly = true
+		}
+	}
 	for f := range ent.fields {
 		if s.LookUpField(f.Name) == nil {
 			return fmt.Errorf("api: entity %s declares unknown column %s", ent.Name, f.Name)
@@ -228,6 +255,9 @@ func (h *entityHandlers[T]) list(c *echo.Context) error {
 	for i := range recs {
 		items[i] = h.toMap(c.Request().Context(), &recs[i])
 	}
+	if err := h.decorate(c.Request().Context(), items); err != nil {
+		return err
+	}
 	return c.JSON(http.StatusOK, ListResponse{Items: items, Total: total, Page: page, Limit: limit})
 }
 
@@ -237,7 +267,19 @@ func (h *entityHandlers[T]) get(c *echo.Context) error {
 	if err := h.repo.Get(c.Request().Context(), identity(c), c.Param("id"), &rec); err != nil {
 		return err
 	}
-	return c.JSON(http.StatusOK, h.toMap(c.Request().Context(), &rec))
+	item := h.toMap(c.Request().Context(), &rec)
+	if err := h.decorate(c.Request().Context(), []map[string]any{item}); err != nil {
+		return err
+	}
+	return c.JSON(http.StatusOK, item)
+}
+
+// decorate applies the entity's Decorate hook, if any.
+func (h *entityHandlers[T]) decorate(ctx context.Context, items []map[string]any) error {
+	if h.ent.Decorate == nil || len(items) == 0 {
+		return nil
+	}
+	return h.ent.Decorate(ctx, h.deps.DB, items)
 }
 
 // create serves POST /<entity>: defaults + body over a fresh record,
@@ -251,11 +293,16 @@ func (h *entityHandlers[T]) create(c *echo.Context) error {
 	}
 
 	ctx := c.Request().Context()
+	if h.ent.Prepare != nil {
+		if err := h.ent.Prepare(c, h.deps, id, body); err != nil {
+			return err
+		}
+	}
 	rec := new(T)
 	if err := h.applyDefaults(ctx, rec, body); err != nil {
 		return err
 	}
-	if err := h.applyBody(ctx, rec, body); err != nil {
+	if err := h.applyBody(ctx, rec, body, id); err != nil {
 		return err
 	}
 	if err := h.validate(ctx, rec, nil); err != nil {
@@ -271,7 +318,11 @@ func (h *entityHandlers[T]) create(c *echo.Context) error {
 			return err
 		}
 	}
-	if err := h.repo.Insert(ctx, id, rec); err != nil {
+	var fixup func(tx *gorm.DB) error
+	if h.ent.AfterInsert != nil {
+		fixup = func(tx *gorm.DB) error { return h.ent.AfterInsert(ctx, tx, id, rec) }
+	}
+	if err := h.repo.InsertFn(ctx, id, rec, fixup); err != nil {
 		return err
 	}
 	return c.JSON(http.StatusCreated, h.toMap(ctx, rec))
@@ -288,11 +339,16 @@ func (h *entityHandlers[T]) update(c *echo.Context) error {
 	}
 
 	ctx := c.Request().Context()
+	if h.ent.Prepare != nil {
+		if err := h.ent.Prepare(c, h.deps, id, body); err != nil {
+			return err
+		}
+	}
 	var rec T
 	if err := h.repo.Get(ctx, id, c.Param("id"), &rec); err != nil {
 		return err
 	}
-	if err := h.applyBody(ctx, &rec, body); err != nil {
+	if err := h.applyBody(ctx, &rec, body, id); err != nil {
 		return err
 	}
 	if err := h.validate(ctx, &rec, c.Param("id")); err != nil {
@@ -365,9 +421,14 @@ func (h *entityHandlers[T]) applyDefaults(ctx context.Context, rec *T, body map[
 
 // applyBody copies the declared entity fields present in the JSON body onto
 // the record. Undeclared keys — including the sys_ ownership columns and
-// the primary key — are ignored: the body can never set them.
-func (h *entityHandlers[T]) applyBody(ctx context.Context, rec *T, body map[string]any) error {
+// the primary key — are ignored: the body can never set them. AdminOnly
+// fields are ignored for non-admin identities (tform admin-only tabs).
+func (h *entityHandlers[T]) applyBody(ctx context.Context, rec *T, body map[string]any, id *repository.Identity) error {
+	admin := id != nil && id.IsAdmin()
 	for f := range h.ent.fields {
+		if f.AdminOnly && !admin {
+			continue
+		}
 		v, ok := body[f.Name]
 		if !ok || v == nil {
 			continue

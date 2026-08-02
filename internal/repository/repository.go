@@ -155,6 +155,16 @@ func (r *Repo[T]) CheckPerm(ctx context.Context, id *Identity, pk any, perm byte
 // datalog.Tracked, a sys_datalog row is written in the same transaction, so
 // a rollback removes both the record and its journal entry.
 func (r *Repo[T]) Insert(ctx context.Context, id *Identity, rec *T) error {
+	return r.InsertFn(ctx, id, rec, nil)
+}
+
+// InsertFn is Insert with an optional fixup running inside the same
+// transaction after the row exists (primary key assigned) and before the
+// datalog insert row is written: derived defaults set there (ISPConfig
+// onAfterInsert semantics, e.g. document_root = .../web<id>) land in both
+// the row and the journaled record. fixup must persist its own changes on
+// tx and mutate rec to match.
+func (r *Repo[T]) InsertFn(ctx context.Context, id *Identity, rec *T, fixup func(tx *gorm.DB) error) error {
 	if id == nil {
 		return ErrPermissionDenied
 	}
@@ -169,6 +179,11 @@ func (r *Repo[T]) Insert(ctx context.Context, id *Identity, rec *T) error {
 	return r.txn(ctx, func(tx *gorm.DB) error {
 		if err := tx.Create(rec).Error; err != nil {
 			return err
+		}
+		if fixup != nil {
+			if err := fixup(tx); err != nil {
+				return err
+			}
 		}
 		return datalog.LogInsert(tx, rec, id.Username)
 	})

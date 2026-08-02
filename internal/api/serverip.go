@@ -78,7 +78,10 @@ func checkServerIP(_ *validator.Context, value string) string {
 
 // registerEntities mounts every CRUD entity on the authenticated group.
 func registerEntities(g *echo.Group, d *Deps) error {
-	return RegisterEntity[model.ServerIP](g, d, serverIPEntity())
+	if err := RegisterEntity[model.ServerIP](g, d, serverIPEntity()); err != nil {
+		return err
+	}
+	return registerSitesEntities(g.Group("/sites"), d)
 }
 
 // The CRUD routes are registered generically by RegisterEntity; the

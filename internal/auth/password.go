@@ -69,6 +69,15 @@ func HashPassword(password string) (string, error) {
 	return string(h), err
 }
 
+// CryptPassword hashes a cleartext password with SHA-512 crypt ($6$), the
+// scheme ISPConfig3 stores for web folder users and stats passwords. These
+// hashes are copied verbatim into .htpasswd files by the daemon and must
+// stay verifiable by nginx's crypt(3)-based auth_basic, so bcrypt is not an
+// option here.
+func CryptPassword(password string) (string, error) {
+	return crypt.SHA512.New().Generate([]byte(password), nil)
+}
+
 // VerifyAndMaybeRehash verifies password against hash and, when the hash is
 // a legacy crypt hash and rehashLegacy is true (config auth.rehash_legacy),
 // returns a fresh bcrypt hash the caller must persist. newHash is empty when
