@@ -112,7 +112,9 @@ function toPayload(meta: ServerMeta, values: Record<string, unknown>): Record<st
       if (v === undefined) continue
       if (field.type === 'checkbox') {
         payload[field.name] = v ? truthyOption(field) : falsyOption(field)
-      } else if (field.type === 'password' && v === '') {
+      } else if (v === '' && (field.type === 'password' || field.datatype === 'INTEGER')) {
+        // Untouched password (keep the stored hash) or empty numeric input
+        // (let the server default apply instead of failing conversion).
         continue
       } else {
         payload[field.name] = v
