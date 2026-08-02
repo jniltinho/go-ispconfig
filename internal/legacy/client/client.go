@@ -53,6 +53,9 @@ type Options struct {
 	// Insecure disables TLS certificate verification. The client keeps an
 	// insecure marker for the migration report; TLS is verified by default.
 	Insecure bool
+	// PageSize is the #LIMIT# used by paged getters
+	// (DefaultPageSize when zero).
+	PageSize int
 }
 
 // Client is a read-only client for one legacy ISPConfig3 panel.
@@ -65,6 +68,7 @@ type Client struct {
 	sessionID string
 	insecure  bool
 	plainHTTP bool
+	pageSize  int
 	hc        *http.Client
 }
 
@@ -84,12 +88,17 @@ func New(opts Options) (*Client, error) {
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec // explicit operator opt-in, surfaced via Insecure()
 		}
 	}
+	pageSize := opts.PageSize
+	if pageSize <= 0 {
+		pageSize = DefaultPageSize
+	}
 	return &Client{
 		endpoint:  strings.TrimRight(opts.URL, "/") + "/remote/json.php",
 		username:  opts.Username,
 		password:  opts.Password,
 		insecure:  opts.Insecure,
 		plainHTTP: u.Scheme == "http",
+		pageSize:  pageSize,
 		hc:        hc,
 	}, nil
 }
