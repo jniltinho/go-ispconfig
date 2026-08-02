@@ -152,7 +152,7 @@ func TestPlanExistingRecordsSkipOrUpdate(t *testing.T) {
 		NS: "ns1.example.com.", Mbox: "hostmaster.example.com.", Serial: 2024010101,
 		Refresh: 7200, Retry: 540, Expire: 604800, Minimum: 3600, TTL: 3600, Active: "Y",
 		SysPermUser: "riud", SysPermGroup: "riud"}
-	st.rrs[rrKey(12, "www", "A", "192.0.2.1")] = &model.DNSRr{ID: 90, Zone: 12,
+	st.rrs[rrKey(12, "www", "A", "192.0.2.1", 0)] = &model.DNSRr{ID: 90, Zone: 12,
 		SysUserID: 30, SysGroupID: 31, ServerID: 1,
 		Name: "www", Type: "A", Data: "192.0.2.1", TTL: 3600, Active: "Y",
 		SysPermUser: "riud", SysPermGroup: "riud"}
@@ -280,6 +280,51 @@ func TestPlanConflictSysUserTakenByOtherClient(t *testing.T) {
 	user := itemFor(t, plan, "sys_user", "client2")
 	require.Equal(t, ActionConflict, user.Action)
 	require.Contains(t, user.Reason, "different local client")
+
+	// The cluster is atomic: neither the client nor its group may be
+	// created without the panel user.
+	cli := itemFor(t, plan, "client", "client2")
+	require.Equal(t, ActionConflict, cli.Action)
+	require.Contains(t, cli.Reason, "cannot recreate panel user/group")
+	group := itemFor(t, plan, "sys_group", "client2")
+	require.Equal(t, ActionConflict, group.Action)
+
+	// The unaffected reseller still imports normally.
+	require.Equal(t, ActionCreate, itemFor(t, plan, "client", "reseller1").Action)
+}
+
+func TestPlanConflictExistingFolderPendingOwner(t *testing.T) {
+	// Local panel has client2 with domain and folder; the legacy folder
+	// claims an owner (reseller1's group) whose client is only being
+	// created in this run — the existing folder must conflict, never be
+	// re-owned to a zero/foreign owner.
+	st := localWithClient2()
+	st.domains["example.com|vhost"] = &model.WebDomain{DomainID: 55, Domain: "example.com",
+		Type: "vhost", SysUserID: 30, SysGroupID: 31, ServerID: 1,
+		ParentDomainID: 0, DocumentRoot: "/var/www/clients/client2/web10",
+		SystemUser: "web10", SystemGroup: "client2", Active: "y",
+		SysPermUser: "riud", SysPermGroup: "riud"}
+	st.folders["55|protected"] = &model.WebFolder{WebFolderID: 77, ParentDomainID: 55,
+		Path: "protected", SysUserID: 30, SysGroupID: 31, ServerID: 1, Active: "y",
+		SysPermUser: "riud", SysPermGroup: "riud"}
+	delete(st.clients, "reseller1") // reseller becomes a pending create
+	delete(st.groupByName, "reseller1")
+	delete(st.userByName, "reseller1")
+	delete(st.groupOfCli, 5)
+	delete(st.userOfCli, 5)
+
+	snap := testSnapshot()
+	snap.Folders[0]["sys_groupid"] = "3" // reseller1's legacy group
+
+	plan, err := buildPlan(snap, st, Options{
+		Selection:      Selection{Clients: true, Sites: true},
+		TargetServerID: 1,
+	})
+	require.NoError(t, err)
+
+	folder := itemFor(t, plan, "web_folder", "protected (domain 10)")
+	require.Equal(t, ActionConflict, folder.Action)
+	require.Contains(t, folder.Reason, "only being created now")
 }
 
 func TestPlanRiudCopiedVerbatim(t *testing.T) {

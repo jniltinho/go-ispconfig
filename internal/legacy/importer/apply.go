@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"slices"
 	"strconv"
 
 	"gorm.io/gorm"
@@ -41,17 +42,28 @@ func Apply(ctx context.Context, db *gorm.DB, plan *Plan) (map[string]EntityCount
 		if len(items) == 0 {
 			continue
 		}
+		// Tallied per phase and merged only after the commit, so a
+		// failed (rolled-back) phase never inflates the returned counts.
+		phase := map[string]EntityCount{}
 		nctx, flush := datalog.NotifyAfterCommit(ctx)
 		err := db.WithContext(nctx).Transaction(func(tx *gorm.DB) error {
 			if tables[0] == "client" {
-				return applyClientCluster(tx, plan, items, counts)
+				return applyClientCluster(tx, plan, items, phase)
 			}
-			return applyItems(tx, plan, items, counts)
+			return applyItems(tx, plan, items, phase)
 		})
 		if err != nil {
 			return counts, fmt.Errorf("applying %s: %w", tables[0], err)
 		}
 		flush()
+		for table, tally := range phase {
+			c := counts[table]
+			c.Created += tally.Created
+			c.Updated += tally.Updated
+			c.Skipped += tally.Skipped
+			c.Conflicts += tally.Conflicts
+			counts[table] = c
+		}
 	}
 	return counts, nil
 }
@@ -95,6 +107,7 @@ func count(counts map[string]EntityCount, it *Item) {
 // final values.
 func applyClientCluster(tx *gorm.DB, plan *Plan, items []*Item, counts map[string]EntityCount) error {
 	var createdClients []*Item
+	created := map[int]bool{} // legacy client ids created in this run
 
 	for _, it := range items {
 		if it.Table != "client" {
@@ -116,7 +129,22 @@ func applyClientCluster(tx *gorm.DB, plan *Plan, items []*Item, counts map[strin
 			}
 			plan.setRemap("client", it.LegacyID, rec.ClientID)
 			createdClients = append(createdClients, it)
+			created[it.LegacyID] = true
 		case ActionUpdate:
+			// A pending reseller parent resolves only now: the plan
+			// diffed with parent_client_id 0, which must never be
+			// written (it would break the hierarchy of an existing
+			// client whose parent is created in this run).
+			if it.legacyParent > 0 {
+				id, ok := plan.getRemap("client", it.legacyParent)
+				if !ok {
+					return fmt.Errorf("client %s: parent (legacy id %d) was not created", it.Key, it.legacyParent)
+				}
+				it.rec.(*model.Client).ParentClientID = id
+				if !slices.Contains(it.cols, "parent_client_id") {
+					it.cols = append(it.cols, "parent_client_id")
+				}
+			}
 			if err := applyUpdate(tx, it); err != nil {
 				return err
 			}
@@ -130,11 +158,18 @@ func applyClientCluster(tx *gorm.DB, plan *Plan, items []*Item, counts map[strin
 		}
 		if it.Action == ActionCreate {
 			rec := it.rec.(*model.SysGroup)
-			rec.ClientID, _ = plan.getRemap("client", it.LegacyID)
+			cid, ok := plan.getRemap("client", it.LegacyID)
+			if !ok {
+				return fmt.Errorf("sys_group %s: its client (legacy id %d) was not created", it.Key, it.LegacyID)
+			}
+			rec.ClientID = cid
 			if err := tx.Create(rec).Error; err != nil {
 				return fmt.Errorf("creating sys_group %s: %w", it.Key, err)
 			}
 			plan.setRemap("sys_group", it.LegacyID, rec.GroupID)
+		}
+		if err := adoptFreeRow(tx, plan, it, created, "sys_group", "groupid"); err != nil {
+			return err
 		}
 		count(counts, it)
 	}
@@ -145,15 +180,22 @@ func applyClientCluster(tx *gorm.DB, plan *Plan, items []*Item, counts map[strin
 		}
 		if it.Action == ActionCreate {
 			rec := it.rec.(*model.SysUser)
-			gid, _ := plan.getRemap("sys_group", it.LegacyID)
+			gid, gok := plan.getRemap("sys_group", it.LegacyID)
+			cid, cok := plan.getRemap("client", it.LegacyID)
+			if !gok || !cok {
+				return fmt.Errorf("sys_user %s: its client/group (legacy id %d) was not created", it.Key, it.LegacyID)
+			}
 			rec.SysGroupID = gid
 			rec.Groups = strconv.FormatUint(uint64(gid), 10)
 			rec.DefaultGroup = gid
-			rec.ClientID, _ = plan.getRemap("client", it.LegacyID)
+			rec.ClientID = cid
 			if err := tx.Create(rec).Error; err != nil {
 				return fmt.Errorf("creating sys_user %s: %w", it.Key, err)
 			}
 			plan.setRemap("sys_user", it.LegacyID, rec.UserID)
+		}
+		if err := adoptFreeRow(tx, plan, it, created, "sys_user", "userid"); err != nil {
+			return err
 		}
 		count(counts, it)
 	}
@@ -162,19 +204,42 @@ func applyClientCluster(tx *gorm.DB, plan *Plan, items []*Item, counts map[strin
 	// then journal the insert, so sys_datalog carries the final record.
 	for _, it := range createdClients {
 		rec := it.rec.(*model.Client)
-		user, _ := plan.getRemap("sys_user", it.LegacyID)
-		group, _ := plan.getRemap("sys_group", it.LegacyID)
-		if user != 0 && group != 0 {
-			rec.SysUserID, rec.SysGroupID = user, group
-			err := tx.Model(&model.Client{}).Where("client_id = ?", rec.ClientID).
-				Updates(map[string]any{"sys_userid": user, "sys_groupid": group}).Error
-			if err != nil {
-				return fmt.Errorf("re-owning client %s: %w", it.Key, err)
-			}
+		user, uok := plan.getRemap("sys_user", it.LegacyID)
+		group, gok := plan.getRemap("sys_group", it.LegacyID)
+		if !uok || !gok {
+			// The planner guarantees a coherent cluster; a missing half
+			// is a bug, never something to paper over.
+			return fmt.Errorf("client %s: recreated sys_user/sys_group missing after create", it.Key)
+		}
+		rec.SysUserID, rec.SysGroupID = user, group
+		err := tx.Model(&model.Client{}).Where("client_id = ?", rec.ClientID).
+			Updates(map[string]any{"sys_userid": user, "sys_groupid": group}).Error
+		if err != nil {
+			return fmt.Errorf("re-owning client %s: %w", it.Key, err)
 		}
 		if err := datalog.LogInsert(tx, rec, applyUser); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+// adoptFreeRow links a reused free sys_group/sys_user row (client_id 0)
+// to the client created for it in this run, so the reseller graph and
+// panel navigation see the association. Rows already tied to the same
+// client are left untouched.
+func adoptFreeRow(tx *gorm.DB, plan *Plan, it *Item, created map[int]bool, table, pkCol string) error {
+	if it.Action != ActionSkip || !created[it.LegacyID] {
+		return nil
+	}
+	cid, ok := plan.getRemap("client", it.LegacyID)
+	if !ok {
+		return nil
+	}
+	err := tx.Table(table).Where(pkCol+" = ? AND client_id = 0", it.localID).
+		Update("client_id", cid).Error
+	if err != nil {
+		return fmt.Errorf("linking reused %s %s to its client: %w", table, it.Key, err)
 	}
 	return nil
 }

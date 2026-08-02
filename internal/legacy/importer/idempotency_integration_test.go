@@ -34,6 +34,57 @@ func rowCounts(t *testing.T, db *gorm.DB) map[string]int64 {
 	return out
 }
 
+// TestExistingClientAdoptsPendingParent covers the review finding: a
+// client that already exists locally whose reseller parent is created in
+// the same run must end up referencing the new parent id — never 0.
+func TestExistingClientAdoptsPendingParent(t *testing.T) {
+	db := setupDB(t)
+	srv := legacytest.New()
+	t.Cleanup(srv.Close)
+	c := connect(t, srv)
+	ctx := context.Background()
+
+	// Pre-seed client2 locally (no reseller): matches the legacy client2
+	// whose parent_client_id points at reseller1.
+	require.NoError(t, db.Create(&model.SysGroup{Name: "client2", ClientID: 0}).Error)
+	var g model.SysGroup
+	require.NoError(t, db.Where("name = ?", "client2").First(&g).Error)
+	require.NoError(t, db.Create(&model.SysUser{
+		SysUserID: 1, SysPermUser: "riud", SysPermGroup: "riud",
+		Username: "client2", Passwort: "x", Typ: "user", Active: 1,
+		Groups: "0", DefaultGroup: g.GroupID,
+	}).Error)
+	// Raw insert with named columns so the schema's enum defaults apply.
+	require.NoError(t, db.Exec(
+		"INSERT INTO client (username, contact_name, email, sys_perm_user, sys_perm_group, parent_client_id) "+
+			"VALUES ('client2', 'Client Two', 'client2@example.com', 'riud', 'riud', 0)").Error)
+	var seed model.Client
+	require.NoError(t, db.Where("username = ?", "client2").First(&seed).Error)
+	require.NoError(t, db.Model(&model.SysGroup{}).Where("groupid = ?", g.GroupID).
+		Update("client_id", seed.ClientID).Error)
+	require.NoError(t, db.Model(&model.SysUser{}).Where("username = ?", "client2").
+		Update("client_id", seed.ClientID).Error)
+
+	snap, err := importer.FetchSnapshot(ctx, c, importer.Selection{Clients: true})
+	require.NoError(t, err)
+	plan, err := importer.BuildPlan(ctx, db, snap, importer.Options{
+		Selection: importer.Selection{Clients: true}, TargetServerID: 1,
+	})
+	require.NoError(t, err)
+	require.Empty(t, plan.Conflicts())
+
+	_, err = importer.Apply(ctx, db, plan)
+	require.NoError(t, err)
+
+	var reseller, child model.Client
+	require.NoError(t, db.Where("username = ?", "reseller1").First(&reseller).Error)
+	require.NoError(t, db.Where("username = ?", "client2").First(&child).Error)
+	require.Equal(t, seed.ClientID, child.ClientID, "existing client updated, not duplicated")
+	require.NotZero(t, reseller.ClientID)
+	require.Equal(t, reseller.ClientID, child.ParentClientID,
+		"pending reseller parent must resolve on the update path (never 0)")
+}
+
 func TestImporterDryRunAndIdempotency(t *testing.T) {
 	db := setupDB(t)
 	srv := legacytest.New()

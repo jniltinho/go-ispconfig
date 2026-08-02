@@ -239,7 +239,7 @@ func loadLocalState(ctx context.Context, db *gorm.DB) (*localState, error) {
 		return nil, fmt.Errorf("loading local dns records: %w", err)
 	}
 	for i := range rrs {
-		st.rrs[rrKey(rrs[i].Zone, rrs[i].Name, rrs[i].Type, rrs[i].Data)] = &rrs[i]
+		st.rrs[rrKey(rrs[i].Zone, rrs[i].Name, rrs[i].Type, rrs[i].Data, rrs[i].Aux)] = &rrs[i]
 	}
 	var slaves []model.DNSSlave
 	if err := db.WithContext(ctx).Find(&slaves).Error; err != nil {
@@ -258,9 +258,11 @@ func loadLocalState(ctx context.Context, db *gorm.DB) (*localState, error) {
 	return st, nil
 }
 
-// rrKey builds the dns_rr natural key.
-func rrKey(zone uint32, name, typ, data string) string {
-	return fmt.Sprintf("%d|%s|%s|%s", zone, name, typ, data)
+// rrKey builds the dns_rr natural key. Aux extends the spec's
+// (zone, name, type, data) so MX/SRV records differing only in priority
+// never collapse onto one another.
+func rrKey(zone uint32, name, typ, data string, aux uint32) string {
+	return fmt.Sprintf("%d|%s|%s|%s|%d", zone, name, typ, data, aux)
 }
 
 // ownerState is the result of resolving a legacy owner group.
@@ -316,7 +318,9 @@ func buildPlan(snap *Snapshot, local *localState, opts Options) (*Plan, error) {
 		}
 	}
 
-	p.planClients(opts.Selection.Clients)
+	if err := p.planClients(opts.Selection.Clients); err != nil {
+		return nil, err
+	}
 	if opts.Selection.Sites {
 		if err := p.planSites(); err != nil {
 			return nil, err
@@ -417,8 +421,11 @@ func orderClients(clients map[int]client.Record) []int {
 
 // planClients classifies clients and their derived sys_group/sys_user.
 // When doImport is false (clients deselected) it only fills the remap
-// from existing local clients so sites/dns can resolve owners.
-func (p *planner) planClients(doImport bool) {
+// from existing local clients so sites/dns can resolve owners. A client
+// created new whose derived sys_user/sys_group conflicts is downgraded
+// to conflict as a whole — a client without its panel user/group would
+// be an inconsistent import.
+func (p *planner) planClients(doImport bool) error {
 	for legacyID, rec := range p.snap.Clients {
 		if local, ok := p.local.clients[rec["username"]]; ok {
 			p.plan.setRemap("client", legacyID, local.ClientID)
@@ -431,14 +438,14 @@ func (p *planner) planClients(doImport bool) {
 		}
 	}
 	if !doImport {
-		return
+		return nil
 	}
 
 	for _, legacyID := range orderClients(p.snap.Clients) {
 		rec := p.snap.Clients[legacyID]
 		mapped, err := MapClient(rec)
 		if err != nil {
-			continue // schema parse cannot fail at runtime; defensive
+			return fmt.Errorf("mapping legacy client %d: %w", legacyID, err)
 		}
 		item := Item{Table: "client", Key: mapped.Username, LegacyID: legacyID}
 
@@ -462,12 +469,28 @@ func (p *planner) planClients(doImport bool) {
 
 		local, exists := p.local.clients[mapped.Username]
 		if !exists {
-			item.Action = ActionCreate
-			item.rec = mapped
-			p.plan.setPending("client", legacyID)
-			p.plan.Items = append(p.plan.Items, item)
-			p.planDerivedGroup(legacyID, mapped)
-			p.planDerivedUser(legacyID, mapped)
+			gItem := p.deriveGroupItem(legacyID, mapped)
+			uItem := p.deriveUserItem(legacyID, mapped)
+			if gItem.Action == ActionConflict || uItem.Action == ActionConflict {
+				reason := gItem.Reason
+				if reason == "" {
+					reason = uItem.Reason
+				}
+				item.Action = ActionConflict
+				item.Reason = "cannot recreate panel user/group: " + reason
+				downgradeDerived(&gItem, &uItem)
+			} else {
+				item.Action = ActionCreate
+				item.rec = mapped
+				p.plan.setPending("client", legacyID)
+				if gItem.Action == ActionCreate {
+					p.plan.setPending("sys_group", legacyID)
+				}
+				if uItem.Action == ActionCreate {
+					p.plan.setPending("sys_user", legacyID)
+				}
+			}
+			p.plan.Items = append(p.plan.Items, item, gItem, uItem)
 			continue
 		}
 
@@ -483,9 +506,28 @@ func (p *planner) planClients(doImport bool) {
 			mapped.SysUserID = local.SysUserID
 		}
 		p.classifyExisting(&item, rec, mapped, local, local.ClientID)
-		p.plan.Items = append(p.plan.Items, item)
-		p.planDerivedGroup(legacyID, mapped)
-		p.planDerivedUser(legacyID, mapped)
+		gItem := p.deriveGroupItem(legacyID, mapped)
+		uItem := p.deriveUserItem(legacyID, mapped)
+		if gItem.Action == ActionCreate {
+			p.plan.setPending("sys_group", legacyID)
+		}
+		if uItem.Action == ActionCreate {
+			p.plan.setPending("sys_user", legacyID)
+		}
+		p.plan.Items = append(p.plan.Items, item, gItem, uItem)
+	}
+	return nil
+}
+
+// downgradeDerived turns the non-conflict derived items of a conflicted
+// client into conflicts too, so apply creates neither half of the pair.
+func downgradeDerived(items ...*Item) {
+	for _, it := range items {
+		if it.Action != ActionConflict {
+			it.Action = ActionConflict
+			it.Reason = "owning client is not imported (derived sys_user/sys_group conflict)"
+			it.rec = nil
+		}
 	}
 }
 
@@ -499,8 +541,10 @@ func (p *planner) sameLocalClient(clientID uint32, username string) bool {
 	return ok && local.ClientID == clientID
 }
 
-// planDerivedGroup plans the sys_group recreated for a client.
-func (p *planner) planDerivedGroup(legacyID int, c *model.Client) {
+// deriveGroupItem plans the sys_group recreated for a client. The caller
+// appends the item and marks the pending state once the client cluster is
+// known to be coherent.
+func (p *planner) deriveGroupItem(legacyID int, c *model.Client) Item {
 	item := Item{Table: "sys_group", Key: c.Username, LegacyID: legacyID}
 	if existing, ok := p.local.groupByName[c.Username]; ok {
 		// Reuse only when the group is free or tied to the same client.
@@ -515,15 +559,14 @@ func (p *planner) planDerivedGroup(legacyID int, c *model.Client) {
 	} else {
 		item.Action = ActionCreate
 		item.rec = DeriveSysGroup(c)
-		p.plan.setPending("sys_group", legacyID)
 	}
-	p.plan.Items = append(p.plan.Items, item)
+	return item
 }
 
-// planDerivedUser plans the panel sys_user recreated for a client. Newly
+// deriveUserItem plans the panel sys_user recreated for a client. Newly
 // created users carry the unusable placeholder and are flagged for the
 // password-reset flow; existing users are never modified.
-func (p *planner) planDerivedUser(legacyID int, c *model.Client) {
+func (p *planner) deriveUserItem(legacyID int, c *model.Client) Item {
 	item := Item{Table: "sys_user", Key: c.Username, LegacyID: legacyID}
 	if existing, ok := p.local.userByName[c.Username]; ok {
 		if !p.sameLocalClient(existing.ClientID, c.Username) {
@@ -537,9 +580,8 @@ func (p *planner) planDerivedUser(legacyID int, c *model.Client) {
 	} else {
 		item.Action = ActionCreate
 		item.rec = DeriveSysUser(c)
-		p.plan.setPending("sys_user", legacyID)
 	}
-	p.plan.Items = append(p.plan.Items, item)
+	return item
 }
 
 // classifyExisting diffs a mapped record (FKs already rewritten) against
@@ -548,7 +590,13 @@ func (p *planner) classifyExisting(item *Item, rec client.Record, mapped, local 
 	item.rec = mapped // kept on skips too (report rsync suggestions)
 	item.localID = localID
 	cols, err := diffCols(rec, mapped, local, diffExclude[item.Table])
-	if err != nil || len(cols) > 0 {
+	if err != nil {
+		// Cannot happen with well-formed models; never guess an update.
+		item.Action = ActionConflict
+		item.Reason = "internal: comparing with the local record failed: " + err.Error()
+		return
+	}
+	if len(cols) > 0 {
 		item.Action = ActionUpdate
 		item.cols = cols
 		return
@@ -716,7 +764,10 @@ func (p *planner) planChildRecord(rec client.Record, table string) error {
 		if parentOK {
 			mapped.ParentDomainID = int32(parentID)
 			if local, exists := p.local.folders[fmt.Sprintf("%d|%s", parentID, mapped.Path)]; exists {
-				if state == ownerOK && group != uint32(local.SysGroupID) {
+				if state == ownerPending {
+					item.Action = ActionConflict
+					item.Reason = fmt.Sprintf("folder exists locally but its legacy owner client (legacy id %d) is only being created now — owned by a different user", ownerCli)
+				} else if group != uint32(local.SysGroupID) {
 					item.Action = ActionConflict
 					item.Reason = fmt.Sprintf("owned by a different user (local sys_groupid %d, imported owner %d)", local.SysGroupID, group)
 				} else {
@@ -752,7 +803,10 @@ func (p *planner) planChildRecord(rec client.Record, table string) error {
 	if parentOK {
 		mapped.WebFolderID = int32(parentID)
 		if local, exists := p.local.folderUsers[fmt.Sprintf("%d|%s", parentID, mapped.Username)]; exists {
-			if state == ownerOK && group != uint32(local.SysGroupID) {
+			if state == ownerPending {
+				item.Action = ActionConflict
+				item.Reason = fmt.Sprintf("folder user exists locally but its legacy owner client (legacy id %d) is only being created now — owned by a different user", ownerCli)
+			} else if group != uint32(local.SysGroupID) {
 				item.Action = ActionConflict
 				item.Reason = fmt.Sprintf("owned by a different user (local sys_groupid %d, imported owner %d)", local.SysGroupID, group)
 			} else {
@@ -876,7 +930,7 @@ func (p *planner) planDNS() error {
 
 			if zoneOK {
 				mapped.Zone = zoneID
-				if local, exists := p.local.rrs[rrKey(zoneID, mapped.Name, mapped.Type, mapped.Data)]; exists {
+				if local, exists := p.local.rrs[rrKey(zoneID, mapped.Name, mapped.Type, mapped.Data, mapped.Aux)]; exists {
 					if state == ownerOK {
 						mapped.SysUserID, mapped.SysGroupID = user, group
 					} else {

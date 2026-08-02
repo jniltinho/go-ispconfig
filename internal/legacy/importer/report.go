@@ -90,7 +90,7 @@ func BuildReport(plan *Plan, counts map[string]EntityCount, in ReportInput) *Rep
 	}
 	if sslSites > 0 {
 		r.Warnings = append(r.Warnings, fmt.Sprintf(
-			"%d imported site(s) have SSL enabled: certificates must be re-issued on the new host after the site files are transferred.", sslSites))
+			"%d imported site(s) have SSL enabled: certificates must be re-issued on the new host after the site files are transferred. Imported certificate/key material was also journaled to sys_datalog — treat it as exposed and rotate after migration.", sslSites))
 	}
 	return r
 }
