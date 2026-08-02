@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"go-ispconfig/internal/model"
 	"go-ispconfig/internal/repository"
 )
 
@@ -61,19 +62,35 @@ func TestFirewallEntityFields(t *testing.T) {
 	assert.Equal(t, firewallDefaultActive, fields["active"].Default)
 }
 
-// TestFirewallServerImmutable: update with a server_id key must abort
-// with firewall_error_server_immutable; update without server_id must
-// pass through.
+// TestFirewallServerImmutable: a real server_id change must abort with
+// firewall_error_server_immutable, but a full-object PUT that re-sends the
+// unchanged server_id (and an update without server_id) must pass — the
+// Vue form always submits the whole row (M3 review, task 3.1).
 func TestFirewallServerImmutable(t *testing.T) {
-	body := map[string]any{"server_id": uint32(7)}
-	err := firewallServerImmutable(context.Background(), nil, &repository.Identity{}, body, nil, nil)
+	ctx := context.Background()
+	id := &repository.Identity{}
+
+	// Real change: body moves the row to a different server → reject.
+	old := &model.Firewall{ServerID: 1}
+	changed := &model.Firewall{ServerID: 7}
+	err := firewallServerImmutable(ctx, nil, id, map[string]any{"server_id": uint32(7)}, old, changed)
 	require.Error(t, err)
 	ve, ok := err.(*ValidationError)
 	require.True(t, ok, "ValidationError returned")
 	assert.Contains(t, ve.Fields["server_id"], firewallErrorServerImm)
 
-	body2 := map[string]any{"tcp_port": "22,80"}
-	assert.NoError(t, firewallServerImmutable(context.Background(), nil, &repository.Identity{}, body2, nil, nil))
+	// Full-object PUT re-sending the unchanged server_id → pass.
+	same := &model.Firewall{ServerID: 1}
+	assert.NoError(t, firewallServerImmutable(ctx, nil, id,
+		map[string]any{"server_id": uint32(1), "tcp_port": "22,80"}, old, same))
+
+	// Body without server_id → pass.
+	assert.NoError(t, firewallServerImmutable(ctx, nil, id,
+		map[string]any{"tcp_port": "22,80"}, old, old))
+
+	// Defensive: server_id present but records unavailable → reject.
+	err = firewallServerImmutable(ctx, nil, id, map[string]any{"server_id": uint32(7)}, nil, nil)
+	require.Error(t, err)
 }
 
 // TestFirewallPortRegexMatches: the regex byte-identical to the PHP

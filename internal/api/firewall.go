@@ -11,6 +11,7 @@ import (
 
 	"gorm.io/gorm"
 
+	"go-ispconfig/internal/model"
 	"go-ispconfig/internal/repository"
 	"go-ispconfig/internal/validator"
 )
@@ -106,13 +107,22 @@ func firewallEntity() *Entity {
 }
 
 // firewallServerImmutable enforces firewall.tform.php
-// onBeforeUpdate's "The Server can not be changed." rule: if the body
-// carries a server_id, abort the update with a 422 validation error.
-func firewallServerImmutable(_ context.Context, _ *gorm.DB, _ *repository.Identity, body map[string]any, _ any, _ any) error {
-	if _, ok := body["server_id"]; ok {
-		return &ValidationError{Fields: map[string][]string{
-			"server_id": {firewallErrorServerImm},
-		}}
+// onBeforeUpdate's "The Server can not be changed." rule. A full-object
+// PUT from the Vue form re-sends every field, including the unchanged
+// server_id, so rejecting on mere presence would 422 legitimate edits
+// (M3 review, task 3.1). The entity framework has already applied the
+// body onto rec, so we compare the resolved server_id against the stored
+// row and reject only a real change.
+func firewallServerImmutable(_ context.Context, _ *gorm.DB, _ *repository.Identity, body map[string]any, oldAny, recAny any) error {
+	if _, ok := body["server_id"]; !ok {
+		return nil // body does not touch server_id
 	}
-	return nil
+	if old, okOld := oldAny.(*model.Firewall); okOld {
+		if rec, okRec := recAny.(*model.Firewall); okRec && rec.ServerID == old.ServerID {
+			return nil // unchanged server_id re-sent by a full-object PUT
+		}
+	}
+	return &ValidationError{Fields: map[string][]string{
+		"server_id": {firewallErrorServerImm},
+	}}
 }
