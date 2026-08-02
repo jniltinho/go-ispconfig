@@ -50,6 +50,8 @@ func TestDNSPublisher(t *testing.T) {
 		var gotSoa model.DNSSoa
 		require.NoError(t, db.Take(&gotSoa, soa.ID).Error)
 		assert.Greater(t, gotSoa.Serial, soa.Serial, "SOA serial bumped")
+		firstSerial := gotSoa.Serial
+		_ = firstSerial
 
 		var n int64
 		require.NoError(t, db.Model(&model.SysDatalog{}).
@@ -65,6 +67,12 @@ func TestDNSPublisher(t *testing.T) {
 		require.NoError(t, db.Where("name = ?", name).Find(&rows).Error)
 		require.Len(t, rows, 1, "old record replaced, not duplicated")
 		assert.Contains(t, rows[0].Data, "p=BBBB")
+		// The replace-upsert bumps the SOA serial exactly once (no
+		// double bump from delete + insert).
+		var soaRows []model.SysDatalog
+		require.NoError(t, db.Where("dbtable = 'dns_soa' AND action = 'u'").Find(&soaRows).Error)
+		// one bump for the first insert, one for this replace = 2 total.
+		assert.Len(t, soaRows, 2, "one serial bump per upsert, not two")
 	})
 
 	t.Run("delete withdraws and journals", func(t *testing.T) {

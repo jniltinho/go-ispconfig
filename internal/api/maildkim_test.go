@@ -42,7 +42,7 @@ func TestSyncDKIMDNS(t *testing.T) {
 		pub := &fakePublisher{zone: true}
 		st := SyncDKIMDNS(context.Background(), nil, pub, nil, dkimDomain("example.com", "default", true, true))
 		assert.True(t, st.DNSPublished)
-		assert.Equal(t, "default._domainkey.example.com. 3600 IN TXT v=DKIM1; t=s; p=AAAA", st.SuggestedRecord)
+		assert.Equal(t, `default._domainkey.example.com. 3600 IN TXT "v=DKIM1; t=s; p=AAAA"`, st.SuggestedRecord)
 		assert.Len(t, pub.upserts, 1)
 		assert.Empty(t, pub.deletes)
 	})
@@ -99,5 +99,12 @@ func TestSyncDKIMDNS(t *testing.T) {
 		st := SyncDKIMDNS(context.Background(), nil, nil, nil, dkimDomain("example.com", "default", true, true))
 		assert.False(t, st.DNSPublished)
 		assert.NotEmpty(t, st.SuggestedRecord)
+	})
+
+	t.Run("empty public key suggests nothing", func(t *testing.T) {
+		d := dkimDomain("example.com", "default", true, true)
+		d.Public = ""
+		st := SyncDKIMDNS(context.Background(), nil, &fakePublisher{}, nil, d)
+		assert.Empty(t, st.SuggestedRecord)
 	})
 }

@@ -73,11 +73,11 @@ func (p dbDNSPublisher) UpsertTXT(ctx context.Context, tx *gorm.DB, name, data s
 	if i := strings.Index(data, ";"); i > 0 {
 		prefix = data[:i]
 	}
-	if err := p.deleteInTx(ctx, tx, name, prefix); err != nil {
+	if _, err := p.deleteRows(ctx, tx, name, prefix); err != nil {
 		return false, err
 	}
-	serial := NextSerial(0, time.Now())
 	now := time.Now()
+	serial := NextSerial(0, now)
 	rr := &model.DNSRr{
 		SysUserID: soa.SysUserID, SysGroupID: soa.SysGroupID,
 		SysPermUser: soa.SysPermUser, SysPermGroup: soa.SysPermGroup,
@@ -99,30 +99,12 @@ func (p dbDNSPublisher) UpsertTXT(ctx context.Context, tx *gorm.DB, name, data s
 	return true, nil
 }
 
-// DeleteTXT implements DNSPublisher on the caller's transaction.
+// DeleteTXT implements DNSPublisher on the caller's transaction: it
+// removes the rows and bumps each touched zone's serial once.
 func (p dbDNSPublisher) DeleteTXT(ctx context.Context, tx *gorm.DB, name, dataPrefix string) error {
-	return p.deleteInTx(ctx, tx, name, dataPrefix)
-}
-
-// deleteInTx removes matching TXT rows with datalog journaling and one
-// serial bump per touched zone.
-func (dbDNSPublisher) deleteInTx(ctx context.Context, tx *gorm.DB, name, dataPrefix string) error {
-	var rows []model.DNSRr
-	err := tx.WithContext(ctx).
-		Where("name = ? AND type = 'TXT' AND data LIKE ?", name, dataPrefix+"%").
-		Find(&rows).Error
+	zones, err := p.deleteRows(ctx, tx, name, dataPrefix)
 	if err != nil {
 		return err
-	}
-	zones := map[uint32]struct{}{}
-	for i := range rows {
-		if err := tx.Delete(&model.DNSRr{}, rows[i].ID).Error; err != nil {
-			return err
-		}
-		if err := datalog.LogDelete(tx, &rows[i], "admin"); err != nil {
-			return err
-		}
-		zones[rows[i].Zone] = struct{}{}
 	}
 	for zone := range zones {
 		if err := bumpZoneSerial(tx, zone, "admin"); err != nil {
@@ -130,6 +112,30 @@ func (dbDNSPublisher) deleteInTx(ctx context.Context, tx *gorm.DB, name, dataPre
 		}
 	}
 	return nil
+}
+
+// deleteRows removes matching TXT rows with datalog journaling and
+// returns the set of zones touched (serial bumping is the caller's job,
+// so an upsert bumps exactly once — mail_domain_edit parity).
+func (dbDNSPublisher) deleteRows(ctx context.Context, tx *gorm.DB, name, dataPrefix string) (map[uint32]struct{}, error) {
+	var rows []model.DNSRr
+	err := tx.WithContext(ctx).
+		Where("name = ? AND type = 'TXT' AND data LIKE ?", name, dataPrefix+"%").
+		Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	zones := map[uint32]struct{}{}
+	for i := range rows {
+		if err := tx.Delete(&model.DNSRr{}, rows[i].ID).Error; err != nil {
+			return nil, err
+		}
+		if err := datalog.LogDelete(tx, &rows[i], "admin"); err != nil {
+			return nil, err
+		}
+		zones[rows[i].Zone] = struct{}{}
+	}
+	return zones, nil
 }
 
 // NoopDNSPublisher never publishes (DNS module disabled): saves succeed

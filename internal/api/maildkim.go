@@ -55,12 +55,14 @@ func SyncDKIMDNS(ctx context.Context, tx *gorm.DB, pub DNSPublisher, old, curren
 		}
 	}
 
-	if current == nil || !current.DKIM {
+	if current == nil || !current.DKIM || current.Public == "" {
 		return state
 	}
 	data := mail.DKIMTXTValue(current.Public)
 	name := mail.DKIMRecordName(current.Selector, current.Domain)
-	state.SuggestedRecord = name + " 3600 IN TXT " + data
+	// Quote the RDATA: the ';' in the DKIM value is a Bind comment
+	// delimiter, so an unquoted suggested record would not parse.
+	state.SuggestedRecord = name + ` 3600 IN TXT "` + data + `"`
 	if !current.Active {
 		return state
 	}
