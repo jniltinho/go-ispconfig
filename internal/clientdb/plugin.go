@@ -61,6 +61,10 @@ type Plugin struct {
 	confPath string
 	log      *slog.Logger
 
+	// tempDir hosts the mode-0600 mysqldump files of renameDatabase
+	// (PHP $conf['temppath']); empty means os.TempDir().
+	tempDir string
+
 	// OpenAdmin opens the admin connection; nil means LoadConfig(confPath)
 	// over TCP. Integration tests inject a DSN-based opener.
 	OpenAdmin func(ctx context.Context) (*sql.DB, Config, error)

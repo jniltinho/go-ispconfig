@@ -14,8 +14,6 @@ const invalidPasswordPlaceholder = "*THISISNOTAVALIDPASSWORDTHATCANBEUSEDHERE"
 // serverInfo probes the client-DB server flavour and bare version via
 // SELECT VERSION() (port of getDatabaseType/getDatabaseVersion; the
 // handshake string is unreliable on MariaDB compatibility builds).
-//
-//nolint:unused // called via setPassword, wired in by task 3.5
 func (c *adminConn) serverInfo(ctx context.Context) (dbType, version string) {
 	var raw string
 	if err := c.QueryRowContext(ctx, "SELECT VERSION()").Scan(&raw); err != nil || raw == "" {
@@ -77,8 +75,6 @@ func passwordStatement(dbType, version, user, host, nativeHash, sha2Hash string)
 // hasPasswordValidation reports whether a strict password validation
 // plugin is active — setPassword must refuse then, since stored hashes
 // bypass validation (PHP unwanted-plugins guard).
-//
-//nolint:unused // wired into setPassword call sites by task 3.5
 func (p *Plugin) hasPasswordValidation(ctx context.Context, c *adminConn) bool {
 	var name string
 	err := c.QueryRowContext(ctx,
@@ -94,8 +90,6 @@ func (p *Plugin) hasPasswordValidation(ctx context.Context, c *adminConn) bool {
 // setPassword applies the stored hash for user@host with the best
 // available auth plugin (port of setPassword). Denylisted users and
 // active password validation refuse; failures log and return false.
-//
-//nolint:unused // wired into grant/dbUserUpdate by tasks 3.5/3.8
 func (p *Plugin) setPassword(ctx context.Context, c *adminConn, user row, host string) bool {
 	if p.hasPasswordValidation(ctx, c) {
 		return false

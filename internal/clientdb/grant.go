@@ -7,8 +7,6 @@ import (
 // grantPrivileges maps the design-D5 access modes to their GRANT lists:
 // rw = full user on an active DB, rd = quota-exceeded full user,
 // r = read-only user.
-//
-//nolint:unused // used by grant, wired in by task 3.6
 var grantPrivileges = map[string]string{
 	"rw": "ALL PRIVILEGES",
 	"rd": "SELECT, DELETE, ALTER, DROP",
@@ -19,8 +17,6 @@ var grantPrivileges = map[string]string{
 // and grants the mode's privileges on the database (port of grant).
 // Restrictive modes first REVOKE ALL so leftover wider grants never
 // survive (PHP parity); caller flushes privileges after the batch.
-//
-//nolint:unused // wired into the db event handlers by task 3.6
 func (p *Plugin) grant(ctx context.Context, c *adminConn, databaseName string, user row, host, mode string) bool {
 	name := user.str("database_user")
 	if deniedUser(name) {
@@ -64,8 +60,6 @@ func (p *Plugin) grant(ctx context.Context, c *adminConn, databaseName string, u
 // revokeAndDrop revokes all privileges on the database from user@host
 // and, when drop is set (no other active database needs the account),
 // drops it (port of revokeAndDrop).
-//
-//nolint:unused // wired into the db event handlers by task 3.6
 func (p *Plugin) revokeAndDrop(ctx context.Context, c *adminConn, databaseName, userName, host string, drop bool) bool {
 	if deniedUser(userName) {
 		p.log.Warn("clientdb: refuse to revoke/drop user", "user", userName)

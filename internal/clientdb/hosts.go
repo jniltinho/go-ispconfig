@@ -48,8 +48,6 @@ func unionHostLists(records []row) []string {
 // otherHostList returns the union of host lists of every other active
 // database that still references userID as rw or ro user (port of
 // getOtherHostList): DROP USER only happens for hosts absent here.
-//
-//nolint:unused // wired into dbUpdate/dbDelete by task 3.6
 func (p *Plugin) otherHostList(ctx context.Context, databaseID, userID int64) ([]string, error) {
 	var records []struct {
 		RemoteAccess string

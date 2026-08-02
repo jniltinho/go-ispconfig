@@ -8,8 +8,6 @@ import (
 // charset (port of createDatabase). Denylisted names are refused with a
 // warning; failures are logged, never returned — the event keeps going
 // (PHP parity).
-//
-//nolint:unused // wired into dbInsert/dbUpdate by task 3.6
 func (p *Plugin) createDatabase(ctx context.Context, c *adminConn, r row) bool {
 	name := r.str("database_name")
 	if deniedDatabase(name) {
@@ -30,8 +28,6 @@ func (p *Plugin) createDatabase(ctx context.Context, c *adminConn, r row) bool {
 
 // deleteDatabase drops the client database (port of deleteDatabase).
 // Denylisted names are refused with a warning.
-//
-//nolint:unused // wired into dbDelete by task 3.6
 func (p *Plugin) deleteDatabase(ctx context.Context, c *adminConn, r row) bool {
 	name := r.str("database_name")
 	if deniedDatabase(name) {
