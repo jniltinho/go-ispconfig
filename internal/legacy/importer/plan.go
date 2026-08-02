@@ -545,16 +545,15 @@ func (p *planner) planDerivedUser(legacyID int, c *model.Client) {
 // classifyExisting diffs a mapped record (FKs already rewritten) against
 // the matching local row and fills the item as update or skip-identical.
 func (p *planner) classifyExisting(item *Item, rec client.Record, mapped, local any, localID uint32) {
+	item.rec = mapped // kept on skips too (report rsync suggestions)
+	item.localID = localID
 	cols, err := diffCols(rec, mapped, local, diffExclude[item.Table])
 	if err != nil || len(cols) > 0 {
 		item.Action = ActionUpdate
-		item.rec = mapped
-		item.localID = localID
 		item.cols = cols
 		return
 	}
 	item.Action = ActionSkip
-	item.localID = localID
 }
 
 // diffCols compares desired vs local for every column the legacy record
