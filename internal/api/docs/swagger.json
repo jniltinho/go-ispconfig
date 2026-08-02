@@ -5084,6 +5084,530 @@
                 }
             }
         },
+        "/sites/database-users": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Password hash columns are always redacted.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sites"
+                ],
+                "summary": "List database users",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "1-based page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 25,
+                        "description": "Page size (max 100)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.ListResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "database_user is submitted without the configured dbuser_prefix — the API prepends and crops it to 32 chars. database_password is write-only plaintext: the API stores the MySQL native and caching_sha2 hashes and never returns them. The password policy (getconf misc min_password_length/strength) applies. The MySQL account materialises when a database first grants it.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sites"
+                ],
+                "summary": "Create a database user",
+                "parameters": [
+                    {
+                        "description": "Field values",
+                        "name": "record",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.WebDatabaseUser"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/model.WebDatabaseUser"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied or limit reached",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Per-field validation errors",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/sites/database-users/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Password hash columns are always redacted.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sites"
+                ],
+                "summary": "Get a database user",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "database_user_id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.WebDatabaseUser"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied or record not found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "An empty or omitted database_password leaves the stored hashes unchanged. Renames and password changes fan out to every server with databases referencing this user.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sites"
+                ],
+                "summary": "Update a database user",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "database_user_id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Changed field values",
+                        "name": "record",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.WebDatabaseUser"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.WebDatabaseUser"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Per-field validation errors",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Databases referencing the user keep working rows-wise: their database_user_id/database_ro_user_id are nulled with journaled updates and the daemon drops the MySQL account.",
+                "tags": [
+                    "sites"
+                ],
+                "summary": "Delete a database user",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "database_user_id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/sites/databases": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sites"
+                ],
+                "summary": "List client databases",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "1-based page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 25,
+                        "description": "Page size (max 100)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.ListResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "MySQL only. database_name is submitted without the configured dbname_prefix — the API prepends and crops it to 64 chars. parent_domain_id must reference a vhost readable by the caller; the database inherits its sys_groupid and backup_copies. When the site lives on another server, remote access is force-enabled and the web server IP merges into remote_ips. Client limits (limit_database, limit_database_quota, db_servers) apply. The daemon provisions the physical database and GRANTs.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sites"
+                ],
+                "summary": "Create a client database",
+                "parameters": [
+                    {
+                        "description": "Field values",
+                        "name": "record",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.WebDatabase"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/model.WebDatabase"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied or limit reached",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Per-field validation errors",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/sites/databases/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sites"
+                ],
+                "summary": "Get a client database",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "database_id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.WebDatabase"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied or record not found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "server_id and database_charset are immutable; only admin may rename. Deactivating revokes the MySQL grants; quota changes re-check limit_database_quota.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sites"
+                ],
+                "summary": "Update a client database",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "database_id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Changed field values",
+                        "name": "record",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.WebDatabase"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.WebDatabase"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Per-field validation errors",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "The daemon revokes the users' grants (dropping MySQL accounts no other active database needs) and drops the physical database.",
+                "tags": [
+                    "sites"
+                ],
+                "summary": "Delete a client database",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "database_id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/sites/web-domains": {
             "get": {
                 "security": [
@@ -8727,6 +9251,121 @@
                     "type": "string"
                 },
                 "wblistID": {
+                    "type": "integer"
+                }
+            }
+        },
+        "model.WebDatabase": {
+            "type": "object",
+            "properties": {
+                "active": {
+                    "type": "string"
+                },
+                "backupCopies": {
+                    "type": "integer"
+                },
+                "backupInterval": {
+                    "type": "string"
+                },
+                "databaseCharset": {
+                    "type": "string"
+                },
+                "databaseID": {
+                    "type": "integer"
+                },
+                "databaseName": {
+                    "type": "string"
+                },
+                "databaseNamePrefix": {
+                    "type": "string"
+                },
+                "databaseQuota": {
+                    "type": "integer"
+                },
+                "databaseROUserID": {
+                    "type": "integer"
+                },
+                "databaseUserID": {
+                    "type": "integer"
+                },
+                "lastQuotaNotification": {
+                    "type": "string"
+                },
+                "parentDomainID": {
+                    "type": "integer"
+                },
+                "quotaExceeded": {
+                    "type": "string"
+                },
+                "remoteAccess": {
+                    "type": "string"
+                },
+                "remoteIps": {
+                    "type": "string"
+                },
+                "serverID": {
+                    "type": "integer"
+                },
+                "sysGroupID": {
+                    "type": "integer"
+                },
+                "sysPermGroup": {
+                    "type": "string"
+                },
+                "sysPermOther": {
+                    "type": "string"
+                },
+                "sysPermUser": {
+                    "type": "string"
+                },
+                "sysUserID": {
+                    "type": "integer"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.WebDatabaseUser": {
+            "type": "object",
+            "properties": {
+                "databasePassword": {
+                    "type": "string"
+                },
+                "databasePasswordMongo": {
+                    "type": "string"
+                },
+                "databasePasswordPostgres": {
+                    "type": "string"
+                },
+                "databasePasswordSha2": {
+                    "type": "string"
+                },
+                "databaseUser": {
+                    "type": "string"
+                },
+                "databaseUserID": {
+                    "type": "integer"
+                },
+                "databaseUserPrefix": {
+                    "type": "string"
+                },
+                "serverID": {
+                    "type": "integer"
+                },
+                "sysGroupID": {
+                    "type": "integer"
+                },
+                "sysPermGroup": {
+                    "type": "string"
+                },
+                "sysPermOther": {
+                    "type": "string"
+                },
+                "sysPermUser": {
+                    "type": "string"
+                },
+                "sysUserID": {
                     "type": "integer"
                 }
             }
