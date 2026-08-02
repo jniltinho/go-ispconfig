@@ -18,6 +18,7 @@ import (
 	"github.com/labstack/echo/v5"
 	"gorm.io/gorm"
 
+	"go-ispconfig/internal/clientdb"
 	"go-ispconfig/internal/getconf"
 	"go-ispconfig/internal/model"
 	"go-ispconfig/internal/repository"
@@ -162,6 +163,202 @@ func checkRemoteIPList(_ *validator.Context, value string) string {
 // panel's own database and 'mysql' are never valid client DB names.
 func databaseNameBlacklisted(name, panelDBName string) bool {
 	return name == "mysql" || (panelDBName != "" && name == panelDBName)
+}
+
+// --- database-user validators (task 4.4, port of
+// database_user.tform.php and database_user_edit.php) ---
+
+// databaseUserRules are the declarative rules of the full database user
+// name (prefix already applied by the Prepare hook). MySQL's effective
+// user length is capped by the 32-char crop; the tform regex allows up
+// to 64.
+//
+//nolint:unused // wired into the database-users entity by task 4.6
+func databaseUserRules() []validator.Rule {
+	return []validator.Rule{
+		{Type: "NOTEMPTY", ErrKey: "database_user_error_empty"},
+		{Type: "UNIQUE", ErrKey: "database_user_error_unique"},
+		{Type: "REGEX", Regex: `^[a-zA-Z0-9_]{2,64}$`, ErrKey: "database_user_error_regex"},
+	}
+}
+
+// passwordStrength ports validate_password::_get_password_strength: a
+// 1–5 score from length and character-class diversity.
+func passwordStrength(password string) int {
+	length := len(password)
+	if length < 5 {
+		return 1
+	}
+	points, different := 0, 0
+	if regexp.MustCompile(`[a-z]`).MatchString(password) {
+		different++
+	}
+	if regexp.MustCompile(`[A-Z]`).MatchString(password) {
+		points++
+		different++
+	}
+	if regexp.MustCompile(`[0-9]`).MatchString(password) {
+		points++
+		different++
+	}
+	if regexp.MustCompile("[`~!@#$%^&*()_+|\\\\=\\-\\[\\]}{';:/?.>,<\" ]").MatchString(password) {
+		points++
+		different++
+	}
+	switch {
+	case points == 0 || different < 3:
+		switch {
+		case length <= 6:
+			return 1
+		case length <= 8:
+			return 2
+		default:
+			return 3
+		}
+	case points == 1:
+		switch {
+		case length <= 6:
+			return 2
+		case length <= 10:
+			return 3
+		default:
+			return 4
+		}
+	case points == 2:
+		switch {
+		case length <= 8:
+			return 3
+		case length <= 10:
+			return 4
+		default:
+			return 5
+		}
+	case points == 3:
+		switch {
+		case length <= 6:
+			return 3
+		case length <= 8:
+			return 4
+		default:
+			return 5
+		}
+	default: // points >= 4
+		if length <= 6 {
+			return 4
+		}
+		return 5
+	}
+}
+
+// checkPasswordPolicy ports validate_password::password_check against
+// the getconf global [misc] policy (min_password_length default 8,
+// min_password_strength default 0). Empty passwords pass — emptiness is
+// the create path's job (update means "unchanged").
+func checkPasswordPolicy(db *gorm.DB, password string) string {
+	if password == "" {
+		return ""
+	}
+	minLength, minStrength := 8, 0
+	if db != nil {
+		if sections, err := getconf.GetGlobalConfig(db); err == nil {
+			if v, err := strconv.Atoi(sections["misc"]["min_password_length"]); err == nil {
+				minLength = v
+			}
+			if v, err := strconv.Atoi(sections["misc"]["min_password_strength"]); err == nil {
+				minStrength = v
+			}
+		}
+	}
+	if len(password) < minLength || passwordStrength(password) < minStrength {
+		return "weak_password_txt"
+	}
+	return ""
+}
+
+// sitesDatabaseUserPrepare is the Prepare hook of the database-users
+// entity (port of database_user_edit.php): prefix application with the
+// 32-char crop, blacklist (root/mysql/panel DB user), password policy on
+// the submitted plaintext and the dual-hash store (design D6) — native +
+// caching_sha2; an empty password on update leaves the hashes untouched.
+//
+//nolint:unused // wired into the database-users entity by task 4.6
+func sitesDatabaseUserPrepare(c *echo.Context, d *Deps, id *repository.Identity, body map[string]any) error {
+	ctx := c.Request().Context()
+	fields := map[string][]string{}
+	create := c.Param("id") == ""
+
+	global := sitesGlobalConfig(d.DB)
+	expandedPrefix := expandSitesPrefix(ctx, d.DB, id, global["dbuser_prefix"], body)
+	prefix := expandedPrefix
+	if !create {
+		var old model.WebDatabaseUser
+		if err := d.DB.WithContext(ctx).Take(&old, c.Param("id")).Error; err != nil {
+			return err
+		}
+		prefix = keepStoredPrefix(old.DatabaseUserPrefix, expandedPrefix)
+	}
+
+	if suffix, ok := body["database_user"].(string); ok {
+		full := cropName(prefix+suffix, mysqlUserNameMax)
+		body["database_user"] = full
+		body["database_user_prefix"] = prefix
+		if databaseUserBlacklisted(full, panelDBUser(d)) {
+			fields["database_user"] = append(fields["database_user"], "database_user_error_blacklist")
+		}
+	}
+
+	// server_id 0: a database user exists on every server until a
+	// database binds it (PHP: "we need this on all servers").
+	if create {
+		body["server_id"] = float64(0)
+	}
+
+	pw, _ := body["database_password"].(string)
+	switch {
+	case pw == "" && create:
+		fields["database_password"] = append(fields["database_password"], "database_password_error_empty")
+	case pw == "":
+		// Empty on update: leave the stored hashes untouched.
+		delete(body, "database_password")
+		delete(body, "database_password_sha2")
+	default:
+		if key := checkPasswordPolicy(d.DB, pw); key != "" {
+			fields["database_password"] = append(fields["database_password"], key)
+		} else {
+			sha2, err := clientdb.Sha2PasswordHash(pw)
+			if err != nil {
+				return err
+			}
+			body["database_password"] = clientdb.NativePasswordHash(pw)
+			body["database_password_sha2"] = sha2
+		}
+	}
+
+	if len(fields) > 0 {
+		return &ValidationError{Fields: fields}
+	}
+	return nil
+}
+
+// databaseUserBlacklisted ports the database_user_edit.php blacklist:
+// root, mysql and the panel's own DB user are never valid client users.
+func databaseUserBlacklisted(name, panelUser string) bool {
+	return name == "root" || name == "mysql" || (panelUser != "" && name == panelUser)
+}
+
+// panelDBUser extracts the panel's own database user from the configured
+// DSN (the PHP $conf['db_user'] blacklist input).
+//
+//nolint:unused // wired into the database-users entity by task 4.6
+func panelDBUser(d *Deps) string {
+	if d.Config == nil {
+		return ""
+	}
+	cfg, err := mysqldriver.ParseDSN(d.Config.Database.DSN)
+	if err != nil {
+		return ""
+	}
+	return cfg.User
 }
 
 // sitesDatabasePrepare is the Prepare hook of the databases entity: it

@@ -87,6 +87,35 @@ func TestDatabaseNameRules(t *testing.T) {
 	assert.Contains(t, check(strings.Repeat("a", 65)), "database_name_error_regex")
 }
 
+// TestPasswordStrength covers the validate_password score table.
+func TestPasswordStrength(t *testing.T) {
+	assert.Equal(t, 1, passwordStrength("abc"))
+	assert.Equal(t, 1, passwordStrength("abcde"))
+	assert.Equal(t, 2, passwordStrength("abcdefg"))
+	assert.Equal(t, 3, passwordStrength("abcdefghi"))
+	assert.Equal(t, 3, passwordStrength("Abc1def"))         // points 2, len 7
+	assert.Equal(t, 5, passwordStrength("Abc1defghijk"))    // points 2, len > 10
+	assert.Equal(t, 5, passwordStrength("Abc1!defg"))       // points 3, len 9
+	assert.Equal(t, 3, passwordStrength("A1b!cd"))          // points 3, len 6
+	assert.Equal(t, 5, passwordStrength("Str0ng!Password")) // points 3, len 15
+	assert.Equal(t, 1, passwordStrength("123456"))          // digits only, len 6
+}
+
+// TestCheckPasswordPolicy: defaults (len 8, strength 0) without a DB.
+func TestCheckPasswordPolicy(t *testing.T) {
+	assert.Empty(t, checkPasswordPolicy(nil, ""), "empty means unchanged")
+	assert.Equal(t, "weak_password_txt", checkPasswordPolicy(nil, "short"))
+	assert.Empty(t, checkPasswordPolicy(nil, "longenough8"))
+}
+
+// TestDatabaseUserBlacklisted: root/mysql/panel user refused.
+func TestDatabaseUserBlacklisted(t *testing.T) {
+	assert.True(t, databaseUserBlacklisted("root", "ispconfig"))
+	assert.True(t, databaseUserBlacklisted("mysql", ""))
+	assert.True(t, databaseUserBlacklisted("ispconfig", "ispconfig"))
+	assert.False(t, databaseUserBlacklisted("c1_app", "ispconfig"))
+}
+
 // TestCropName: 64/32-char crops of database_edit/database_user_edit.
 func TestCropName(t *testing.T) {
 	long := "c1_abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz0123456789"
