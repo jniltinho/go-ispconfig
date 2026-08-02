@@ -2,7 +2,7 @@
 
 ## 1. Legacy API client (`internal/legacy/client`)
 
-- [ ] 1.1 Implement JSON-handler transport: `POST <url>/remote/json.php?<method>`, request encoding of named params, `{"code","message","response"}` decoding, typed fault errors (fault code + message), transport vs fault error distinction; unit tests with httptest. Commit.
+- [x] 1.1 Implement JSON-handler transport: `POST <url>/remote/json.php?<method>`, request encoding of named params, `{"code","message","response"}` decoding, typed fault errors (fault code + message), transport vs fault error distinction; unit tests with httptest. Commit.
 - [ ] 1.2 Implement `Login`/`Logout` with session-id storage and injection into every call; redact password/session id in errors and logs; tests for login failure fault codes. Commit.
 - [ ] 1.3 Implement TLS options: verified default, explicit `Insecure` flag (InsecureSkipVerify + insecure marker on session), warning marker for plain `http://`; test against httptest TLS server with untrusted cert. Commit.
 - [ ] 1.4 Implement typed getters: `ClientGetAll`, `ClientGet`, `SitesWebDomainGet(filter)` with `#OFFSET#`/`#LIMIT#` page iteration (page size 500, configurable, stop on short page), `SitesWebFolderGet`, `SitesWebFolderUserGet`, `DNSZoneGetAll` (`primary_id=-1`), `DNSRRGetAllByZone`, `DNSSlaveGetAll`, `DNSTemplateZoneGetAll`, `ServerGetAll`, `ServerGet`, `GetFunctionList`; unknown response fields ignored; tests incl. 3-page pagination. Commit.
