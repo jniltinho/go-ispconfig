@@ -10,6 +10,7 @@ func InstallSteps() []Step {
 		serverIPStep{},
 		userStep{},
 		configTomlStep{},
+		tlsCertStep{},
 		summaryStep{},
 	}
 }

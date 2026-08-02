@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"go-ispconfig/internal/config"
+	"go-ispconfig/internal/tlscert"
 )
 
 // httpsCfg returns a ServerConfig with HTTPS on and no explicit cert pair.
@@ -73,7 +74,7 @@ func TestResolveTLSRegeneratesExpired(t *testing.T) {
 	dir := t.TempDir()
 	certFile := filepath.Join(dir, "ssl", "panel.crt")
 	keyFile := filepath.Join(dir, "ssl", "panel.key")
-	require.NoError(t, writeSelfSigned(certFile, keyFile,
+	require.NoError(t, tlscert.WriteSelfSigned(certFile, keyFile, "",
 		time.Now().AddDate(-2, 0, 0), time.Now().AddDate(-1, 0, 0)))
 
 	_, _, err := resolveTLS(httpsCfg(), dir)
@@ -125,7 +126,7 @@ func TestResolveTLSExplicitExpiredCertErrors(t *testing.T) {
 	dir := t.TempDir()
 	certFile := filepath.Join(dir, "given.crt")
 	keyFile := filepath.Join(dir, "given.key")
-	require.NoError(t, writeSelfSigned(certFile, keyFile,
+	require.NoError(t, tlscert.WriteSelfSigned(certFile, keyFile, "",
 		time.Now().AddDate(-2, 0, 0), time.Now().AddDate(-1, 0, 0)))
 
 	cfg := config.ServerConfig{HTTPS: true, TLSCert: certFile, TLSKey: keyFile}
