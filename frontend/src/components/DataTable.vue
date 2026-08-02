@@ -26,6 +26,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'update:page', page: number): void
   (e: 'filter', filters: Record<string, string>): void
+  (e: 'row-click', row: Row): void
 }>()
 
 const { t } = useI18n()
@@ -95,14 +96,15 @@ function goTo(page: number) {
         <tr
           v-for="(row, i) in rows"
           :key="i"
-          class="border-t border-border odd:bg-bg hover:bg-info"
+          class="cursor-pointer border-t border-border odd:bg-bg hover:bg-info"
+          @click="emit('row-click', row)"
         >
           <td v-for="col in columns" :key="col.key" class="px-3 py-2">
             <slot :name="`cell-${col.key}`" :row="row" :value="row[col.key]">
               {{ row[col.key] }}
             </slot>
           </td>
-          <td v-if="hasActions" class="px-3 py-2 text-right whitespace-nowrap">
+          <td v-if="hasActions" class="px-3 py-2 text-right whitespace-nowrap" @click.stop>
             <slot name="actions" :row="row" />
           </td>
         </tr>
