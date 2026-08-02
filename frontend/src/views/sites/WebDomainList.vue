@@ -67,6 +67,7 @@ async function remove(row: Row) {
       :total="store.total"
       :page="store.page"
       :page-size="store.pageSize"
+      :loading="store.loading"
       has-actions
       @update:page="store.loadDomains($event)"
       @filter="onFilter"

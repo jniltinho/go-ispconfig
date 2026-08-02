@@ -21,6 +21,8 @@ const props = defineProps<{
   page: number
   pageSize: number
   hasActions?: boolean
+  /** loading renders skeleton rows instead of data (D7). */
+  loading?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -103,13 +105,27 @@ function goTo(page: number) {
         </tr>
       </thead>
       <tbody>
-        <tr v-if="rows.length === 0">
-          <td :colspan="colCount" class="px-3 py-6 text-center text-text">
-            {{ t('table.empty') }}
+        <!-- Loading: skeleton rows sized like real ones -->
+        <template v-if="loading">
+          <tr v-for="n in 5" :key="`skeleton-${n}`" class="border-t border-border" data-test="skeleton-row">
+            <td v-for="col in columns" :key="col.key" class="px-3 py-2">
+              <div class="h-4 animate-pulse bg-border/60" />
+            </td>
+            <td v-if="hasActions" class="px-3 py-2">
+              <div class="ml-auto h-4 w-12 animate-pulse bg-border/60" />
+            </td>
+          </tr>
+        </template>
+        <!-- Zero results: icon + hint instead of a bare empty body -->
+        <tr v-else-if="rows.length === 0" data-test="empty-state">
+          <td :colspan="colCount" class="px-3 py-10 text-center">
+            <component :is="utilityIcons.search" :size="28" class="mx-auto mb-2 text-text-muted" />
+            <p class="text-sm font-semibold">{{ t('table.empty') }}</p>
+            <p class="mt-1 text-xs text-text-muted">{{ t('table.empty_hint') }}</p>
           </td>
         </tr>
         <tr
-          v-for="(row, i) in rows"
+          v-for="(row, i) in loading ? [] : rows"
           :key="i"
           class="cursor-pointer border-t border-border odd:bg-bg hover:bg-info"
           @click="emit('row-click', row)"

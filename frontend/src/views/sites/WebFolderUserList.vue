@@ -25,6 +25,7 @@ const total = ref(0)
 const page = ref(1)
 const pageSize = 25
 const error = ref('')
+const loading = ref(false)
 
 async function load(toPage = page.value) {
   error.value = ''
@@ -82,6 +83,7 @@ async function remove(row: Row) {
       :total="total"
       :page="page"
       :page-size="pageSize"
+      :loading="loading"
       has-actions
       @update:page="load($event)"
       @row-click="open"

@@ -27,9 +27,11 @@ const page = ref(1)
 const pageSize = 25
 const filters = ref<Record<string, string>>({})
 const error = ref('')
+const loading = ref(false)
 
 async function load(p?: number) {
   error.value = ''
+  loading.value = true
   try {
     const res: ListResponse = await store.fetchList('/api/dns/zones', p ?? page.value, pageSize, filters.value)
     rows.value = res.items
@@ -37,6 +39,8 @@ async function load(p?: number) {
     page.value = res.page
   } catch (e) {
     error.value = e instanceof ApiError ? e.key : 'error.request_failed'
+  } finally {
+    loading.value = false
   }
 }
 
@@ -98,6 +102,7 @@ async function remove(row: Row) {
       :total="total"
       :page="page"
       :page-size="pageSize"
+      :loading="loading"
       has-actions
       @update:page="load($event)"
       @filter="onFilter"

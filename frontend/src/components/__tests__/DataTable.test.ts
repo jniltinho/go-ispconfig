@@ -52,4 +52,30 @@ describe('DataTable', () => {
     await input.trigger('keyup.enter')
     expect(wrapper.emitted('filter')).toEqual([[{ domain: 'example' }]])
   })
+
+  it('renders skeleton rows while loading and hides data', () => {
+    const wrapper = mount(DataTable, {
+      props: {
+        columns,
+        rows: [{ id: 1, domain: 'a.example.com' }],
+        total: 1,
+        page: 1,
+        pageSize: 5,
+        loading: true,
+      },
+    })
+    expect(wrapper.findAll('[data-test="skeleton-row"]')).toHaveLength(5)
+    expect(wrapper.text()).not.toContain('a.example.com')
+  })
+
+  it('empty state shows icon and hint text', () => {
+    const wrapper = mount(DataTable, {
+      props: { columns, rows: [], total: 0, page: 1, pageSize: 5 },
+    })
+    const empty = wrapper.find('[data-test="empty-state"]')
+    expect(empty.exists()).toBe(true)
+    expect(empty.text()).toContain('No records found.')
+    expect(empty.text()).toContain('Try clearing the column filters')
+    expect(empty.find('svg').exists()).toBe(true)
+  })
 })
