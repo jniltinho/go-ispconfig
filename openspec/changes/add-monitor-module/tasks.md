@@ -8,7 +8,7 @@
 
 ## 2. Collection jobs (daemon)
 
-- [ ] 2.1 Add dependency `github.com/shirou/gopsutil/v4` and package `internal/monitor` with shared write helper: insert `monitor_data` as JSON + `delOldRecords` prune (240s, scoped by `server_id`+`type`); tests with sqlite/MariaDB. Commit.
+- [x] 2.1 Add dependency `github.com/shirou/gopsutil/v4` and package `internal/monitor` with shared write helper: insert `monitor_data` as JSON + `delOldRecords` prune (240s, scoped by `server_id`+`type`); tests with sqlite/MariaDB. Commit.
 - [ ] 2.2 Implement collectors for `cpu_info`, `mem_usage`, `server_load`, `os_info`, `kernel_info`, `ispc_info` (gopsutil/host) with PHP-compatible JSON keys and `no_state` (or load thresholds for `server_load`); unit tests with injectable host stubs where practical. Commit.
 - [ ] 2.3 Implement `disk_usage` collector: partitions via gopsutil, skip iso9660/cramfs/udf/tmpfs/devtmpfs/udev, apply 75/80/90/95% + free-size thresholds; tests for each severity band. Commit.
 - [ ] 2.4 Implement `services` collector porting `monitorServices`: probe web :80, ftp :21, smtp :25, pop3 :110, imap :143, bind :53/udp, MariaDB connect; gate on `server.web_server`/`file_server`/`mail_server`/`dns_server`/`db_server`; values 1/0/-1; state ok/error only; tests with fake listeners. Commit.
