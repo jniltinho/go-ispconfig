@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"regexp"
 	"strings"
 
 	"gorm.io/gorm"
@@ -128,7 +129,7 @@ func (p *Plugin) onUpsert(ctx context.Context, data engine.Data) error {
 		p.runner.Remove(id)
 		return nil
 	}
-	if isRootOwned(site) {
+	if hasDisallowedOwner(site) {
 		p.log.Warn("cron: websites (and crons) cannot be owned by the root user or group",
 			"id", id, "system_user", site.SystemUser, "system_group", site.SystemGroup)
 		p.runner.Remove(id)
@@ -258,10 +259,21 @@ LIMIT 1`, parentDomainID).Scan(&pr).Error
 	}, true, nil
 }
 
-func isRootOwned(site SiteContext) bool {
-	u := strings.TrimSpace(site.SystemUser)
-	g := strings.TrimSpace(site.SystemGroup)
-	return u == "" || g == "" || u == "root" || g == "root"
+// Site owners must look like web<N> / client<N>, mirroring PHP
+// is_allowed_user / is_allowed_group with $restrict_names = true
+// (server/lib/classes/system.inc.php). The regexes subsume the PHP name
+// blacklist (root, ispconfig, vmail, getmail) and charset check; the uid/gid
+// floor stays in ResolveSiteCredentials.
+var (
+	siteUserRE  = regexp.MustCompile(`^web\d+$`)
+	siteGroupRE = regexp.MustCompile(`^client\d+$`)
+)
+
+// hasDisallowedOwner reports whether the parent site's system_user /
+// system_group may not run cron jobs (PHP cron_plugin parity).
+func hasDisallowedOwner(site SiteContext) bool {
+	return !siteUserRE.MatchString(strings.TrimSpace(site.SystemUser)) ||
+		!siteGroupRE.MatchString(strings.TrimSpace(site.SystemGroup))
 }
 
 // JobFactory builds a JobFactory that uses this plugin's executors
@@ -279,6 +291,13 @@ func (p *Plugin) makeRunWithParentLookup(job model.Cron) JobFunc {
 		site, ok, err := p.loadParent(ctx, job.ParentDomainID)
 		if err != nil || !ok {
 			p.log.Warn("cron: active job missing parent at run time", "id", job.ID, "error", err)
+			return
+		}
+		// Jobs loaded at daemon start never pass the event gate, so re-check
+		// the owner here too.
+		if hasDisallowedOwner(site) {
+			p.log.Warn("cron: websites (and crons) cannot be owned by the root user or group",
+				"id", job.ID, "system_user", site.SystemUser, "system_group", site.SystemGroup)
 			return
 		}
 		res, security := p.execute(ctx, job, site)

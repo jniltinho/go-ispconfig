@@ -46,7 +46,7 @@ func TestPluginInactiveRemovesJob(t *testing.T) {
 	}))
 	p := NewPlugin(nil, 1, runner, nil)
 	p.LoadParent = func(context.Context, uint32) (SiteContext, bool, error) {
-		return SiteContext{Domain: "e.com", DocumentRoot: "/w", SystemUser: "web1", SystemGroup: "c1"}, true, nil
+		return SiteContext{Domain: "e.com", DocumentRoot: "/w", SystemUser: "web1", SystemGroup: "client1"}, true, nil
 	}
 	reg := engine.NewRegistry(nil)
 	require.NoError(t, reg.Load([]engine.Module{NewModule()}, []engine.Plugin{p}))
@@ -118,12 +118,35 @@ func TestPluginSkipsRootOwnedParent(t *testing.T) {
 	assert.False(t, runner.Has(14))
 }
 
+func TestHasDisallowedOwner(t *testing.T) {
+	cases := []struct {
+		user, group string
+		disallowed  bool
+	}{
+		{"web1", "client1", false},
+		{"web42", "client0", false},
+		{"root", "root", true},
+		{"web1", "root", true},
+		{"ispconfig", "client1", true},
+		{"vmail", "client1", true},
+		{"getmail", "client1", true},
+		{"webmaster", "client1", true}, // web-prefixed but not web<N>
+		{"web1", "web1", true},
+		{"", "", true},
+		{" web1 ", " client1 ", false}, // surrounding blanks are trimmed
+	}
+	for _, c := range cases {
+		got := hasDisallowedOwner(SiteContext{SystemUser: c.user, SystemGroup: c.group})
+		assert.Equal(t, c.disallowed, got, "user=%q group=%q", c.user, c.group)
+	}
+}
+
 func TestPluginSkipsOtherServer(t *testing.T) {
 	runner := NewClientJobRunner(nil)
 	t.Cleanup(runner.Stop)
 	p := NewPlugin(nil, 1, runner, nil)
 	p.LoadParent = func(context.Context, uint32) (SiteContext, bool, error) {
-		return SiteContext{Domain: "e.com", DocumentRoot: "/w", SystemUser: "web1", SystemGroup: "c1"}, true, nil
+		return SiteContext{Domain: "e.com", DocumentRoot: "/w", SystemUser: "web1", SystemGroup: "client1"}, true, nil
 	}
 	reg := engine.NewRegistry(nil)
 	require.NoError(t, reg.Load([]engine.Module{NewModule()}, []engine.Plugin{p}))
@@ -147,7 +170,7 @@ func TestPluginNeverTouchesCrontabDir(t *testing.T) {
 	t.Cleanup(runner.Stop)
 	p := NewPlugin(nil, 1, runner, nil)
 	p.LoadParent = func(context.Context, uint32) (SiteContext, bool, error) {
-		return SiteContext{Domain: "e.com", DocumentRoot: "/w", SystemUser: "web1", SystemGroup: "c1"}, true, nil
+		return SiteContext{Domain: "e.com", DocumentRoot: "/w", SystemUser: "web1", SystemGroup: "client1"}, true, nil
 	}
 	reg := engine.NewRegistry(nil)
 	require.NoError(t, reg.Load([]engine.Module{NewModule()}, []engine.Plugin{p}))
