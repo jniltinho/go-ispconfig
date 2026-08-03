@@ -1,5 +1,4 @@
 // Package jailkit implements the ISPConfig3 jailkit chroot plugin for shell users.
-
 package jailkit
 
 import (

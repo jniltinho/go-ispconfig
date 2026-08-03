@@ -130,10 +130,10 @@ func TestFTPShellEndToEndFlow(t *testing.T) {
 		map[string]any{"server_id": 1, "domain": "ftpshell-flow.example.com", "type": "vhost"})
 	require.NoError(t, db.Model(&model.WebDomain{}).Where("domain_id = ?", int(domainID)).
 		Updates(map[string]any{
-			"document_root":    docroot,
-			"system_user":      "web1",
-			"system_group":     "client0",
-			"php":              "no",
+			"document_root":         docroot,
+			"system_user":           "web1",
+			"system_group":          "client0",
+			"php":                   "no",
 			"delete_unused_jailkit": "y",
 		}).Error)
 	// Consume the domain insert datalog (no nginx plugin loaded → no-op).
