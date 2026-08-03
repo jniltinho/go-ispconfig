@@ -36,7 +36,7 @@
 - [x] 5.1 Add `--dns-backend` / answers-file / interactive prompt (default bind); write `[dns] dns_backend` into server.config; tests for answer resolution. Commit. (`internal/installer/answers.go` field + prompt, `setServerDNSBackend`/`setDNSBackendKey` in `internal/installer/powerdnsstep.go`; `TestAnswersDNSBackend`, `TestSetDNSBackendKey`, `TestResolveAnswersPromptLayer`.)
 - [x] 5.2 Distro package profiles: when powerdns, install `pdns-server` + `pdns-backend-mysql` (Debian 11–13, Ubuntu 22.04–24.04); bind path unchanged; package-list unit tests. Commit. (`PowerDNSService`/`BindPackage`/`powerDNSPackages` in `internal/installer/distro.go`, `State.packageSet`/`State.DNSService` in `internal/installer/powerdnsstep.go`; `TestPackageSetSwapsBindForPowerDNS`, `TestPackagesStepInstallsPowerDNS`.)
 - [x] 5.3 Implement configure_powerdns step: CREATE DATABASE, GRANT, apply embedded powerdns.sql, render pdns.local.master → `/etc/powerdns/pdns.d/pdns.local` mode 0600, enable/restart pdns; connectivity validation; dry-run/unit tests with fakes. Commit. (`powerDNSStep` in `internal/installer/powerdnsstep.go`, wired into `InstallSteps()`; connectivity validated by `powerdns.Open`/`database.Open` failing the step; `TestPowerDNSStepSkippedOnBind`, `TestRenderPdnsLocal`, `TestBindBaseSkippedOnPowerDNS`.)
-- [ ] 5.4 Optional Vagrant/toggle or documented smoke: install with powerdns backend, assert pdns active; link from install docs. Commit.
+- [x] 5.4 Optional Vagrant/toggle or documented smoke: install with powerdns backend, assert pdns active; link from install docs. Commit. (No VirtualBox host available in this environment to develop/verify a pdns-aware Vagrant toggle + smoke-test branch, so it is deferred rather than landed untested — documented as a step-by-step manual VM procedure instead, see "Manual VM validation" in `docs/powerdns-module.md`, cross-linked from `docs/install.md`.)
 
 ## 6. Shared surface verification (no new API/UI features)
 
@@ -45,6 +45,6 @@
 
 ## 7. Integration tests and docs
 
-- [ ] 7.1 End-to-end integration: API zone+record create → sys_datalog → daemon with PowerDNS plugin → expected rows in `powerdns.domains`/`records` + stubbed notify/rectify; dig smoke optional with real pdns container. Commit.
-- [ ] 7.2 Write `docs/powerdns-module.md` (or extend `docs/dns-module.md`): backend selection, dual-DB layout, AXFR global ACL, DNSSEC differences vs Bind, migration notes, installer flags. Commit.
-- [ ] 7.3 Update `docs/ROADMAP.md` / `docs/install.md` references for optional PowerDNS path; cross-link from dns-module docs. Commit.
+- [x] 7.1 End-to-end integration: API zone+record create → sys_datalog → daemon with PowerDNS plugin → expected rows in `powerdns.domains`/`records` + stubbed notify/rectify; dig smoke optional with real pdns container. Commit. (`internal/powerdns/e2e_integration_test.go`, `TestDatalogToPowerDNSPipeline`; real `dig` against a pdns container deferred as optional/nice-to-have per design D10.)
+- [x] 7.2 Write `docs/powerdns-module.md` (or extend `docs/dns-module.md`): backend selection, dual-DB layout, AXFR global ACL, DNSSEC differences vs Bind, migration notes, installer flags. Commit.
+- [x] 7.3 Update `docs/ROADMAP.md` / `docs/install.md` references for optional PowerDNS path; cross-link from dns-module docs. Commit.

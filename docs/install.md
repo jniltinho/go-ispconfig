@@ -19,10 +19,12 @@ password — **shown exactly once**.
 What it does, in order: preflight checks → OS packages (apt, noninteractive)
 → MariaDB database + `ispconfig` user + original ISPConfig3 schema →
 server record + detected IPs → `/etc/go-ispconfig/config.toml` → panel user
-→ self-signed TLS cert → nginx base include → bind base config → optional
-ACME client → systemd units (`go-ispconfig-serve`, `go-ispconfig-daemon`) →
-admin seed → summary. No crontab is ever touched: the daemon's internal
-scheduler owns all periodic work.
+→ self-signed TLS cert → nginx base include → bind base config → PowerDNS
+database + `pdns.local` config (only with `--dns-backend powerdns`, skips
+the bind-base step instead) → optional ACME client → systemd units
+(`go-ispconfig-serve`, `go-ispconfig-daemon`) → admin seed → summary. No
+crontab is ever touched: the daemon's internal scheduler owns all periodic
+work.
 
 ## Flags and answers
 
@@ -39,7 +41,8 @@ aborts naming its flag.
 | `--db-user` | `ispconfig` | ISPConfig database user |
 | `--db-root-password` | *(empty)* | MariaDB root password — only when unix-socket auth is disabled |
 | `--web` | `y` | configure nginx |
-| `--dns` | `y` | configure bind |
+| `--dns` | `y` | configure the DNS server (backend below) |
+| `--dns-backend` | `bind` | `bind` or `powerdns` — see [powerdns-module.md](powerdns-module.md) for the PowerDNS path (packages, database, `pdns.local`) |
 | `--php-fpm` | `y` | install the distro php-fpm package for hosted sites |
 | `--acme` | `n` | install an ACME client for site Let's Encrypt certs |
 | `--acme-client` | `acme.sh` | `acme.sh` or `certbot` |
@@ -55,12 +58,13 @@ Control flags (not answers): `--yes`, `--answers <file>`, `--update`,
 flags still override the file:
 
 ```toml
-hostname   = "server1.example.com"
-panel_port = 8080
-web        = "y"
-dns        = "y"
-php_fpm    = "y"
-acme       = "n"
+hostname    = "server1.example.com"
+panel_port  = 8080
+web         = "y"
+dns         = "y"
+dns_backend = "bind"
+php_fpm     = "y"
+acme        = "n"
 admin_email = "admin@example.com"
 ```
 
@@ -119,6 +123,7 @@ content = no write, no backup). Files this applies to:
 - `/etc/nginx/conf.d/go-ispconfig-sites.conf` (only written when the
   distro nginx.conf does not already include `sites-enabled`)
 - `/etc/bind/named.conf.options` (+ the local include)
+- `/etc/powerdns/pdns.d/pdns.local` (only with `--dns-backend powerdns`)
 
 nginx/bind configs are validated (`nginx -t`, `named-checkconf`) before any
 reload; on validation failure the original file is restored and the step
