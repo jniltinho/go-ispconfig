@@ -15,9 +15,10 @@ import (
 // security policy.
 func serverIPEntity() *Entity {
 	return &Entity{
-		Name:   "server_ip",
-		Title:  "server_ip_edit_title",
-		Policy: "admin_allow_server_ip",
+		Name:     "server_ip",
+		Title:    "server_ip_edit_title",
+		Policy:   "admin_allow_server_ip",
+		Decorate: serverNameDecorate(nil),
 		Tabs: []Tab{{
 			Name:  "server_ip",
 			Label: "server_ip_tab_title",

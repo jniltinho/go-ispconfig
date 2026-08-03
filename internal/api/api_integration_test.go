@@ -204,6 +204,28 @@ func TestAPISmoke(t *testing.T) {
 		require.Zero(t, list.Total)
 	})
 
+	t.Run("list sorts by declared field via order param", func(t *testing.T) {
+		status, _ := call(t, srv, http.MethodPost, "/api/server_ip", cookie, csrf,
+			map[string]any{"server_id": 1, "ip_address": "10.0.0.9"})
+		require.Equal(t, http.StatusCreated, status)
+
+		status, data := call(t, srv, http.MethodGet, "/api/server_ip?order=ip_address", cookie, "", nil)
+		require.Equal(t, http.StatusOK, status)
+		var list api.ListResponse
+		require.NoError(t, json.Unmarshal(data, &list))
+		require.GreaterOrEqual(t, len(list.Items), 2)
+		require.Equal(t, "10.0.0.9", list.Items[0]["ip_address"])
+
+		status, data = call(t, srv, http.MethodGet, "/api/server_ip?order=ip_address.desc", cookie, "", nil)
+		require.Equal(t, http.StatusOK, status)
+		require.NoError(t, json.Unmarshal(data, &list))
+		require.Equal(t, "10.1.2.3", list.Items[0]["ip_address"])
+
+		// Undeclared field names fall back to PK order (no SQL injection).
+		status, _ = call(t, srv, http.MethodGet, "/api/server_ip?order=;drop", cookie, "", nil)
+		require.Equal(t, http.StatusOK, status)
+	})
+
 	t.Run("get and update round trip", func(t *testing.T) {
 		path := fmt.Sprintf("/api/server_ip/%d", createdID)
 		status, _ := call(t, srv, http.MethodGet, path, cookie, "", nil)
