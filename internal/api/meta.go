@@ -73,6 +73,104 @@ func registerMetaRoutes(g *echo.Group, d *Deps) {
 	// Shared select datasources for forms whose SELECT options are not
 	// static in the entity definition (server list, …).
 	g.GET("/meta/lookups/servers", serversLookupHandler(d))
+	g.GET("/meta/lookups/client-groups", clientGroupsLookupHandler(d))
+	g.GET("/meta/lookups/server-ips", serverIPsLookupHandler(d))
+}
+
+// clientGroupRow is one row of the client-groups lookup join.
+type clientGroupRow struct {
+	GroupID     uint32 `gorm:"column:groupid"`
+	CompanyName string `gorm:"column:company_name"`
+	ContactName string `gorm:"column:contact_name"`
+	Username    string `gorm:"column:username"`
+}
+
+// clientGroupsLookupHandler returns the client sys_groups as {value,label}
+// options for admin client-assignment selects (tform client_group_id
+// datasource: sys_group joined to client). Non-admin sessions get an empty
+// list — the SPA only renders the field for admins anyway.
+//
+//	@Summary		Client group select options
+//	@Description	sys_group rows of clients (client_id > 0) as value/label pairs, label "company :: contact (username)". Empty for non-admin sessions.
+//	@Tags			meta
+//	@Produce		json
+//	@Success		200	{array}		Option
+//	@Failure		401	{object}	ErrorResponse
+//	@Router			/meta/lookups/client-groups [get]
+//	@Security		CookieAuth
+//	@Security		BearerAuth
+func clientGroupsLookupHandler(d *Deps) echo.HandlerFunc {
+	return func(c *echo.Context) error {
+		out := []Option{}
+		sess := auth.FromContext(c)
+		if sess == nil || sess.Typ != "admin" {
+			return c.JSON(http.StatusOK, out)
+		}
+		var rows []clientGroupRow
+		err := d.DB.WithContext(c.Request().Context()).
+			Table("sys_group").
+			Select("sys_group.groupid, client.company_name, client.contact_name, client.username").
+			Joins("JOIN client ON client.client_id = sys_group.client_id").
+			Where("sys_group.client_id > 0").
+			Order("client.company_name, client.contact_name").
+			Scan(&rows).Error
+		if err != nil {
+			return err
+		}
+		for _, r := range rows {
+			label := r.ContactName
+			if r.Username != "" {
+				label += " (" + r.Username + ")"
+			}
+			if r.CompanyName != "" {
+				label = r.CompanyName + " :: " + label
+			}
+			out = append(out, Option{Value: strconv.FormatUint(uint64(r.GroupID), 10), Label: label})
+		}
+		return c.JSON(http.StatusOK, out)
+	}
+}
+
+// ServerIPOption is one row of the server-ips lookup: a vhost-enabled IP
+// with its server and type so the SPA can split IPv4/IPv6 selects.
+type ServerIPOption struct {
+	ServerID  uint32 `json:"server_id"`
+	IPType    string `json:"ip_type" example:"IPv4"`
+	IPAddress string `json:"ip_address" example:"10.0.0.1"`
+}
+
+// serverIPsLookupHandler returns the vhost-enabled server IPs for the
+// ip_address / ipv6_address form selects (legacy web_vhost_domain_edit IP
+// datasource).
+//
+//	@Summary		Server IP select options
+//	@Description	Vhost-enabled rows from server_ip with server id and IPv4/IPv6 type. Non-admin sessions only see shared IPs (client_id = 0).
+//	@Tags			meta
+//	@Produce		json
+//	@Success		200	{array}		ServerIPOption
+//	@Failure		401	{object}	ErrorResponse
+//	@Router			/meta/lookups/server-ips [get]
+//	@Security		CookieAuth
+//	@Security		BearerAuth
+func serverIPsLookupHandler(d *Deps) echo.HandlerFunc {
+	return func(c *echo.Context) error {
+		q := d.DB.WithContext(c.Request().Context()).
+			Table("server_ip").
+			Select("server_id", "ip_type", "ip_address").
+			Where("virtualhost = ?", "y").
+			Order("ip_address")
+		sess := auth.FromContext(c)
+		if sess == nil || sess.Typ != "admin" {
+			// ponytail: non-admins only see shared IPs; per-client IPs need
+			// the session client id, add when client-owned IPs land.
+			q = q.Where("client_id = 0")
+		}
+		rows := []ServerIPOption{}
+		if err := q.Scan(&rows).Error; err != nil {
+			return err
+		}
+		return c.JSON(http.StatusOK, rows)
+	}
 }
 
 // serversLookupHandler returns active servers as {value,label} options for

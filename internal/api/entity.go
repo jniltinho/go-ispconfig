@@ -40,6 +40,11 @@ type Field struct {
 	// AdminOnly hides the field from non-admin form metadata and makes the
 	// API ignore it in non-admin request bodies (tform admin-only tabs).
 	AdminOnly bool `json:"admin_only,omitempty"`
+	// Virtual marks a metadata-only field that is not a column of the
+	// entity table (e.g. client_group_id mapping onto sys_groupid): the SPA
+	// renders it, dedicated handling reads it from the body, and the
+	// generic default/body application skips it.
+	Virtual bool `json:"-"`
 }
 
 // Option is one selectable value of a SELECT or CHECKBOX field.
@@ -278,7 +283,7 @@ func RegisterEntity[T any](g *echo.Group, d *Deps, ent *Entity) error {
 		}
 	}
 	for f := range ent.fields {
-		if s.LookUpField(f.Name) == nil {
+		if !f.Virtual && s.LookUpField(f.Name) == nil {
 			return fmt.Errorf("api: entity %s declares unknown column %s", ent.Name, f.Name)
 		}
 	}
@@ -341,6 +346,9 @@ func (h *entityHandlers[T]) list(c *echo.Context) error {
 		q = h.ent.ListScope(q)
 	}
 	for f := range h.ent.fields {
+		if f.Virtual {
+			continue // not a column; cannot be filtered on
+		}
 		if v := c.QueryParam(f.Name); v != "" {
 			v = normalizeListFilterValue(f, v)
 			q = q.Where(fmt.Sprintf("`%s` LIKE ?", f.Name), "%"+v+"%")
@@ -433,6 +441,9 @@ func (h *entityHandlers[T]) create(c *echo.Context) error {
 			return err
 		}
 	}
+	if err := h.applyClientGroup(ctx, rec, body, id); err != nil {
+		return err
+	}
 	var fixup func(tx *gorm.DB) error
 	if h.ent.AfterInsert != nil {
 		fixup = func(tx *gorm.DB) error { return h.ent.AfterInsert(ctx, tx, id, rec, body) }
@@ -476,6 +487,9 @@ func (h *entityHandlers[T]) update(c *echo.Context) error {
 		}
 	}
 	if err := h.applyBody(ctx, &rec, body, id); err != nil {
+		return err
+	}
+	if err := h.applyClientGroup(ctx, &rec, body, id); err != nil {
 		return err
 	}
 	if err := h.validate(ctx, &rec, c.Param("id")); err != nil {
@@ -559,7 +573,7 @@ func (h *entityHandlers[T]) validate(ctx context.Context, rec *T, pk any) error 
 // the request body does not carry the field.
 func (h *entityHandlers[T]) applyDefaults(ctx context.Context, rec *T, body map[string]any) error {
 	for f := range h.ent.fields {
-		if f.Default == nil {
+		if f.Default == nil || f.Virtual {
 			continue
 		}
 		if _, ok := body[f.Name]; ok {
@@ -579,7 +593,7 @@ func (h *entityHandlers[T]) applyDefaults(ctx context.Context, rec *T, body map[
 func (h *entityHandlers[T]) applyBody(ctx context.Context, rec *T, body map[string]any, id *repository.Identity) error {
 	admin := id != nil && id.IsAdmin()
 	for f := range h.ent.fields {
-		if f.AdminOnly && !admin {
+		if f.Virtual || (f.AdminOnly && !admin) {
 			continue
 		}
 		v, ok := body[f.Name]
@@ -591,6 +605,29 @@ func (h *entityHandlers[T]) applyBody(ctx context.Context, rec *T, body map[stri
 		}
 	}
 	return nil
+}
+
+// applyClientGroup ports the tform client_group_id semantics for entities
+// declaring the virtual client_group_id field: an admin — or a caller
+// belonging to the requested group — assigns the record to that client
+// group (sys_groupid). Everyone else keeps the stamped ownership; on
+// update, the repository still forces stored sys_ columns for non-admins.
+func (h *entityHandlers[T]) applyClientGroup(ctx context.Context, rec *T, body map[string]any, id *repository.Identity) error {
+	declared := false
+	for f := range h.ent.fields {
+		if f.Virtual && f.Name == "client_group_id" {
+			declared = true
+			break
+		}
+	}
+	if !declared || id == nil {
+		return nil
+	}
+	g := uint32(bodyInt(body, "client_group_id"))
+	if g == 0 || !(id.IsAdmin() || id.InGroup(g)) {
+		return nil
+	}
+	return h.setField(ctx, rec, "sys_groupid", g)
 }
 
 // stampAdmin defaults the sys_ ownership/permission columns of an
