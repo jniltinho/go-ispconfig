@@ -64,7 +64,7 @@ func CollectDatabaseSize(ctx context.Context, db *gorm.DB, serverID uint32) ([]D
 		Size int64
 	}
 	if err := db.WithContext(ctx).Raw(
-		"SELECT table_schema AS name, COALESCE(SUM(data_length+index_length),0) AS size "+
+		"SELECT table_schema AS name, COALESCE(SUM(data_length+index_length),0) AS size " +
 			"FROM information_schema.tables GROUP BY table_schema").Scan(&sizes).Error; err != nil {
 		return nil, err
 	}
