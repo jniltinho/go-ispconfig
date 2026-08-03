@@ -56,6 +56,29 @@ func TestSitesCronAPI(t *testing.T) {
 	t.Run("list and get", func(t *testing.T) {
 		status, data := call(t, srv, http.MethodGet, "/api/sites/crons", env.adminCookie, "", nil)
 		require.Equal(t, http.StatusOK, status, "%s", data)
+		var list struct {
+			Items []map[string]any `json:"items"`
+		}
+		require.NoError(t, json.Unmarshal(data, &list))
+		require.NotEmpty(t, list.Items)
+		rec := list.Items[0]
+		assert.NotEmpty(t, rec["_server_name"], "list rows decorated with server name")
+		assert.NotEmpty(t, rec["_parent_domain"], "list rows decorated with parent domain")
+
+		// The decorated columns filter by display name, not raw id.
+		status, data = call(t, srv, http.MethodGet,
+			fmt.Sprintf("/api/sites/crons?_parent_domain=%s", rec["_parent_domain"]),
+			env.adminCookie, "", nil)
+		require.Equal(t, http.StatusOK, status, "%s", data)
+		require.NoError(t, json.Unmarshal(data, &list))
+		assert.NotEmpty(t, list.Items, "name filter matches the decorated domain")
+
+		status, data = call(t, srv, http.MethodGet, "/api/sites/crons?_parent_domain=no-such-domain",
+			env.adminCookie, "", nil)
+		require.Equal(t, http.StatusOK, status, "%s", data)
+		require.NoError(t, json.Unmarshal(data, &list))
+		assert.Empty(t, list.Items)
+
 		status, data = call(t, srv, http.MethodGet, fmt.Sprintf("/api/sites/crons/%d", int(cronID)), env.adminCookie, "", nil)
 		require.Equal(t, http.StatusOK, status, "%s", data)
 	})
