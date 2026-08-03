@@ -4199,6 +4199,200 @@ const docTemplate = `{
                 }
             }
         },
+        "/mail/rspamd/domain/{domain}": {
+            "get": {
+                "description": "Score thresholds of one mail domain. When the domain has no override the server-wide thresholds are returned with inherited=true. Requires read access to the mail domain.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "mail"
+                ],
+                "summary": "Read the per-domain Rspamd scores",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Mail domain",
+                        "name": "domain",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.RspamdDomainPolicy"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Upserts the domain's dedicated spamfilter policy and its \"@domain\" spamfilter user, journalling the user row to sys_datalog so the daemon re-renders the domain settings file and its child mailboxes. Requires read access to the mail domain.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "mail"
+                ],
+                "summary": "Save the per-domain Rspamd scores",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Mail domain",
+                        "name": "domain",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Scores",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.RspamdDomainPolicy"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.RspamdDomainPolicy"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/mail/rspamd/policy": {
+            "get": {
+                "description": "Score thresholds of the server's [mail] configuration (rendered into local.d/actions.conf by the daemon) plus the global sender white/blacklist held as mail_access rows. Admin only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "mail"
+                ],
+                "summary": "Read the global Rspamd policy",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Mail server id (default 1)",
+                        "name": "server_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.RspamdPolicy"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Writes the thresholds into the server's [mail] configuration and replaces the global sender white/blacklist, journalling both to sys_datalog so the owning node re-renders local.d/actions.conf and the global wblist confs. Admin only.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "mail"
+                ],
+                "summary": "Save the global Rspamd policy",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Mail server id (default 1)",
+                        "name": "server_id",
+                        "in": "query"
+                    },
+                    {
+                        "description": "Policy",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.RspamdPolicy"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.RspamdPolicy"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/mail/spamfilter/policies": {
             "get": {
                 "security": [
@@ -9314,6 +9508,62 @@ const docTemplate = `{
                 "value": {
                     "description": "Value is the stored value.",
                     "type": "string"
+                }
+            }
+        },
+        "api.RspamdDomainPolicy": {
+            "type": "object",
+            "properties": {
+                "domain": {
+                    "description": "Domain is the mail domain the scores apply to.",
+                    "type": "string"
+                },
+                "inherited": {
+                    "description": "Inherited is true when no per-domain override exists and the\nreturned scores are the server-wide ones.",
+                    "type": "boolean"
+                },
+                "spam_kill_level": {
+                    "description": "SpamKillLevel is the reject threshold.",
+                    "type": "number"
+                },
+                "spam_tag_level": {
+                    "description": "SpamTagLevel is the add_header threshold.",
+                    "type": "number"
+                }
+            }
+        },
+        "api.RspamdPolicy": {
+            "type": "object",
+            "properties": {
+                "blacklist": {
+                    "description": "Blacklist holds the senders always rejected.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "greylisting_level": {
+                    "description": "GreylistingLevel is the greylist threshold.",
+                    "type": "number"
+                },
+                "server_id": {
+                    "description": "ServerID is the mail server the policy applies to.",
+                    "type": "integer"
+                },
+                "spam_kill_level": {
+                    "description": "SpamKillLevel is the reject threshold.",
+                    "type": "number"
+                },
+                "spam_tag_level": {
+                    "description": "SpamTagLevel is the add_header threshold.",
+                    "type": "number"
+                },
+                "whitelist": {
+                    "description": "Whitelist holds the senders always accepted.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },
