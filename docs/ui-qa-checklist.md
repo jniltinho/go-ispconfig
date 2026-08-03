@@ -171,8 +171,8 @@ Update after each QA batch. **Baseline** (task 1.3) only checks T4 + login for s
 | Inventory | Grok | task 1.1 | ✅ |
 | This checklist | Grok | task 1.2 | ✅ |
 | Baseline smoke | Grok | task 1.3 | ✅ 151 checks on lab `.10` (2026-08-02) |
-| Module batches 2.x–3.x | Grok | code fixes | ⬜ |
-| Cross-cutting 4.1–4.2 | Grok | DataTable/EntityForm | ⬜ |
-| Theme polish 4.3 | Claude Fable 5 | `.hermes/review-fable-ui.md` | ⬜ |
+| Module batches 2.x–3.x | Grok + Claude Fable 5 | code fixes | ✅ 2.3/2.4 fechadas (e2e cron 24, ftp-shell 27) |
+| Cross-cutting 4.1–4.2 | Claude Fable 5 | DataTable/EntityForm | ✅ label-key contract, decorates, readonly/saving |
+| Theme polish 4.3 | Claude Fable 5 | `.hermes/review-fable-ui.md` | ✅ panel-theme 25/25 (radius 0, dark, same-origin) |
 | Lab `.10` full smoke | Grok | task 5.1 | ⬜ |
 )
