@@ -11,6 +11,7 @@ import (
 
 	"gorm.io/gorm"
 
+	"go-ispconfig/internal/fail2ban"
 	"go-ispconfig/internal/nginx"
 )
 
@@ -79,6 +80,8 @@ type State struct {
 	PureFTPdConfigDir string
 	// PureFTPdDefaults is the Debian pure-ftpd-common defaults file.
 	PureFTPdDefaults string
+	// Fail2banJailDir holds the panel-owned ispconfig-*.local jail drop-ins.
+	Fail2banJailDir string
 
 	// Set by the mariadb step, consumed by later steps.
 	DB         *gorm.DB
@@ -116,6 +119,7 @@ func NewState(profile *Profile, answers *Answers) *State {
 		PowerDNSConfPath:  "/etc/powerdns/pdns.d/pdns.local",
 		PureFTPdConfigDir: "/etc/pure-ftpd",
 		PureFTPdDefaults:  "/etc/default/pure-ftpd-common",
+		Fail2banJailDir:   fail2ban.JailDir,
 	}
 }
 
