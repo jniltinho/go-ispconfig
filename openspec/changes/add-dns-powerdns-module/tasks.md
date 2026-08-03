@@ -26,16 +26,16 @@
 
 ## 4. DNSSEC (pdnsutil)
 
-- [ ] 4.1 Port DNSSEC version gate (major 3/4) and `format_dnssec_pubkeys` parser for `show-zone` lines (Active: 1 / Active ( ); KSK/CSK/DS); unit tests with canned output. Commit.
-- [ ] 4.2 Implement create path: add-zone-key KSK/ZSK rsasha256, set-nsec3, show-zone → write `dns_soa.dnssec_info`, set `dnssec_initialized=Y`; stubbed exec tests. Commit.
-- [ ] 4.3 Implement disable and origin-change delete paths; update `dnssec_initialized`/`dnssec_info` per PHP; wire `handle_dnssec` into SOA update. Commit.
-- [ ] 4.4 Ensure Bind `dns_resign` job is not registered when backend is powerdns; test bootstrap matrix. Commit.
+- [x] 4.1 Port DNSSEC version gate (major 3/4) and `format_dnssec_pubkeys` parser for `show-zone` lines (Active: 1 / Active ( ); KSK/CSK/DS); unit tests with canned output. Commit. (`VersionSupported` + `pdnsUtilTool` in `internal/powerdns/control.go`, `FormatDNSSECPubkeys` in `internal/powerdns/dnssec.go`, covered by `TestVersionSupported` and `TestFormatDNSSECPubkeys*`.)
+- [x] 4.2 Implement create path: add-zone-key KSK/ZSK rsasha256, set-nsec3, show-zone → write `dns_soa.dnssec_info`, set `dnssec_initialized=Y`; stubbed exec tests. Commit. (`dnssecCreate` in `internal/powerdns/dnssec.go`, covered by `TestHandleDNSSECCreate`.)
+- [x] 4.3 Implement disable and origin-change delete paths; update `dnssec_initialized`/`dnssec_info` per PHP; wire `handle_dnssec` into SOA update. Commit. (`dnssecDisable`/`dnssecDelete`/`doHandleDNSSEC` in `internal/powerdns/dnssec.go`, called from both `soa_insert` and `soa_update` handlers in `internal/powerdns/handlers.go`; covered by `TestHandleDNSSECDisable`/`TestHandleDNSSECOriginChange`.)
+- [x] 4.4 Ensure Bind `dns_resign` job is not registered when backend is powerdns; test bootstrap matrix. Commit. (Already satisfied by the 3.5 bootstrap wiring: `dnsWiringFor` in `cmd/daemon.go` is mutually exclusive, `dnsPlugin` stays nil on the PowerDNS path, and `dnsPlugin.RegisterResign` is only called when `dnsPlugin != nil`; covered by `TestDNSWiringMatrix` in `cmd/daemon_test.go`. No code changes needed.)
 
 ## 5. Installer CLI extension
 
-- [ ] 5.1 Add `--dns-backend` / answers-file / interactive prompt (default bind); write `[dns] dns_backend` into server.config; tests for answer resolution. Commit.
-- [ ] 5.2 Distro package profiles: when powerdns, install `pdns-server` + `pdns-backend-mysql` (Debian 11–13, Ubuntu 22.04–24.04); bind path unchanged; package-list unit tests. Commit.
-- [ ] 5.3 Implement configure_powerdns step: CREATE DATABASE, GRANT, apply embedded powerdns.sql, render pdns.local.master → `/etc/powerdns/pdns.d/pdns.local` mode 0600, enable/restart pdns; connectivity validation; dry-run/unit tests with fakes. Commit.
+- [x] 5.1 Add `--dns-backend` / answers-file / interactive prompt (default bind); write `[dns] dns_backend` into server.config; tests for answer resolution. Commit. (`internal/installer/answers.go` field + prompt, `setServerDNSBackend`/`setDNSBackendKey` in `internal/installer/powerdnsstep.go`; `TestAnswersDNSBackend`, `TestSetDNSBackendKey`, `TestResolveAnswersPromptLayer`.)
+- [x] 5.2 Distro package profiles: when powerdns, install `pdns-server` + `pdns-backend-mysql` (Debian 11–13, Ubuntu 22.04–24.04); bind path unchanged; package-list unit tests. Commit. (`PowerDNSService`/`BindPackage`/`powerDNSPackages` in `internal/installer/distro.go`, `State.packageSet`/`State.DNSService` in `internal/installer/powerdnsstep.go`; `TestPackageSetSwapsBindForPowerDNS`, `TestPackagesStepInstallsPowerDNS`.)
+- [x] 5.3 Implement configure_powerdns step: CREATE DATABASE, GRANT, apply embedded powerdns.sql, render pdns.local.master → `/etc/powerdns/pdns.d/pdns.local` mode 0600, enable/restart pdns; connectivity validation; dry-run/unit tests with fakes. Commit. (`powerDNSStep` in `internal/installer/powerdnsstep.go`, wired into `InstallSteps()`; connectivity validated by `powerdns.Open`/`database.Open` failing the step; `TestPowerDNSStepSkippedOnBind`, `TestRenderPdnsLocal`, `TestBindBaseSkippedOnPowerDNS`.)
 - [ ] 5.4 Optional Vagrant/toggle or documented smoke: install with powerdns backend, assert pdns active; link from install docs. Commit.
 
 ## 6. Shared surface verification (no new API/UI features)
