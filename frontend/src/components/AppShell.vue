@@ -85,8 +85,8 @@ async function logout() {
         >
           <Menu :size="18" />
         </button>
-        <!-- Logo placeholder (white-label logo arrives with add-panel-ui-theme) -->
-        <RouterLink to="/dashboard" class="py-3 text-lg font-bold text-brand no-underline">
+        <RouterLink to="/dashboard" class="flex items-center gap-2 py-3 text-lg font-bold text-brand no-underline">
+          <img src="/logo.svg" alt="" width="28" height="28" class="shrink-0" />
           {{ t('app.title') }}
         </RouterLink>
 
