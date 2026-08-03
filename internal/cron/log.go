@@ -110,6 +110,58 @@ func RunMessagePrefix(cronID uint32) string {
 	return fmt.Sprintf("cron_run id=%d ", cronID)
 }
 
+// ParsedRun is one cron_run sys_log line decoded for the run-history API.
+type ParsedRun struct {
+	CronID         uint32
+	ParentDomainID uint32
+	Type           string
+	Status         string
+	ExitCode       int
+	StartUnix      int64
+	EndUnix        int64
+	Output         string
+}
+
+// ParseRunMessage decodes a FormatRunMessage line. Output may contain spaces
+// (everything after "output="); other fields are space-separated key=value.
+func ParseRunMessage(msg string) (ParsedRun, bool) {
+	var out ParsedRun
+	if !strings.HasPrefix(msg, "cron_run ") {
+		return out, false
+	}
+	// output= is last and free-form: split it off first.
+	const outKey = " output="
+	outIdx := strings.Index(msg, outKey)
+	head := msg
+	if outIdx >= 0 {
+		out.Output = msg[outIdx+len(outKey):]
+		head = msg[:outIdx]
+	}
+	for _, tok := range strings.Fields(head) {
+		k, v, ok := strings.Cut(tok, "=")
+		if !ok {
+			continue
+		}
+		switch k {
+		case "id":
+			fmt.Sscanf(v, "%d", &out.CronID)
+		case "parent_domain_id":
+			fmt.Sscanf(v, "%d", &out.ParentDomainID)
+		case "type":
+			out.Type = v
+		case "status":
+			out.Status = v
+		case "exit":
+			fmt.Sscanf(v, "%d", &out.ExitCode)
+		case "start":
+			fmt.Sscanf(v, "%d", &out.StartUnix)
+		case "end":
+			fmt.Sscanf(v, "%d", &out.EndUnix)
+		}
+	}
+	return out, out.CronID > 0 && out.Status != ""
+}
+
 func sanitizeOutput(s string, max int) string {
 	s = strings.Map(func(r rune) rune {
 		if r == '\n' || r == '\r' || r == '\t' {
@@ -122,7 +174,9 @@ func sanitizeOutput(s string, max int) string {
 	}, s)
 	s = strings.TrimSpace(s)
 	if len(s) > max {
-		s = s[len(s)-max:]
+		// Cut on a rune boundary: a byte-wise slice can split a multi-byte
+		// rune and MySQL rejects the resulting invalid utf8mb4 string.
+		s = strings.ToValidUTF8(s[len(s)-max:], "")
 	}
 	// Avoid empty output tokens that break simple scanners.
 	if s == "" {

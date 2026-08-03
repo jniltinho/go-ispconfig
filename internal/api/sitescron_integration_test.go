@@ -371,6 +371,68 @@ func TestSitesCronClientLimits(t *testing.T) {
 	})
 }
 
+// TestSitesCronRunsHistory covers GET /api/sites/crons/:id/runs (task 4.4).
+func TestSitesCronRunsHistory(t *testing.T) {
+	env := newSitesTestEnv(t, "sitescronruns")
+	db, srv := env.db, env.srv
+
+	domainID := env.createDomain(t, env.adminCookie, env.adminCSRF, map[string]any{
+		"server_id": 1, "domain": "cron-runs.example.com", "type": "vhost",
+		"ip_address": "*", "active": "y", "hd_quota": -1, "traffic_quota": -1,
+	})
+	status, data := call(t, srv, http.MethodPost, "/api/sites/crons", env.adminCookie, env.adminCSRF,
+		map[string]any{
+			"parent_domain_id": domainID,
+			"command":          "https://cron-runs.example.com/job",
+			"run_min":          "0", "run_hour": "*", "run_mday": "*", "run_month": "*", "run_wday": "*",
+			"active": "y", "log": "y",
+		})
+	require.Equal(t, http.StatusCreated, status, "%s", data)
+	var rec map[string]any
+	require.NoError(t, json.Unmarshal(data, &rec))
+	cronID := int(rec["id"].(float64))
+
+	// Seed two sys_log run rows via the package formatter.
+	msg1 := "cron_run id=" + fmt.Sprint(cronID) + " parent_domain_id=1 type=url status=ok exit=200 start=1700000000 end=1700000001 output=first"
+	msg2 := "cron_run id=" + fmt.Sprint(cronID) + " parent_domain_id=1 type=url status=exit exit=1 start=1700000100 end=1700000102 output=second"
+	require.NoError(t, db.Create(&model.SysLog{ServerID: 1, DatalogID: 0, Loglevel: 0, Tstamp: 1700000001, Message: msg1}).Error)
+	require.NoError(t, db.Create(&model.SysLog{ServerID: 1, DatalogID: 0, Loglevel: 1, Tstamp: 1700000102, Message: msg2}).Error)
+	// Unrelated noise.
+	require.NoError(t, db.Create(&model.SysLog{ServerID: 1, Message: "cron_run id=999999 type=url status=ok exit=0 start=1 end=2 output=x"}).Error)
+
+	t.Run("owner lists runs newest first", func(t *testing.T) {
+		status, data := call(t, srv, http.MethodGet, fmt.Sprintf("/api/sites/crons/%d/runs", cronID),
+			env.adminCookie, "", nil)
+		require.Equal(t, http.StatusOK, status, "%s", data)
+		var page struct {
+			Items []map[string]any `json:"items"`
+			Total float64          `json:"total"`
+			Page  float64          `json:"page"`
+			Limit float64          `json:"limit"`
+		}
+		require.NoError(t, json.Unmarshal(data, &page))
+		require.EqualValues(t, 2, page.Total)
+		require.Len(t, page.Items, 2)
+		assert.Equal(t, "exit", page.Items[0]["status"])
+		assert.Equal(t, "second", page.Items[0]["output"])
+		assert.Equal(t, "ok", page.Items[1]["status"])
+		assert.Equal(t, "first", page.Items[1]["output"])
+	})
+
+	t.Run("client B cannot read admin cron runs", func(t *testing.T) {
+		status, _ := call(t, srv, http.MethodGet, fmt.Sprintf("/api/sites/crons/%d/runs", cronID),
+			env.bCookie, "", nil)
+		assert.True(t, status == http.StatusNotFound || status == http.StatusForbidden, "got %d", status)
+	})
+
+	t.Run("missing cron is 404 or 403", func(t *testing.T) {
+		// Repo may map missing rows under the read scope to 403 or 404.
+		status, _ := call(t, srv, http.MethodGet, "/api/sites/crons/999999/runs",
+			env.adminCookie, "", nil)
+		assert.True(t, status == http.StatusNotFound || status == http.StatusForbidden, "got %d", status)
+	})
+}
+
 // seedClientVhost creates a vhost owned by the named client user's group.
 func seedClientVhost(t *testing.T, env *sitesTestEnv, domain, username string) model.WebDomain {
 	t.Helper()

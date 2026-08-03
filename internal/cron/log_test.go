@@ -60,3 +60,33 @@ func TestWriteRunLogRequiresDBWhenLogging(t *testing.T) {
 	})
 	require.Error(t, err)
 }
+
+func TestParseRunMessage(t *testing.T) {
+	start := time.Unix(1700000000, 0).UTC()
+	end := start.Add(2 * time.Second)
+	msg := FormatRunMessage(RunLogInput{
+		CronID:         12,
+		ParentDomainID: 3,
+		Type:           "url",
+		Result: RunResult{
+			Status:   StatusOK,
+			ExitCode: 200,
+			Output:   "hello world tail",
+			Start:    start,
+			End:      end,
+		},
+	})
+	got, ok := ParseRunMessage(msg)
+	require.True(t, ok)
+	assert.Equal(t, uint32(12), got.CronID)
+	assert.Equal(t, uint32(3), got.ParentDomainID)
+	assert.Equal(t, "url", got.Type)
+	assert.Equal(t, StatusOK, got.Status)
+	assert.Equal(t, 200, got.ExitCode)
+	assert.Equal(t, int64(1700000000), got.StartUnix)
+	assert.Equal(t, int64(1700000002), got.EndUnix)
+	assert.Equal(t, "hello world tail", got.Output)
+
+	_, ok = ParseRunMessage("unrelated log line")
+	assert.False(t, ok)
+}

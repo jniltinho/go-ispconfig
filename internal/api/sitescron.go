@@ -3,6 +3,8 @@ package api
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"strconv"
 
 	"github.com/labstack/echo/v5"
 	"gorm.io/gorm"
@@ -339,7 +341,109 @@ func sitesCronSyncParent(tx *gorm.DB, rec *model.Cron) error {
 	return nil
 }
 
-// registerSitesCronEntity mounts /api/sites/crons.
+// CronRunItem is one page row of GET /api/sites/crons/:id/runs.
+type CronRunItem struct {
+	// SyslogID is the sys_log primary key.
+	SyslogID uint32 `json:"syslog_id"`
+	// Loglevel is the daemon log level stored on the row.
+	Loglevel int8 `json:"loglevel"`
+	// Tstamp is the sys_log unix timestamp.
+	Tstamp uint32 `json:"tstamp"`
+	// Status is ok|exit|timeout|error from the cron_run message.
+	Status string `json:"status"`
+	// Exit is the process exit code or HTTP status.
+	Exit int `json:"exit"`
+	// Start is the run start unix time.
+	Start int64 `json:"start"`
+	// End is the run end unix time.
+	End int64 `json:"end"`
+	// Type is the job type at execution time.
+	Type string `json:"type"`
+	// Output is the bounded output tail.
+	Output string `json:"output"`
+}
+
+// registerSitesCronEntity mounts /api/sites/crons CRUD plus run history.
 func registerSitesCronEntity(g *echo.Group, d *Deps) error {
-	return RegisterEntity[model.Cron](g, d, sitesCronEntity())
+	if err := RegisterEntity[model.Cron](g, d, sitesCronEntity()); err != nil {
+		return err
+	}
+	g.GET("/crons/:id/runs", sitesCronRunsHandler(d))
+	return nil
+}
+
+// sitesCronRunsHandler serves GET /api/sites/crons/:id/runs: paginated
+// sys_log rows matching the cron_run id=<id> convention, gated on read
+// permission for the parent cron row (task 4.4).
+func sitesCronRunsHandler(d *Deps) echo.HandlerFunc {
+	return func(c *echo.Context) error {
+		id := identity(c)
+		cronID, err := strconv.ParseUint(c.Param("id"), 10, 32)
+		if err != nil || cronID == 0 {
+			return echo.NewHTTPError(http.StatusBadRequest, "invalid id")
+		}
+		// Gate on read permission for the cron row itself.
+		repo, err := repository.New[model.Cron](d.DB)
+		if err != nil {
+			return err
+		}
+		var job model.Cron
+		if err := repo.Get(c.Request().Context(), id, uint32(cronID), &job); err != nil {
+			return err
+		}
+
+		page, _ := strconv.Atoi(c.QueryParamOr("page", "1"))
+		if page < 1 {
+			page = 1
+		}
+		limit, _ := strconv.Atoi(c.QueryParamOr("limit", "25"))
+		if limit < 1 || limit > 100 {
+			limit = 25
+		}
+
+		prefix := cron.RunMessagePrefix(uint32(cronID))
+		q := d.DB.WithContext(c.Request().Context()).Model(&model.SysLog{}).
+			Where("message LIKE ?", prefix+"%")
+
+		var total int64
+		if err := q.Count(&total).Error; err != nil {
+			return err
+		}
+		var rows []model.SysLog
+		if err := q.Order("syslog_id DESC").
+			Offset((page - 1) * limit).Limit(limit).Find(&rows).Error; err != nil {
+			return err
+		}
+		items := make([]CronRunItem, 0, len(rows))
+		for _, row := range rows {
+			parsed, ok := cron.ParseRunMessage(row.Message)
+			item := CronRunItem{
+				SyslogID: row.SyslogID,
+				Loglevel: row.Loglevel,
+				Tstamp:   row.Tstamp,
+				Status:   parsed.Status,
+				Exit:     parsed.ExitCode,
+				Start:    parsed.StartUnix,
+				End:      parsed.EndUnix,
+				Type:     parsed.Type,
+				Output:   parsed.Output,
+			}
+			if !ok {
+				// Surface the raw message as output when parsing fails.
+				item.Output = row.Message
+			}
+			items = append(items, item)
+		}
+		return c.JSON(http.StatusOK, cronRunListResponse{
+			Items: items, Total: total, Page: page, Limit: limit,
+		})
+	}
+}
+
+// cronRunListResponse mirrors ListResponse for typed run-history rows.
+type cronRunListResponse struct {
+	Items []CronRunItem `json:"items"`
+	Total int64         `json:"total"`
+	Page  int           `json:"page"`
+	Limit int           `json:"limit"`
 }
