@@ -3,6 +3,7 @@ package cron
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 	"unicode"
@@ -142,21 +143,24 @@ func ParseRunMessage(msg string) (ParsedRun, bool) {
 		if !ok {
 			continue
 		}
+		// A malformed number leaves the field zeroed; the caller validates
+		// the row through the id/status check below.
+		n, _ := strconv.ParseInt(v, 10, 64)
 		switch k {
 		case "id":
-			fmt.Sscanf(v, "%d", &out.CronID)
+			out.CronID = uint32(n)
 		case "parent_domain_id":
-			fmt.Sscanf(v, "%d", &out.ParentDomainID)
+			out.ParentDomainID = uint32(n)
 		case "type":
 			out.Type = v
 		case "status":
 			out.Status = v
 		case "exit":
-			fmt.Sscanf(v, "%d", &out.ExitCode)
+			out.ExitCode = int(n)
 		case "start":
-			fmt.Sscanf(v, "%d", &out.StartUnix)
+			out.StartUnix = n
 		case "end":
-			fmt.Sscanf(v, "%d", &out.EndUnix)
+			out.EndUnix = n
 		}
 	}
 	return out, out.CronID > 0 && out.Status != ""
