@@ -459,9 +459,6 @@ func cryptBodyPassword(body map[string]any, field string) error {
 // checked against the caller's read scope (cross-client protection), with
 // vhostsubdomain/vhostalias inheriting the parent's server.
 func webDomainPrepare(c *echo.Context, d *Deps, id *repository.Identity, body map[string]any) error {
-	if err := requireTargetServer("web_server")(c, d, body); err != nil {
-		return err
-	}
 	if v, ok := body["domain"].(string); ok {
 		v = strings.ToLower(strings.TrimSpace(v))
 		if ascii, err := idna.Lookup.ToASCII(v); err == nil {
@@ -488,7 +485,10 @@ func webDomainPrepare(c *echo.Context, d *Deps, id *repository.Identity, body ma
 			body["server_id"] = float64(parent.ServerID)
 		}
 	}
-	return nil
+	// Last: a vhostsubdomain inherits server_id from its parent above, and
+	// an unowned parent must fail with the permission error, not with a
+	// target-server complaint.
+	return requireTargetServer("web_server")(c, d, body)
 }
 
 // defaultWebsitePath is the ISPConfig Debian/Ubuntu website_path used when
