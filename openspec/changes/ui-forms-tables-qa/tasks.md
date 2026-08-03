@@ -15,7 +15,7 @@
 
 ## 3. Mail / DNS / clients / system
 
-- [ ] 3.1 Mail module lists/forms QA + fixes. Commit.
+- [x] 3.1 Mail module lists/forms QA + fixes. Commit.
 - [ ] 3.2 DNS zone lists/forms QA + fixes. Commit.
 - [ ] 3.3 Clients/resellers/templates lists/forms QA + fixes. Commit.
 - [ ] 3.4 System (firewall, server settings if any) lists/forms QA + fixes. Commit.

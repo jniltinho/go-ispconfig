@@ -629,18 +629,7 @@ func webFolderUserPrepare(c *echo.Context, d *Deps, id *repository.Identity, bod
 // webDomainDecorate adds datalog state plus the server hostname so the
 // websites list can filter/display names instead of raw server_id.
 func webDomainDecorate() func(ctx context.Context, db *gorm.DB, items []map[string]any) error {
-	state := datalogStateDecorator("web_domain", "domain_id")
-	return func(ctx context.Context, db *gorm.DB, items []map[string]any) error {
-		if err := state(ctx, db, items); err != nil {
-			return err
-		}
-		servers := nameLookup(ctx, db, "server", "server_id", "server_name",
-			collectIDs(items, "server_id"))
-		for _, item := range items {
-			item["_server_name"] = servers[idString(item["server_id"])]
-		}
-		return nil
-	}
+	return serverNameDecorate(datalogStateDecorator("web_domain", "domain_id"))
 }
 
 // datalogStateDecorator returns a Decorate hook adding the per-record

@@ -58,6 +58,7 @@ export const router = createRouter({
             apiBase: '/api/mail/domains', idField: 'domain_id', formBase: '/mail/domains',
             columns: [
               { key: 'active', label: 'Active' },
+              { key: '_server_name', label: 'Server' },
               { key: 'domain', label: 'Domain' },
             ],
             titleKey: 'mail.domains_title', addKey: 'mail.add_domain',
@@ -535,7 +536,7 @@ export const router = createRouter({
             apiBase: '/api/firewall', idField: 'firewall_id', formBase: '/system/firewall',
             columns: [
               { key: 'active', label: 'Active' },
-              { key: 'server_id', label: 'Server' },
+              { key: '_server_name', label: 'Server' },
               { key: 'tcp_port', label: 'Open TCP ports' },
               { key: 'udp_port', label: 'Open UDP ports' },
             ],

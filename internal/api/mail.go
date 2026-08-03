@@ -87,7 +87,10 @@ func mailDomainEntity(d *Deps) *Entity {
 		AfterInsert:  mailDomainAfterInsert(d),
 		BeforeUpdate: mailDomainBeforeUpdate(d),
 		BeforeDelete: mailDomainBeforeDelete(d),
-		Decorate:     mailDomainDecorate(),
+		Decorate:     serverNameDecorate(mailDomainDecorate()),
+		ListFilters: map[string]ListFilterFunc{
+			"_server_name": relatedNameFilter("server_id", "server", "server_id", "server_name"),
+		},
 	}
 }
 
