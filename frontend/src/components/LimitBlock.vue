@@ -3,6 +3,7 @@
 // one row per limit_* column with usage, limit and a progress bar. -1 means
 // unlimited and gets no bar, exactly like the legacy template.
 import { useI18n } from '../i18n'
+import DashletCard from './DashletCard.vue'
 
 export interface LimitRow {
   /** field is the client column name, e.g. limit_web_domain. */
@@ -44,8 +45,7 @@ function used(r: LimitRow): string {
 </script>
 
 <template>
-  <section class="border border-border bg-dashlet p-4" data-test="dashlet-limits">
-    <p class="mb-2 text-xs font-bold uppercase text-text-muted">{{ t('limits.title') }}</p>
+  <DashletCard :title="t('limits.title')" data-test="dashlet-limits">
     <p v-if="unlimited" class="text-xs">{{ t('limits.unlimited') }}</p>
     <table v-else class="w-full text-xs">
       <tbody>
@@ -62,5 +62,5 @@ function used(r: LimitRow): string {
         </tr>
       </tbody>
     </table>
-  </section>
+  </DashletCard>
 </template>
