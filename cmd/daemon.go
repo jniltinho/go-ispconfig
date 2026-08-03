@@ -18,6 +18,7 @@ import (
 	"github.com/spf13/cobra"
 	"gorm.io/gorm"
 
+	"go-ispconfig/internal/apache2"
 	"go-ispconfig/internal/clientdb"
 	"go-ispconfig/internal/clients"
 	"go-ispconfig/internal/config"
@@ -82,7 +83,28 @@ var daemonCmd = &cobra.Command{
 		}, logger)
 
 		reg := engine.NewRegistry(logger)
-		nginxPlugin := nginx.NewPlugin(db, services, runner, cfg.Templates.CustomDir, logger)
+		// Web server: nginx or Apache, never both — they would fight over
+		// port 80. server.config [web] server_type is the per-server switch
+		// the installer writes; an unreadable config keeps the nginx default
+		// rather than leaving the node with no web plugin at all.
+		webServerType := "nginx"
+		if sc, err := getconf.GetServerConfig(db, srv.ServerID); err == nil {
+			if t := strings.TrimSpace(sc.Web.ServerType); t != "" {
+				webServerType = t
+			}
+		} else {
+			logger.Warn("daemon: could not load server web config, defaulting to nginx", "error", err)
+		}
+		var (
+			nginxPlugin *nginx.Plugin
+			webPlugin   engine.Plugin
+		)
+		if webServerType == "apache" || webServerType == "apache2" {
+			webPlugin = apache2.NewPlugin(db, services, runner, cfg.Templates.CustomDir, logger)
+		} else {
+			nginxPlugin = nginx.NewPlugin(db, services, runner, cfg.Templates.CustomDir, logger)
+			webPlugin = nginxPlugin
+		}
 		clientModule := clients.NewModule()
 		clientModule.DisableHook = cfg.Daemon.DisableClientEvents
 		// The client module loads regardless of server roles: client
@@ -93,7 +115,7 @@ var daemonCmd = &cobra.Command{
 		// exists inside a website. Jailkit is registered after the base shell
 		// plugin so the OS account already exists when the chroot is built.
 		plugins := []engine.Plugin{
-			nginxPlugin,
+			webPlugin,
 			ftp.NewPlugin(db, runner, logger),
 			shell.NewPlugin(db, runner, logger),
 			jailkit.NewPlugin(db, runner, logger),
@@ -219,8 +241,12 @@ var daemonCmd = &cobra.Command{
 		if err := sched.RegisterDatalogPruning(daemon.ServerID(), cfg.Daemon.DatalogRetentionDays); err != nil {
 			return err
 		}
-		if err := nginxPlugin.RegisterRenewal(sched); err != nil {
-			return err
+		// Certificate renewal is still nginx-only; the Apache plugin renders
+		// whatever certificate files are on disk but does not drive ACME yet.
+		if nginxPlugin != nil {
+			if err := nginxPlugin.RegisterRenewal(sched); err != nil {
+				return err
+			}
 		}
 		if dnsPlugin != nil {
 			if err := dnsPlugin.RegisterResign(sched); err != nil {
