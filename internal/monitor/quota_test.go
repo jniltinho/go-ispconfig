@@ -1,6 +1,9 @@
 package monitor
 
-import "testing"
+import (
+	"context"
+	"testing"
+)
 
 func TestParseRepquota(t *testing.T) {
 	const raw = `*** Report for user quotas on device /dev/sda1
@@ -38,5 +41,13 @@ b@example.com   STORAGE 0       -       0
 	}
 	if len(got) != 2 {
 		t.Errorf("MESSAGE row leaked: %v", got)
+	}
+}
+
+func TestDuKBRejectsPathsOutsideWebRoot(t *testing.T) {
+	for _, dir := range []string{"/etc", "/var/www/../../etc", "", "/var/wwwfoo"} {
+		if got := duKB(context.Background(), dir); got != 0 {
+			t.Errorf("duKB(%q) = %d, want 0", dir, got)
+		}
 	}
 }

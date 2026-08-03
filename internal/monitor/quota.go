@@ -8,7 +8,9 @@ package monitor
 import (
 	"bufio"
 	"context"
+	"log/slog"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -159,6 +161,13 @@ func parseRepquota(raw string) map[string]HDQuotaEntry {
 // duKB returns the apparent size of dir in KB, 0 when du fails.
 // ponytail: full walk per site; only runs when repquota is absent.
 func duKB(ctx context.Context, dir string) int64 {
+	// document_root comes from the DB, so treat it as untrusted: only ever
+	// walk below the web root.
+	dir = filepath.Clean(dir)
+	if !strings.HasPrefix(dir, "/var/www/") {
+		slog.Warn("skipping du for document_root outside /var/www", "dir", dir)
+		return 0
+	}
 	cctx, cancel := context.WithTimeout(ctx, quotaCmdTimeout)
 	defer cancel()
 	raw, err := exec.CommandContext(cctx, "du", "-sk", dir).Output()
