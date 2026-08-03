@@ -15,7 +15,7 @@
 ## 3. Client-job runner and plugin (scheduler execution)
 
 - [x] 3.1 Implement `ClientJobRunner`: in-process `robfig/cron` registry keyed by `cron.id`, Add/Replace/Remove under a mutex, compose 5-field expressions (spaces stripped) and handle `@reboot` as run-once-on-start; unit tests for register/update/delete and expression composition. Commit.
-- [ ] 3.2 Implement daemon-start load of all `cron WHERE active='y' AND server_id=<this>` into the runner; integration test against MariaDB. Commit.
+- [x] 3.2 Implement daemon-start load of all `cron WHERE active='y' AND server_id=<this>` into the runner; integration test against MariaDB. Commit.
 - [ ] 3.3 Implement URL executor: `{DOMAIN}` substitution, HTTP GET with timeout (default 7200s), TLS verify on, refuse insecure command chars; unit tests with `httptest`. Commit.
 - [ ] 3.4 Implement full/chrooted executor: placeholder expansion (`{DOMAIN}`, `{DOCROOT_CLIENT}`, `[web_root]`, `{SITE_PHP}` from `server_php` join / `/usr/bin/php` fallback), argv split without shell, cwd `{document_root}/web`, chrooted path strip of `document_root`; unit tests. Commit.
 - [ ] 3.5 Implement fail-safe privilege drop: resolve site uid/gid, refuse root, set `Credential` + `NoNewPrivileges`, context timeout + process-group kill; abort and log when drop fails; tests with stubbed/user-namespace-friendly helpers. Commit.
