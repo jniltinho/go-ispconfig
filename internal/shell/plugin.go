@@ -55,6 +55,11 @@ type Plugin struct {
 	AllowShellUser func() (bool, error)
 	LookupUID      func(username string) (int, bool)
 	LookupGID      func(groupname string) (int, bool)
+	// DirInUse reports whether another shell_user still logs into a
+	// directory, and LoadServerPHPUnit resolves a pinned PHP version to its
+	// systemd unit; both are only needed by the delete path.
+	DirInUse          func(dir string) (bool, error)
+	LoadServerPHPUnit func(serverPHPID int64) (string, error)
 }
 
 // NewPlugin creates the shell plugin; log nil means slog.Default.
@@ -66,6 +71,7 @@ func NewPlugin(db *gorm.DB, runner engine.CommandRunner, log *slog.Logger) *Plug
 	p.LoadWeb, p.LoadWebConfig = p.loadWebDomain, p.webConfig
 	p.AllowShellUser = p.allowShellUser
 	p.LookupUID, p.LookupGID = lookupUID, lookupGID
+	p.DirInUse, p.LoadServerPHPUnit = p.dirInUse, p.loadServerPHPUnit
 	return p
 }
 
@@ -78,7 +84,10 @@ func (p *Plugin) OnLoad(r *engine.Registry) error {
 	if err := r.RegisterEvent("shell_user_insert", p.shellUserInsert); err != nil {
 		return err
 	}
-	return r.RegisterEvent("shell_user_update", p.shellUserUpdate)
+	if err := r.RegisterEvent("shell_user_update", p.shellUserUpdate); err != nil {
+		return err
+	}
+	return r.RegisterEvent("shell_user_delete", p.shellUserDelete)
 }
 
 // shellUserInsert creates the system account and the home layout of a new
