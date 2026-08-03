@@ -23,6 +23,8 @@ func registerMonitorRoutes(g *echo.Group, d *Deps) {
 	mg.GET("/state", monitorStateHandler(d))
 	mg.GET("/data", monitorDataListHandler(d))
 	mg.GET("/data/:type", monitorDataTypeHandler(d))
+	mg.GET("/sys-log", monitorSysLogHandler(d))
+	mg.POST("/sys-log/clear", monitorSysLogClearHandler(d), requireAdmin)
 }
 
 // requireMonitorModule rejects sessions without the monitor module (403).
@@ -163,6 +165,133 @@ func monitorDataListHandler(d *Deps) echo.HandlerFunc {
 			out = append(out, monitorItem(r))
 		}
 		return c.JSON(http.StatusOK, out)
+	}
+}
+
+// SysLogList is the paginated GET /api/monitor/sys-log response.
+type SysLogList struct {
+	// Items are the sys_log rows of the requested page, newest first.
+	Items []model.SysLog `json:"items"`
+	// Total is the number of rows matching the filters.
+	Total int64 `json:"total"`
+	// Page is the returned 1-based page number.
+	Page int `json:"page"`
+	// Limit is the applied page size.
+	Limit int `json:"limit"`
+}
+
+// monitorSysLogHandler implements GET /api/monitor/sys-log.
+//
+//	@Summary		List system log entries
+//	@Description	Paginated sys_log rows for the caller's readable servers, ordered by tstamp DESC (port of log_list.php). Cleared rows have loglevel 0.
+//	@Tags			monitor
+//	@Produce		json
+//	@Param			server_id	query		int		false	"Limit to one server"
+//	@Param			loglevel	query		int		false	"0 debug, 1 warning, 2 error"
+//	@Param			message		query		string	false	"Message substring filter"
+//	@Param			page		query		int		false	"1-based page number"	default(1)
+//	@Param			limit		query		int		false	"Page size (max 100)"	default(25)
+//	@Success		200			{object}	SysLogList
+//	@Failure		401			{object}	ErrorResponse
+//	@Failure		403			{object}	ErrorResponse	"Session lacks the monitor module"
+//	@Router			/monitor/sys-log [get]
+//	@Security		CookieAuth
+//	@Security		BearerAuth
+func monitorSysLogHandler(d *Deps) echo.HandlerFunc {
+	return func(c *echo.Context) error {
+		servers, err := monitorServers(c, d)
+		if err != nil {
+			return err
+		}
+		if len(servers) == 0 {
+			return c.JSON(http.StatusOK, SysLogList{Items: []model.SysLog{}, Page: 1, Limit: 25})
+		}
+		page, _ := strconv.Atoi(c.QueryParamOr("page", "1"))
+		if page < 1 {
+			page = 1
+		}
+		limit, _ := strconv.Atoi(c.QueryParamOr("limit", "25"))
+		if limit < 1 || limit > 100 {
+			limit = 25
+		}
+		f := monitor.SysLogFilter{
+			ServerIDs: monitor.ServerIDs(servers),
+			Message:   c.QueryParam("message"),
+			Limit:     limit,
+			Offset:    (page - 1) * limit,
+		}
+		if lv := c.QueryParam("loglevel"); lv != "" {
+			n, err := strconv.ParseInt(lv, 10, 8)
+			if err != nil {
+				return echo.NewHTTPError(http.StatusBadRequest, "invalid loglevel")
+			}
+			l := int8(n)
+			f.Loglevel = &l
+		}
+		rows, total, err := monitor.ListSysLog(c.Request().Context(), d.DB, f)
+		if err != nil {
+			return err
+		}
+		if rows == nil {
+			rows = []model.SysLog{}
+		}
+		return c.JSON(http.StatusOK, SysLogList{Items: rows, Total: total, Page: page, Limit: limit})
+	}
+}
+
+// SysLogClearRequest selects the sys_log rows to clear: one id or a whole
+// loglevel batch (exactly one selector).
+type SysLogClearRequest struct {
+	// SyslogID clears one row.
+	SyslogID uint32 `json:"syslog_id,omitempty"`
+	// Loglevel batch-clears every row of this level (1 warning, 2 error).
+	Loglevel *int8 `json:"loglevel,omitempty"`
+}
+
+// SysLogClearResponse reports how many rows were cleared.
+type SysLogClearResponse struct {
+	// Cleared is the number of rows whose loglevel was set to 0.
+	Cleared int64 `json:"cleared"`
+}
+
+// monitorSysLogClearHandler implements POST /api/monitor/sys-log/clear.
+//
+//	@Summary		Clear system log entries (admin)
+//	@Description	Port of log_del.php: sets loglevel = 0 for one syslog_id or for every row of a loglevel — rows are never deleted. Admin only; no sys_datalog row is written.
+//	@Tags			monitor
+//	@Accept			json
+//	@Produce		json
+//	@Param			request	body		SysLogClearRequest	true	"One of syslog_id or loglevel"
+//	@Success		200		{object}	SysLogClearResponse
+//	@Failure		400		{object}	ErrorResponse	"Neither selector given"
+//	@Failure		401		{object}	ErrorResponse
+//	@Failure		403		{object}	ErrorResponse	"Not an admin"
+//	@Router			/monitor/sys-log/clear [post]
+//	@Security		CookieAuth
+//	@Security		BearerAuth
+func monitorSysLogClearHandler(d *Deps) echo.HandlerFunc {
+	return func(c *echo.Context) error {
+		var req SysLogClearRequest
+		if err := c.Bind(&req); err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "invalid body")
+		}
+		ctx := c.Request().Context()
+		switch {
+		case req.SyslogID != 0:
+			n, err := monitor.ClearSysLog(ctx, d.DB, req.SyslogID)
+			if err != nil {
+				return err
+			}
+			return c.JSON(http.StatusOK, SysLogClearResponse{Cleared: n})
+		case req.Loglevel != nil:
+			n, err := monitor.ClearSysLogByLevel(ctx, d.DB, *req.Loglevel, nil)
+			if err != nil {
+				return err
+			}
+			return c.JSON(http.StatusOK, SysLogClearResponse{Cleared: n})
+		default:
+			return echo.NewHTTPError(http.StatusBadRequest, "syslog_id or loglevel required")
+		}
 	}
 }
 

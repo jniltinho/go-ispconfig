@@ -1,8 +1,11 @@
 package api
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -149,6 +152,59 @@ func TestMonitorStateAndData(t *testing.T) {
 	rec = monitorGet(e, "mon", "/api/monitor/data")
 	require.Equal(t, http.StatusOK, rec.Code)
 	assert.Equal(t, "[]\n", rec.Body.String())
+}
+
+// monitorPost performs a JSON POST with the given bearer token.
+func monitorPost(e *echo.Echo, bearer, path, body string) *httptest.ResponseRecorder {
+	req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	if bearer != "" {
+		req.Header.Set("Authorization", "Bearer "+bearer)
+	}
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	return rec
+}
+
+func TestMonitorSysLogListAndClear(t *testing.T) {
+	db := monitorTestDB(t)
+	now := uint32(time.Now().Unix())
+	require.NoError(t, db.Create(&model.SysLog{ServerID: 1, Loglevel: 1, Tstamp: now, Message: "warn one"}).Error)
+	require.NoError(t, db.Create(&model.SysLog{ServerID: 1, Loglevel: 1, Tstamp: now, Message: "warn two"}).Error)
+	require.NoError(t, db.Create(&model.SysLog{ServerID: 1, Loglevel: 2, Tstamp: now, Message: "an error"}).Error)
+	e := monitorTestServer(t, db)
+
+	rec := monitorGet(e, "adm", "/api/monitor/sys-log?loglevel=1")
+	require.Equal(t, http.StatusOK, rec.Code)
+	var list SysLogList
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &list))
+	assert.EqualValues(t, 2, list.Total)
+
+	// Clear is admin-only.
+	assert.Equal(t, http.StatusForbidden,
+		monitorPost(e, "mon", "/api/monitor/sys-log/clear", `{"loglevel":1}`).Code)
+
+	// Batch clear by level: rows stay, loglevel drops to 0 (no DELETE).
+	rec = monitorPost(e, "adm", "/api/monitor/sys-log/clear", `{"loglevel":1}`)
+	require.Equal(t, http.StatusOK, rec.Code)
+	assert.Contains(t, rec.Body.String(), `"cleared":2`)
+	var rows []model.SysLog
+	require.NoError(t, db.Order("syslog_id").Find(&rows).Error)
+	require.Len(t, rows, 3, "clear must never delete rows")
+	assert.EqualValues(t, 0, rows[0].Loglevel)
+	assert.EqualValues(t, 0, rows[1].Loglevel)
+	assert.EqualValues(t, 2, rows[2].Loglevel)
+
+	// Single-id clear.
+	rec = monitorPost(e, "adm", "/api/monitor/sys-log/clear",
+		fmt.Sprintf(`{"syslog_id":%d}`, rows[2].SyslogID))
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.NoError(t, db.Order("syslog_id").Find(&rows).Error)
+	assert.EqualValues(t, 0, rows[2].Loglevel)
+
+	// Missing selector is a 400.
+	assert.Equal(t, http.StatusBadRequest,
+		monitorPost(e, "adm", "/api/monitor/sys-log/clear", `{}`).Code)
 }
 
 func TestMonitorServersBadServerID(t *testing.T) {
