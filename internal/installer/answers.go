@@ -10,6 +10,8 @@ import (
 	"strings"
 
 	"github.com/spf13/viper"
+
+	"go-ispconfig/internal/getconf"
 )
 
 // Answers holds every installer question, resolved (design D3) in the
@@ -24,8 +26,11 @@ type Answers struct {
 	DBRootPassword string
 	EnableWeb      bool
 	EnableDNS      bool
-	InstallPHPFPM  bool
-	InstallAcme    bool
+	// DNSBackend is "bind" (default) or "powerdns"; it selects the DNS
+	// packages, the configure step and server.config [dns] dns_backend.
+	DNSBackend    string
+	InstallPHPFPM bool
+	InstallAcme   bool
 	// AcmeClient is "acme.sh" (default) or "certbot".
 	AcmeClient string
 	AdminEmail string
@@ -61,7 +66,8 @@ func answerFields() []answerField {
 		// flag/answers file covers hosts where socket auth is disabled.
 		{key: "db-root-password", def: s("")},
 		{key: "web", prompt: "Configure web server (nginx)? (y/n)", def: s("y"), boolean: true},
-		{key: "dns", prompt: "Configure DNS server (bind)? (y/n)", def: s("y"), boolean: true},
+		{key: "dns", prompt: "Configure DNS server? (y/n)", def: s("y"), boolean: true},
+		{key: "dns-backend", prompt: "DNS backend (bind/powerdns)", def: s(getconf.DNSBackendBind)},
 		{key: "php-fpm", prompt: "Install PHP-FPM for hosted sites? (y/n)", def: s("y"), boolean: true},
 		{key: "acme", prompt: "Install acme.sh for site Let's Encrypt certificates? (y/n)", def: s("n"), boolean: true},
 		{key: "acme-client", prompt: "ACME client (acme.sh/certbot)", def: s("acme.sh")},
@@ -127,6 +133,7 @@ func ResolveAnswers(opts ResolveOptions) (*Answers, error) {
 
 	a := &Answers{
 		Hostname:       values["hostname"],
+		DNSBackend:     strings.ToLower(strings.TrimSpace(values["dns-backend"])),
 		DBName:         values["db-name"],
 		DBUser:         values["db-user"],
 		DBRootPassword: values["db-root-password"],
@@ -152,6 +159,9 @@ func ResolveAnswers(opts ResolveOptions) (*Answers, error) {
 			return nil, fmt.Errorf("invalid --%s value %q: use y/n", key, values[key])
 		}
 		*dst = v
+	}
+	if a.DNSBackend != getconf.DNSBackendBind && a.DNSBackend != getconf.DNSBackendPowerDNS {
+		return nil, fmt.Errorf("invalid --dns-backend %q: use bind or powerdns", values["dns-backend"])
 	}
 	if a.AcmeClient != "acme.sh" && a.AcmeClient != "certbot" {
 		return nil, fmt.Errorf("invalid --acme-client %q: use acme.sh or certbot", a.AcmeClient)

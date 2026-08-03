@@ -61,6 +61,19 @@ type Profile struct {
 // PHPFPMPackage is the distro php-fpm apt package (php8.3-fpm).
 func (p *Profile) PHPFPMPackage() string { return "php" + p.PHPVersion + "-fpm" }
 
+// PowerDNS package/unit names, identical on all five supported distros.
+const (
+	// PowerDNSService is the unit shipped by pdns-server.
+	PowerDNSService = "pdns"
+	// BindPackage is dropped from the package set on the powerdns path:
+	// both daemons would bind port 53.
+	BindPackage = "bind9"
+)
+
+// powerDNSPackages is the gmysql-backed authoritative server package set
+// (same names on Debian 11-13 and Ubuntu 22.04/24.04).
+var powerDNSPackages = []string{"pdns-server", "pdns-backend-mysql"}
+
 // supportedPHP maps distro id -> default PHP-FPM version, verified against
 // install/dist/conf/{debian110,debian120,debian130,ubuntu2204,ubuntu2404}.conf.php.
 var supportedPHP = map[string]string{

@@ -21,6 +21,9 @@ func (bindBaseStep) Run(ctx context.Context, st *State) error {
 	if !st.Answers.EnableDNS {
 		return Skip("dns server disabled by answer")
 	}
+	if st.PowerDNSBackend() {
+		return Skip("dns backend is powerdns")
+	}
 	p := st.Profile
 
 	changed, restore, err := writeFileBackup(p.NamedConfOptionsPath, []byte(namedConfOptions), 0o644)

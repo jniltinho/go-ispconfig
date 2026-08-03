@@ -72,6 +72,9 @@ type State struct {
 	SelfExe string
 	// AcmeShHome is acme.sh's default install dir (client detection).
 	AcmeShHome string
+	// PowerDNSConfPath is the rendered gmysql backend config
+	// (/etc/powerdns/pdns.d/pdns.local, mode 0600).
+	PowerDNSConfPath string
 
 	// Set by the mariadb step, consumed by later steps.
 	DB         *gorm.DB
@@ -105,6 +108,8 @@ func NewState(profile *Profile, answers *Answers) *State {
 		AcmeWebroot:     nginx.AcmeWebroot,
 		SelfExe:         selfExe(),
 		AcmeShHome:      "/root/.acme.sh",
+
+		PowerDNSConfPath: "/etc/powerdns/pdns.d/pdns.local",
 	}
 }
 
