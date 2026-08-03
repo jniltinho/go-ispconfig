@@ -100,6 +100,12 @@ func (apache2Step) Run(ctx context.Context, st *State) error {
 		}
 		return fmt.Errorf("apache2ctl -t rejected the configuration (previous config restored): %w", err)
 	}
+	// The packages step skips the web unit for apache2 (its packages are
+	// installed here, after that step ran), so this is where the unit is
+	// enabled; a reused host may have it stopped or masked.
+	if _, err := st.Exec.Run(ctx, nil, "systemctl", "enable", "--now", p.ApacheService); err != nil {
+		return fmt.Errorf("enabling apache2: %w", err)
+	}
 	if _, err := st.Exec.Run(ctx, nil, "systemctl", "reload", p.ApacheService); err != nil {
 		return fmt.Errorf("reloading apache2: %w", err)
 	}

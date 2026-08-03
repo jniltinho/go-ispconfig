@@ -4,8 +4,9 @@
 # Test rig for the go-ispconfig installer (openspec add-installer-cli, D11)
 # plus the standing legacy lab (openspec add-legacy-test-lab).
 #
-#   ubuntu (default)         bento/ubuntu-24.04  192.168.56.10  go-ispconfig panel
-#   debian (opt-in)          bento/debian-12     192.168.56.11  go-ispconfig panel
+#   ubuntu (default)         bento/ubuntu-24.04  192.168.56.10  go-ispconfig panel (nginx)
+#   debian (opt-in)          bento/debian-12     192.168.56.11  go-ispconfig panel (nginx)
+#   apache-test (opt-in)     bento/ubuntu-24.04  192.168.56.22  go-ispconfig panel (apache2)
 #   legacy (lab)             bento/ubuntu-24.04  192.168.56.20  PHP ISPConfig3 nginx (full stack: mail+Roundcube)
 #   legacy-apache (lab)      bento/ubuntu-24.04  192.168.56.21  PHP ISPConfig3 apache2 (full stack: mail+Roundcube)
 #
@@ -20,7 +21,7 @@ INSTALL = <<~SHELL
   set -e
   install -m 0755 /tmp/go-ispconfig /usr/local/bin/go-ispconfig
   /usr/local/bin/go-ispconfig install --yes --write-credentials \
-    --hostname "$1" --admin-email admin@goisp.test
+    --hostname "$1" --admin-email admin@goisp.test --web-server "$2"
 SHELL
 
 # Fixed legacy panel credentials for the lab/parity tests (test rig only).
@@ -35,15 +36,17 @@ Vagrant.configure("2") do |config|
   # No synced folder: the file provisioner copies what the guests need.
   config.vm.synced_folder ".", "/vagrant", disabled: true
 
-  { "ubuntu" => ["bento/ubuntu-24.04", "192.168.56.10", true],
-    "debian" => ["bento/debian-12",    "192.168.56.11", false] }.each do |name, (box, ip, default)|
+  { "ubuntu"      => ["bento/ubuntu-24.04", "192.168.56.10", "nginx",   true],
+    "debian"      => ["bento/debian-12",    "192.168.56.11", "nginx",   false],
+    "apache-test" => ["bento/ubuntu-24.04", "192.168.56.22", "apache2", false],
+  }.each do |name, (box, ip, web, default)|
     config.vm.define name, primary: default, autostart: default do |m|
       m.vm.box = box
       m.vm.hostname = "#{name}.goisp.test"
       m.vm.network "private_network", ip: ip
       m.vm.provision "file", source: "../bin/go-ispconfig-linux-amd64",
                              destination: "/tmp/go-ispconfig"
-      m.vm.provision "shell", inline: INSTALL, args: ["#{name}.goisp.test"]
+      m.vm.provision "shell", inline: INSTALL, args: ["#{name}.goisp.test", web]
     end
   end
 

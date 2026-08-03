@@ -58,7 +58,11 @@ func (packagesStep) Run(ctx context.Context, st *State) error {
 	// reload) need them running. enable --now is idempotent.
 	p := st.Profile
 	services := []string{p.MySQLService, p.RedisService}
-	if st.Answers.EnableWeb {
+	// packageSet() drops nginx when the operator chose apache2, so enabling
+	// nginx.service here would fail on a unit that was never installed. The
+	// Apache unit is not this step's either: apache2Step installs the Apache
+	// packages and enables the unit itself, and it runs after this one.
+	if st.Answers.EnableWeb && st.Answers.WebServer != WebServerApache {
 		services = append(services, p.NginxService)
 	}
 	if st.Answers.EnableDNS {

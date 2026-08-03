@@ -37,11 +37,11 @@ func (fail2banStep) Run(ctx context.Context, st *State) error {
 		}
 	}
 
-	// The installer only ever configures nginx; a node without the web
-	// module gets no HTTP jail.
+	// The HTTP jail follows the web server actually installed; a node
+	// without the web module gets no HTTP jail at all.
 	webServer := ""
 	if st.Answers.EnableWeb {
-		webServer = "nginx"
+		webServer = st.Answers.WebServer
 	}
 	changed, err := fail2ban.Write(st.Fail2banJailDir, fail2ban.Jails(webServer))
 	if err != nil {
