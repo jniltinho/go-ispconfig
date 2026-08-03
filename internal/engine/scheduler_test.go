@@ -34,6 +34,14 @@ func TestSchedulerRegister(t *testing.T) {
 	require.Equal(t, "0 3 * * *", jobs[0].Spec)
 }
 
+// TestSchedulerRegisterNilDB guards the setConfig nil-db no-op: a scheduler
+// built without persistence (job-function-only tests, e.g. internal/nginx)
+// must not panic when Register mirrors the cron spec.
+func TestSchedulerRegisterNilDB(t *testing.T) {
+	s := NewScheduler(nil, nil)
+	require.NoError(t, s.Register("job", "@daily", func(context.Context) error { return nil }))
+}
+
 func TestSchedulerRunJob(t *testing.T) {
 	s := NewScheduler(schedDB(t), nil)
 	ran := 0

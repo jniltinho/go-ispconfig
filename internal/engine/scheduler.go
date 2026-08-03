@@ -76,6 +76,9 @@ func (s *Scheduler) Register(name, spec string, fn JobFunc) error {
 		return fmt.Errorf("engine: parsing cron spec %q for job %q: %w", spec, name, err)
 	}
 	s.jobs = append(s.jobs, &job{name: name, spec: spec, fn: fn})
+	// Mirror the spec so a standalone serve process can list job metadata
+	// (and compute next_run) without talking to the daemon.
+	s.setConfig(context.Background(), name+"_spec", spec)
 	return nil
 }
 
@@ -151,8 +154,12 @@ func (s *Scheduler) getConfig(ctx context.Context, name string) string {
 }
 
 // setConfig upserts one scheduler sys_config value (composite PK
-// group+name).
+// group+name). A nil db (schedulers built for job-function-only tests) is a
+// silent no-op rather than a panic.
 func (s *Scheduler) setConfig(ctx context.Context, name, value string) {
+	if s.db == nil {
+		return
+	}
 	err := s.db.WithContext(ctx).
 		Exec("REPLACE INTO sys_config (`group`, `name`, `value`) VALUES (?, ?, ?)",
 			schedulerConfigGroup, name, value).Error

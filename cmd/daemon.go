@@ -30,6 +30,7 @@ import (
 	"go-ispconfig/internal/getconf"
 	"go-ispconfig/internal/jailkit"
 	"go-ispconfig/internal/mail"
+	"go-ispconfig/internal/monitor"
 	"go-ispconfig/internal/nginx"
 	"go-ispconfig/internal/queue"
 	"go-ispconfig/internal/shell"
@@ -196,6 +197,15 @@ var daemonCmd = &cobra.Command{
 			if err := mailPlugin.RegisterPurgeJob(sched); err != nil {
 				return err
 			}
+		}
+		if err := monitor.RegisterJobs(sched, db, monitor.RegisterOptions{
+			ServerID:           daemon.ServerID(),
+			MySQLDSN:           cfg.Database.DSN,
+			Version:            Version,
+			EnableSystemUpdate: true,
+			Log:                logger,
+		}); err != nil {
+			return err
 		}
 
 		ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

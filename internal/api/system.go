@@ -7,8 +7,10 @@ import (
 	"net/http"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/labstack/echo/v5"
+	"github.com/robfig/cron/v3"
 
 	"go-ispconfig/internal/auth"
 	"go-ispconfig/internal/model"
@@ -23,6 +25,12 @@ type SchedulerJob struct {
 	LastRun string `json:"last_run" example:"2026-08-01T03:00:00Z"`
 	// Status is "ok" or "error: <message>" from the last execution.
 	Status string `json:"status" example:"ok"`
+	// Spec is the cron expression the daemon registered the job with, empty
+	// when the daemon has not run since the mirror was introduced.
+	Spec string `json:"spec" example:"*/5 * * * *"`
+	// NextRun is the RFC3339 time of the next activation derived from Spec,
+	// empty when Spec is absent or unparsable.
+	NextRun string `json:"next_run" example:"2026-08-01T03:05:00Z"`
 }
 
 // registerSystemRoutes mounts the system endpoints on the authenticated
@@ -46,7 +54,7 @@ func requireAdmin(next echo.HandlerFunc) echo.HandlerFunc {
 // schedulerJobsHandler implements GET /api/system/scheduler.
 //
 //	@Summary		Scheduler job status
-//	@Description	Lists the daemon scheduler jobs with their last-run time and status, read from the sys_config "scheduler" mirror the daemon persists after every job execution. Admin only.
+//	@Description	Lists the daemon scheduler jobs with their cron spec, last-run time, status and computed next run, read from the sys_config "scheduler" mirror the daemon persists at registration and after every job execution. Admin only.
 //	@Tags			system
 //	@Produce		json
 //	@Success		200	{array}		SchedulerJob
@@ -72,18 +80,36 @@ func schedulerJobsHandler(d *Deps) echo.HandlerFunc {
 			return jobs[name]
 		}
 		for _, row := range rows {
-			if name, ok := strings.CutSuffix(row.Name, "_last_run"); ok {
-				get(name).LastRun = row.Value
-			} else if name, ok := strings.CutSuffix(row.Name, "_status"); ok {
-				get(name).Status = row.Value
+			switch {
+			case strings.HasSuffix(row.Name, "_last_run"):
+				get(strings.TrimSuffix(row.Name, "_last_run")).LastRun = row.Value
+			case strings.HasSuffix(row.Name, "_status"):
+				get(strings.TrimSuffix(row.Name, "_status")).Status = row.Value
+			case strings.HasSuffix(row.Name, "_spec"):
+				get(strings.TrimSuffix(row.Name, "_spec")).Spec = row.Value
 			}
 		}
 
+		now := time.Now()
 		out := make([]SchedulerJob, 0, len(jobs))
 		for _, j := range jobs {
+			j.NextRun = nextRun(j.Spec, now)
 			out = append(out, *j)
 		}
 		sort.Slice(out, func(i, k int) bool { return out[i].Name < out[k].Name })
 		return c.JSON(http.StatusOK, out)
 	}
+}
+
+// nextRun returns the RFC3339 next activation of a cron spec after now,
+// empty when the spec is missing or invalid.
+func nextRun(spec string, now time.Time) string {
+	if spec == "" {
+		return ""
+	}
+	sched, err := cron.ParseStandard(spec)
+	if err != nil {
+		return ""
+	}
+	return sched.Next(now).Format(time.RFC3339)
 }

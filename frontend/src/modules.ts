@@ -63,6 +63,22 @@ export const modules: ModuleDef[] = [
     ],
   },
   {
+    id: 'monitor',
+    path: '/monitor',
+    sections: [
+      { labelKey: 'sidebar.monitor.state', path: '/monitor' },
+      { labelKey: 'sidebar.monitor.services', path: '/monitor/data/services' },
+      { labelKey: 'sidebar.monitor.disk_usage', path: '/monitor/data/disk_usage' },
+      { labelKey: 'sidebar.monitor.log_ispconfig', path: '/monitor/data/log_ispconfig' },
+      { labelKey: 'sidebar.monitor.log_letsencrypt', path: '/monitor/data/log_letsencrypt' },
+      { labelKey: 'sidebar.monitor.log_messages', path: '/monitor/data/log_messages' },
+      { labelKey: 'sidebar.monitor.sys_log', path: '/monitor/sys-log' },
+      { labelKey: 'sidebar.monitor.jobqueue', path: '/monitor/jobqueue' },
+      { labelKey: 'sidebar.monitor.datalog', path: '/monitor/datalog' },
+      { labelKey: 'sidebar.monitor.scheduler', path: '/monitor/scheduler', adminOnly: true },
+    ],
+  },
+  {
     id: 'system',
     path: '/system',
     sections: [

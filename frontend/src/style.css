@@ -49,6 +49,11 @@
   --color-danger-border: #dcb2b3;
   /* AA correction: original #95686B on danger bg is 3.7:1; this is 5.4:1. */
   --color-danger-text: #7d4d51;
+  /* Warning band (monitor severities warning/critical): amber tinted like
+     the danger pair, text at >= 4.5:1 on the tint. */
+  --color-warning: #fbf0d3;
+  --color-warning-border: #e3cd94;
+  --color-warning-text: #7a5c15;
   --color-thead: #3e474e;
   --color-dashlet: #e1e4e9;
   --color-text-muted: #5f6b76;
@@ -78,6 +83,9 @@
   --color-danger: #3a1518;
   --color-danger-border: #7a3b40;
   --color-danger-text: #f0b9bc;
+  --color-warning: #3a2f11;
+  --color-warning-border: #7a6a35;
+  --color-warning-text: #f0dfae;
   --color-thead: #1c394e;
   --color-dashlet: #1b2836;
   --color-text-muted: #9aa7b0;
