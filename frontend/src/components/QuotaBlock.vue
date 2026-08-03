@@ -3,6 +3,7 @@
 // databasequota.htm): one row per site/mailbox/database with a used-vs-limit
 // bar coloured like the legacy theme (>=80% orange, >=100% red).
 import { useI18n } from '../i18n'
+import DashletCard from './DashletCard.vue'
 
 export interface QuotaRow {
   /** name is the site domain, mailbox address or database name. */
@@ -41,8 +42,7 @@ function barColour(r: QuotaRow): string {
 </script>
 
 <template>
-  <section class="border border-border bg-dashlet p-4" :data-test="`dashlet-quota-${title}`">
-    <p class="mb-2 text-xs font-bold uppercase text-text-muted">{{ title }}</p>
+  <DashletCard :title="title" :data-test="`dashlet-quota-${title}`">
     <table class="w-full text-xs">
       <tbody>
         <tr v-for="r in rows" :key="r.name" class="align-middle">
@@ -62,5 +62,5 @@ function barColour(r: QuotaRow): string {
         </tr>
       </tbody>
     </table>
-  </section>
+  </DashletCard>
 </template>
