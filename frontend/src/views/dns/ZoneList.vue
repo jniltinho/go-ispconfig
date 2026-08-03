@@ -70,7 +70,7 @@ async function remove(row: Row) {
 
 <template>
   <div>
-    <h1 class="text-lg font-bold">{{ t('dns.zones_title') }}</h1>
+    <h1 class="page-title">{{ t('dns.zones_title') }}</h1>
     <div class="my-3 flex gap-2">
       <button
         type="button"

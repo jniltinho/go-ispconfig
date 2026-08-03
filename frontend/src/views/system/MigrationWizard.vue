@@ -374,7 +374,7 @@ const secondaryButtonClass = 'btn btn-default px-6'
 
 <template>
   <div>
-    <h1 class="mb-3 text-lg font-bold">{{ t('migration.title') }}</h1>
+    <h1 class="page-title">{{ t('migration.title') }}</h1>
 
     <!-- Step indicator -->
     <ol class="mb-4 flex gap-2 text-xs">

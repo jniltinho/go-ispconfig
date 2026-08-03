@@ -79,7 +79,7 @@ async function send() {
 
 <template>
   <div class="max-w-2xl">
-    <h1 class="mb-3 text-lg font-bold">{{ t('client.send_message_title') }}</h1>
+    <h1 class="page-title">{{ t('client.send_message_title') }}</h1>
 
     <UiAlert v-if="error" variant="danger" class="mb-3" :messages="[error]" data-test="send-error" />
     <UiAlert v-if="success" variant="info" class="mb-3" :messages="[success]" data-test="send-success" />

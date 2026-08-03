@@ -54,7 +54,7 @@ const fields = computed(() => {
 
 <template>
   <div>
-    <h1 class="mb-3 text-lg font-bold">{{ t('monitor.datalog_detail_title') }}</h1>
+    <h1 class="page-title">{{ t('monitor.datalog_detail_title') }}</h1>
 
     <UiAlert v-if="error" variant="danger" class="mb-3" :messages="[t(error)]" />
 

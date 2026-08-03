@@ -52,7 +52,7 @@ onMounted(async () => {
 
 <template>
   <div>
-    <h1 class="mb-4 text-lg font-bold">{{ t('module.dashboard') }}</h1>
+    <h1 class="page-title">{{ t('module.dashboard') }}</h1>
 
     <ul
       v-if="worstState || pendingJobs !== null || failedJobs !== null"
@@ -97,16 +97,19 @@ onMounted(async () => {
       <li
         v-for="mod in dashlets"
         :key="mod.id"
-        class="flex flex-col items-center gap-3 border border-border bg-dashlet p-5 shadow-sm"
+        class="flex flex-col gap-3 border border-border bg-dashlet p-4"
         :data-test="`dashlet-${mod.id}`"
       >
-        <component
-          :is="moduleIcons[mod.id] ?? CircleHelp"
-          :size="50"
-          :stroke-width="1.25"
-          class="text-text"
-        />
-        <span class="text-base font-bold">{{ t(`module.${mod.id}`) }}</span>
+        <!-- Legacy dashlet head: icon left, title right on one row. -->
+        <div class="flex items-center gap-3">
+          <component
+            :is="moduleIcons[mod.id] ?? CircleHelp"
+            :size="38"
+            :stroke-width="1.25"
+            class="shrink-0 text-text"
+          />
+          <span class="ml-auto text-base font-bold">{{ t(`module.${mod.id}`) }}</span>
+        </div>
         <RouterLink :to="mod.path" class="btn btn-default w-full no-underline">
           {{ t('dashboard.open_module', { module: t(`module.${mod.id}`) }) }}
         </RouterLink>

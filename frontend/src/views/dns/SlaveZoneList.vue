@@ -68,7 +68,7 @@ async function remove(row: Row) {
 
 <template>
   <div>
-    <h1 class="text-lg font-bold">{{ t('dns.slave_zones_title') }}</h1>
+    <h1 class="page-title">{{ t('dns.slave_zones_title') }}</h1>
     <button
       type="button"
       data-test="add-slave-zone"

@@ -264,7 +264,7 @@ async function save(values: Record<string, unknown>) {
 
 <template>
   <div class="w-full">
-    <h1 v-if="!embedded" class="mb-3 text-lg font-bold">{{ title }}</h1>
+    <h1 v-if="!embedded" class="page-title">{{ title }}</h1>
 
     <p
       v-if="datalogState === 'pending'"

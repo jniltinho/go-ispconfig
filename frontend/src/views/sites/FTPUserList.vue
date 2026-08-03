@@ -69,7 +69,7 @@ async function remove(row: Row) {
 
 <template>
   <div>
-    <h1 class="text-lg font-bold">{{ t('sites.ftp_users_title') }}</h1>
+    <h1 class="page-title">{{ t('sites.ftp_users_title') }}</h1>
     <button
       type="button"
       class="my-3 btn btn-success px-4 py-2"
