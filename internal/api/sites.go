@@ -98,7 +98,12 @@ func webDomainEntity() *Entity {
 		Title:       "web_vhost_domain_edit_title",
 		Prepare:     webDomainPrepare,
 		AfterInsert: webDomainAfterInsert,
-		Decorate:    datalogStateDecorator("web_domain", "domain_id"),
+		// Server column shows the hostname (legacy list parity); the filter
+		// box searches server.server_name via ListFilters.
+		Decorate: webDomainDecorate(),
+		ListFilters: map[string]ListFilterFunc{
+			"_server_name": relatedNameFilter("server_id", "server", "server_id", "server_name"),
+		},
 		Tabs: []Tab{
 			{
 				Name: "domain", Label: "domain_tab_txt",
@@ -620,6 +625,23 @@ func webFolderUserPrepare(c *echo.Context, d *Deps, id *repository.Identity, bod
 
 // --- datalog pending/error state (spec sites-api "Datalog error
 // visibility") ---
+
+// webDomainDecorate adds datalog state plus the server hostname so the
+// websites list can filter/display names instead of raw server_id.
+func webDomainDecorate() func(ctx context.Context, db *gorm.DB, items []map[string]any) error {
+	state := datalogStateDecorator("web_domain", "domain_id")
+	return func(ctx context.Context, db *gorm.DB, items []map[string]any) error {
+		if err := state(ctx, db, items); err != nil {
+			return err
+		}
+		servers := nameLookup(ctx, db, "server", "server_id", "server_name",
+			collectIDs(items, "server_id"))
+		for _, item := range items {
+			item["_server_name"] = servers[idString(item["server_id"])]
+		}
+		return nil
+	}
+}
 
 // datalogStateDecorator returns a Decorate hook adding the per-record
 // sys_datalog state to list/get responses: `_datalog_state` is "pending"

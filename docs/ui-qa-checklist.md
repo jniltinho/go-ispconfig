@@ -86,8 +86,8 @@ Update after each QA batch. **Baseline** (task 1.3) only checks T4 + login for s
 
 | Screen | Route | List | Form | Status | Findings |
 |---|---|---|---|---|---|
-| Web domains list | `/sites` | L* | — | ⬜ | |
-| Web domain form | `/sites/domains/new\|:id` | — | F* | ⬜ | |
+| Web domains list | `/sites` | L* | — | ✅ | `_server_name` decorate+filter; active Yes/No normalize |
+| Web domain form | `/sites/domains/new\|:id` | — | F* | ✅ | server + parent selects via lookups |
 | Folders list | `/sites/folders` | L* | — | ⬜ | |
 | Folder form | `/sites/folders/new\|:id` | — | F* | ⬜ | |
 | Folder users list | `/sites/folders/:fid/users` | L* | — | ⬜ | |

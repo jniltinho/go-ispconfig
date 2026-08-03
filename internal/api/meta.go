@@ -2,11 +2,13 @@ package api
 
 import (
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/labstack/echo/v5"
 
 	"go-ispconfig/internal/auth"
+	"go-ispconfig/internal/model"
 	"go-ispconfig/internal/validator"
 )
 
@@ -66,8 +68,45 @@ var formTypes = map[string]string{
 
 // registerMetaRoutes mounts the form metadata endpoint on the
 // authenticated group.
-func registerMetaRoutes(g *echo.Group) {
+func registerMetaRoutes(g *echo.Group, d *Deps) {
 	g.GET("/meta/forms/:entity", formMetaHandler())
+	// Shared select datasources for forms whose SELECT options are not
+	// static in the entity definition (server list, …).
+	g.GET("/meta/lookups/servers", serversLookupHandler(d))
+}
+
+// serversLookupHandler returns active servers as {value,label} options for
+// SPA select overrides (server_id fields). Labels are hostnames, not i18n keys.
+//
+//	@Summary		Server select options
+//	@Description	Active rows from the server table as value/label pairs for form server_id selects.
+//	@Tags			meta
+//	@Produce		json
+//	@Success		200	{array}	Option
+//	@Failure		401	{object}	ErrorResponse
+//	@Router			/meta/lookups/servers [get]
+//	@Security		CookieAuth
+//	@Security		BearerAuth
+func serversLookupHandler(d *Deps) echo.HandlerFunc {
+	return func(c *echo.Context) error {
+		var rows []model.Server
+		err := d.DB.WithContext(c.Request().Context()).
+			Select("server_id", "server_name").
+			Where("active = ?", 1).
+			Order("server_id").
+			Find(&rows).Error
+		if err != nil {
+			return err
+		}
+		out := make([]Option, 0, len(rows))
+		for _, r := range rows {
+			out = append(out, Option{
+				Value: strconv.FormatUint(uint64(r.ServerID), 10),
+				Label: r.ServerName,
+			})
+		}
+		return c.JSON(http.StatusOK, out)
+	}
 }
 
 // formMetaHandler implements GET /api/meta/forms/{entity}. AdminOnly tabs

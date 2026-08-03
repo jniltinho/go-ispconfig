@@ -23,7 +23,7 @@ func TestFormMetaEndpoint(t *testing.T) {
 
 	e := echo.New()
 	e.HTTPErrorHandler = ErrorHandler()
-	registerMetaRoutes(e.Group("/api"))
+	registerMetaRoutes(e.Group("/api"), &Deps{})
 
 	t.Run("returns tabs, fields, defaults and validator hints", func(t *testing.T) {
 		rec := httptest.NewRecorder()

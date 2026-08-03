@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"reflect"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/labstack/echo/v5"
@@ -140,6 +141,67 @@ func (e *Entity) fields(yield func(*Field) bool) {
 // ListFilterFunc applies one extra list filter value to the query (see
 // Entity.ListFilters).
 type ListFilterFunc func(q *gorm.DB, value string) *gorm.DB
+
+// normalizeListFilterValue maps common SPA display inputs onto stored
+// column values for CHECKBOX (and exact SELECT option) list filters.
+// Users typing "Yes"/"No" against an Active column that shows Yes/No
+// would otherwise miss rows stored as y/n (or Y/N).
+func normalizeListFilterValue(f *Field, v string) string {
+	trimmed := strings.TrimSpace(v)
+	if trimmed == "" {
+		return v
+	}
+	switch f.Formtype {
+	case "CHECKBOX":
+		switch strings.ToLower(trimmed) {
+		case "yes", "true", "1", "y":
+			if opt := checkboxTruthyOption(f); opt != "" {
+				return opt
+			}
+		case "no", "false", "0", "n":
+			if opt := checkboxFalsyOption(f); opt != "" {
+				return opt
+			}
+		}
+	case "SELECT":
+		// Exact (case-insensitive) option value match → canonical value.
+		for _, o := range f.Options {
+			if strings.EqualFold(o.Value, trimmed) {
+				return o.Value
+			}
+		}
+	}
+	return v
+}
+
+// checkboxTruthyOption returns the stored "checked" value (y/Y/1), or the
+// last declared option when options exist.
+func checkboxTruthyOption(f *Field) string {
+	for _, o := range f.Options {
+		switch strings.ToLower(o.Value) {
+		case "y", "1", "true", "yes":
+			return o.Value
+		}
+	}
+	if n := len(f.Options); n > 0 {
+		return f.Options[n-1].Value
+	}
+	return "y"
+}
+
+// checkboxFalsyOption returns the stored "unchecked" value (n/N/0).
+func checkboxFalsyOption(f *Field) string {
+	for _, o := range f.Options {
+		switch strings.ToLower(o.Value) {
+		case "n", "0", "false", "no":
+			return o.Value
+		}
+	}
+	if len(f.Options) > 0 {
+		return f.Options[0].Value
+	}
+	return "n"
+}
 
 // LimitHook is consulted before every entity create (design D-limit): it// receives the entity name, the requesting identity and the request body
 // (read-only; needed for per-type limits like web_domain subtypes) and
@@ -280,6 +342,7 @@ func (h *entityHandlers[T]) list(c *echo.Context) error {
 	}
 	for f := range h.ent.fields {
 		if v := c.QueryParam(f.Name); v != "" {
+			v = normalizeListFilterValue(f, v)
 			q = q.Where(fmt.Sprintf("`%s` LIKE ?", f.Name), "%"+v+"%")
 		}
 	}

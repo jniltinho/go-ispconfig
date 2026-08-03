@@ -21,6 +21,7 @@ import ShellUserList from './views/sites/ShellUserList.vue'
 import FTPUserForm from './views/sites/FTPUserForm.vue'
 import FTPUserList from './views/sites/FTPUserList.vue'
 import EntityForm from './views/sites/EntityForm.vue'
+import WebDomainForm from './views/sites/WebDomainForm.vue'
 import MailList from './views/mail/MailList.vue'
 import DomainForm from './views/mail/DomainForm.vue'
 import ZoneList from './views/dns/ZoneList.vue'
@@ -351,19 +352,13 @@ export const router = createRouter({
         {
           path: 'sites/domains/new',
           name: 'sites-domain-new',
-          component: EntityForm,
-          props: { entity: 'web-domains', apiBase: '/api/sites/web-domains', backTo: '/sites' },
+          component: WebDomainForm,
         },
         {
           path: 'sites/domains/:id',
           name: 'sites-domain-edit',
-          component: EntityForm,
-          props: (route) => ({
-            entity: 'web-domains',
-            apiBase: '/api/sites/web-domains',
-            backTo: '/sites',
-            id: String(route.params.id),
-          }),
+          component: WebDomainForm,
+          props: (route) => ({ id: String(route.params.id) }),
         },
         { path: 'sites/folders', name: 'sites-folders', component: WebFolderList },
         {
