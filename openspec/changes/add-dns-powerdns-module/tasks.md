@@ -22,7 +22,7 @@
 - [x] 3.2 Wire rediscover/notify after active SOA insert/update; retrieve after active slave insert/update; rectify after active SOA/RR mutations; missing binary is non-fatal. Commit.
 - [x] 3.3 Register `powerdns` service; unit resolution `powerdns` else `pdns`; on restart rewrite `allow-axfr-ips` from active `dns_soa.xfer` ∪ `dns_slave.xfer` (always include 127.0.0.1) to `powerdns_axfr_conf`; tests for unique IP merge and localhost default. Commit.
 - [x] 3.4 Queue delayed `powerdns` restart from SOA/slave handlers (not pure RR); integration test dedup at end of run. Commit.
-- [ ] 3.5 Daemon bootstrap: when `server.dns_server=1` and `dns_backend=powerdns`, load PowerDNS plugin + service only; when bind/default, load Bind only; tests or daemon wiring table. Commit.
+- [x] 3.5 Daemon bootstrap: when `server.dns_server=1` and `dns_backend=powerdns`, load PowerDNS plugin + service only; when bind/default, load Bind only; tests or daemon wiring table. Commit.
 
 ## 4. DNSSEC (pdnsutil)
 

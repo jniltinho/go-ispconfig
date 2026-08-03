@@ -32,6 +32,7 @@ import (
 	"go-ispconfig/internal/mail"
 	"go-ispconfig/internal/monitor"
 	"go-ispconfig/internal/nginx"
+	"go-ispconfig/internal/powerdns"
 	"go-ispconfig/internal/queue"
 	"go-ispconfig/internal/shell"
 	"go-ispconfig/internal/web"
@@ -65,10 +66,17 @@ var daemonCmd = &cobra.Command{
 
 		// Services registry with the web-module guard: 'httpd' maps to the
 		// nginx unit behind an nginx -t check, 'bind' resolves its systemd
-		// unit (bind9/named) at runtime, php-fpm units pass through.
+		// unit (bind9/named) at runtime, 'powerdns' resolves powerdns/pdns
+		// and rewrites the AXFR allow-list on restart, php-fpm units pass
+		// through.
 		runner := engine.ExecRunner{}
+		pdnsExec := &powerdns.Executor{
+			Inner:    engine.SystemctlExecutor{},
+			PanelDB:  db,
+			ServerID: srv.ServerID,
+		}
 		services := engine.NewServices(web.GuardedExecutor{
-			Inner:  &dns.BindExecutor{Inner: engine.SystemctlExecutor{}},
+			Inner:  &dns.BindExecutor{Inner: pdnsExec},
 			Runner: runner,
 		}, logger)
 
@@ -101,12 +109,34 @@ var daemonCmd = &cobra.Command{
 				mail.NewRspamdPlugin(mailPlugin, cfg.Templates.CustomDir))
 			mail.RegisterServices(services)
 		}
+		// DNS module: bind or powerdns backend, never both (design D2 of
+		// add-dns-powerdns-module). dns_resign only exists on the bind path.
 		var dnsPlugin *dns.Plugin
+		dnsBackend := ""
 		if srv.DNSServer == 1 {
-			dnsPlugin = dns.NewPlugin(db, services, runner, cfg.Templates.CustomDir, srv.ServerID, logger)
+			if sc, err := getconf.GetServerConfig(db, srv.ServerID); err == nil {
+				dnsBackend = sc.DNS.DNSBackend
+				pdnsExec.AXFRPath = sc.DNS.PowerDNSAXFRConf
+			} else {
+				logger.Warn("daemon: could not load server dns config, defaulting to bind", "error", err)
+			}
+		}
+		wiring := dnsWiringFor(srv.DNSServer, dnsBackend)
+		if wiring.Module {
 			modules = append(modules, dns.NewModule())
+		}
+		if wiring.Bind {
+			dnsPlugin = dns.NewPlugin(db, services, runner, cfg.Templates.CustomDir, srv.ServerID, logger)
 			plugins = append(plugins, dnsPlugin)
 			dns.RegisterServices(services)
+		}
+		if wiring.PowerDNS {
+			pdnsDB, err := powerdns.Open(cfg.Database.DSN, cfg.PowerDNS.DSN)
+			if err != nil {
+				return err
+			}
+			plugins = append(plugins, powerdns.NewPlugin(db, pdnsDB, services, runner, srv.ServerID, logger))
+			powerdns.RegisterServices(services)
 		}
 		// Firewall module: only on firewall servers with the module
 		// enabled in config.toml (firewall-module-events / design D3:
@@ -239,6 +269,28 @@ var daemonCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(daemonCmd)
+}
+
+// dnsWiring is the DNS bootstrap matrix (tasks 3.5/4.4 of
+// add-dns-powerdns-module): which DNS components load for a server row and
+// its [dns] dns_backend value.
+type dnsWiring struct {
+	// Module loads the dns module (event source for both backends).
+	Module bool
+	// Bind loads the Bind plugin + bind service + dns_resign job.
+	Bind bool
+	// PowerDNS loads the PowerDNS plugin + powerdns service (no dns_resign).
+	PowerDNS bool
+}
+
+func dnsWiringFor(dnsServer int8, backend string) dnsWiring {
+	if dnsServer != 1 {
+		return dnsWiring{}
+	}
+	if getconf.NormalizeDNSBackend(backend) == getconf.DNSBackendPowerDNS {
+		return dnsWiring{Module: true, PowerDNS: true}
+	}
+	return dnsWiring{Module: true, Bind: true}
 }
 
 // firewallSSHPort reads server.config [server] ssh_port for the lock-out
