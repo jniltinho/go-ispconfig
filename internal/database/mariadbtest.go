@@ -29,8 +29,12 @@ func StartMariaDB(t *testing.T, suffix string) (dsnPrefix, container string) {
 	}
 	t.Cleanup(func() { _ = exec.Command("docker", "rm", "-f", name).Run() })
 
+	// Probe over TCP (-h 127.0.0.1), never the unix socket: the entrypoint's
+	// temporary init server runs --skip-networking and answers on the socket,
+	// so a socket probe returns a DSN for a server that is about to be shut
+	// down — the caller's first query then dies with "driver: bad connection".
 	for i := 0; i < 60; i++ {
-		if exec.Command("docker", "exec", name, "mariadb", "-uroot", "-proot", "-e", "SELECT 1").Run() == nil {
+		if exec.Command("docker", "exec", name, "mariadb", "-h", "127.0.0.1", "-uroot", "-proot", "-e", "SELECT 1").Run() == nil {
 			portOut, err := exec.Command("docker", "port", name, "3306/tcp").Output()
 			if err != nil {
 				t.Fatalf("docker port: %v", err)
