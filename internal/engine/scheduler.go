@@ -154,8 +154,12 @@ func (s *Scheduler) getConfig(ctx context.Context, name string) string {
 }
 
 // setConfig upserts one scheduler sys_config value (composite PK
-// group+name).
+// group+name). A nil db (schedulers built for job-function-only tests) is a
+// silent no-op rather than a panic.
 func (s *Scheduler) setConfig(ctx context.Context, name, value string) {
+	if s.db == nil {
+		return
+	}
 	err := s.db.WithContext(ctx).
 		Exec("REPLACE INTO sys_config (`group`, `name`, `value`) VALUES (?, ?, ?)",
 			schedulerConfigGroup, name, value).Error
