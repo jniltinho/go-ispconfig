@@ -26,7 +26,7 @@ async function submit() {
 </script>
 
 <template>
-  <div class="flex min-h-full items-center justify-center bg-bg px-4">
+  <div class="flex min-h-full items-start justify-center bg-bg px-4 pt-[15vh]">
     <div class="w-full max-w-sm border border-border bg-surface shadow-sm">
       <div class="border-b border-border bg-info px-4 py-3">
         <span class="text-base font-bold text-brand">{{ t('app.title') }}</span>
