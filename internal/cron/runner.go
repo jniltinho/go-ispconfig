@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"maps"
 	"strings"
 	"sync"
 
@@ -74,13 +75,47 @@ func ComposeExpression(runMin, runHour, runMday, runMonth, runWday string) strin
 		strings.ReplaceAll(runHour, " ", ""),
 		strings.ReplaceAll(runMday, " ", ""),
 		month,
-		strings.ReplaceAll(runWday, " ", ""),
+		normalizeWday(strings.ReplaceAll(runWday, " ", "")),
 	}, " ")
 }
 
+// normalizeWday maps vixie's day 7 (Sunday) onto robfig's 0-6 weekday range.
+// The ISPConfig validator accepts 7 (validate_cron.inc.php:137), but
+// robfig/cron rejects it outright ("above maximum (6)"), so such a job would
+// be accepted by the API and then silently never run.
+func normalizeWday(field string) string {
+	if !strings.Contains(field, "7") {
+		return field
+	}
+	var (
+		out    []string
+		sunday bool
+	)
+	for token := range strings.SplitSeq(field, ",") {
+		expr, step, hasStep := strings.Cut(token, "/")
+		lo, hi, isRange := strings.Cut(expr, "-")
+		switch {
+		case isRange && hi == "7":
+			// x-7 covers Sunday; robfig needs it as a separate 0 term.
+			sunday = true
+			expr = lo + "-6"
+		case !isRange && expr == "7":
+			// A bare value is a single day; any step is a no-op on it.
+			expr, hasStep = "0", false
+		}
+		if hasStep {
+			expr += "/" + step
+		}
+		out = append(out, expr)
+	}
+	if sunday {
+		out = append(out, "0")
+	}
+	return strings.Join(out, ",")
+}
+
 // Add registers a job. If an entry with the same ID already exists it is
-// replaced. For @reboot schedules the job is stored for run-once-on-start
-// (and run immediately if the runner has already Started).
+// replaced. For @reboot schedules the job is stored for run-once-on-start.
 func (r *ClientJobRunner) Add(job Job) error {
 	if job.ID == 0 {
 		return fmt.Errorf("cron: job id is required")
@@ -95,10 +130,10 @@ func (r *ClientJobRunner) Add(job Job) error {
 	r.removeLocked(job.ID)
 
 	if expr == "@reboot" {
+		// Registered only; @reboot fires on the next Start (daemon start),
+		// never on the datalog event that registered it. PHP just writes the
+		// crontab line, so re-saving a job must not execute it.
 		r.reboot[job.ID] = job.Run
-		if r.started {
-			go r.safeRun(job.ID, job.Run)
-		}
 		return nil
 	}
 
@@ -166,10 +201,7 @@ func (r *ClientJobRunner) Start() {
 	r.started = true
 	r.c.Start()
 	// Snapshot reboot funcs under the lock, then run outside.
-	reboot := make(map[uint32]JobFunc, len(r.reboot))
-	for id, fn := range r.reboot {
-		reboot[id] = fn
-	}
+	reboot := maps.Clone(r.reboot)
 	r.mu.Unlock()
 
 	for id, fn := range reboot {

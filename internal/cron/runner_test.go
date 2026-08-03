@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	robfig "github.com/robfig/cron/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -180,4 +181,29 @@ func TestClientJobRunnerReplaceRebootWithRecurring(t *testing.T) {
 	}))
 	assert.True(t, r.Has(3))
 	assert.Equal(t, 1, r.Len())
+}
+
+// TestNormalizeWday covers the vixie day-7 → robfig 0-6 mapping: every
+// composed expression must be accepted by the parser that actually schedules.
+func TestNormalizeWday(t *testing.T) {
+	tests := []struct{ in, want string }{
+		{"*", "*"},
+		{"1", "1"},
+		{"7", "0"},
+		{"1,7", "1,0"},
+		{"0-7", "0-6,0"},
+		{"6-7", "6-6,0"},
+		{"1-7/2", "1-6/2,0"},
+		{"*/7", "*/7"},
+		{"7/2", "0"},
+	}
+	for _, test := range tests {
+		if got := normalizeWday(test.in); got != test.want {
+			t.Errorf("normalizeWday(%q) = %q, want %q", test.in, got, test.want)
+		}
+		expr := ComposeExpression("0", "0", "*", "*", test.in)
+		if _, err := robfig.ParseStandard(expr); err != nil {
+			t.Errorf("ParseStandard(%q) from run_wday=%q: %v", expr, test.in, err)
+		}
+	}
 }

@@ -8,7 +8,7 @@ import (
 )
 
 var (
-	urlScheme    = regexp.MustCompile(`^\w+://`)
+	urlScheme = regexp.MustCompile(`^\w+://`)
 	// PHP applies the 'i' modifier to the whole pattern; an uppercase host
 	// must validate the same as a lowercase one.
 	cronHostname = regexp.MustCompile(`(?i)^([a-z0-9][a-z0-9-]{0,62}\.)+([a-z0-9-]{2,63})$`)
