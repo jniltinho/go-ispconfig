@@ -151,6 +151,32 @@ onMounted(async () => {
       </li>
     </ul>
 
+    <!-- Legacy leftcol dashlet order: modules, metrics, then the quotas. -->
+    <h2 class="page-title">{{ t('dashboard.available_modules') }}</h2>
+
+    <ul class="mb-4 grid grid-cols-2 gap-4 md:grid-cols-4">
+      <li
+        v-for="mod in dashlets"
+        :key="mod.id"
+        class="flex flex-col gap-3 border border-border bg-dashlet p-4"
+        :data-test="`dashlet-${mod.id}`"
+      >
+        <!-- Legacy dashlet head: icon left, title right on one row. -->
+        <div class="flex items-center gap-3">
+          <component
+            :is="moduleIcons[mod.id] ?? CircleHelp"
+            :size="38"
+            :stroke-width="1.25"
+            class="shrink-0 text-text"
+          />
+          <span class="flex-1 text-center text-base font-bold">{{ t(`module.${mod.id}`) }}</span>
+        </div>
+        <RouterLink :to="mod.path" class="btn btn-default w-full no-underline">
+          {{ t('dashboard.open_module', { module: t(`module.${mod.id}`) }) }}
+        </RouterLink>
+      </li>
+    </ul>
+
     <template v-if="metrics.length">
       <h2 class="page-title">{{ t('dashboard.metrics') }}</h2>
       <div
@@ -199,30 +225,5 @@ onMounted(async () => {
         <QuotaBlock v-if="dbQuota.length" :title="t('dashboard.quota.database')" :rows="dbQuota" />
       </div>
     </template>
-
-    <h2 class="page-title">{{ t('dashboard.available_modules') }}</h2>
-
-    <ul class="grid grid-cols-2 gap-4 md:grid-cols-4">
-      <li
-        v-for="mod in dashlets"
-        :key="mod.id"
-        class="flex flex-col gap-3 border border-border bg-dashlet p-4"
-        :data-test="`dashlet-${mod.id}`"
-      >
-        <!-- Legacy dashlet head: icon left, title right on one row. -->
-        <div class="flex items-center gap-3">
-          <component
-            :is="moduleIcons[mod.id] ?? CircleHelp"
-            :size="38"
-            :stroke-width="1.25"
-            class="shrink-0 text-text"
-          />
-          <span class="flex-1 text-center text-base font-bold">{{ t(`module.${mod.id}`) }}</span>
-        </div>
-        <RouterLink :to="mod.path" class="btn btn-default w-full no-underline">
-          {{ t('dashboard.open_module', { module: t(`module.${mod.id}`) }) }}
-        </RouterLink>
-      </li>
-    </ul>
   </div>
 </template>
