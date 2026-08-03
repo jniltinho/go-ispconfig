@@ -126,6 +126,19 @@ var daemonCmd = &cobra.Command{
 			return err
 		}
 		if cronPlugin != nil {
+			// Legacy cutover (design D7): strip PHP ispc_* crontabs first so
+			// jobs never run both under vixie-cron and in-process.
+			crontabDir := cron.DefaultCrontabDir
+			if sc, err := getconf.GetServerConfig(db, srv.ServerID); err == nil {
+				crontabDir = cron.CrontabDir(sc)
+			} else {
+				logger.Warn("cron: could not load server config for crontab_dir", "error", err)
+			}
+			if removed, err := cron.RemoveLegacyCrontabs(crontabDir, logger); err != nil {
+				logger.Error("cron: legacy cutover failed", "error", err, "dir", crontabDir)
+			} else if len(removed) > 0 {
+				logger.Info("cron: legacy cutover complete", "removed", len(removed), "dir", crontabDir)
+			}
 			if n, err := cron.LoadActiveJobs(context.Background(), db, srv.ServerID, cronPlugin.Runner(), cronPlugin.JobFactory()); err != nil {
 				logger.Error("cron: loading active jobs failed", "error", err)
 			} else {
