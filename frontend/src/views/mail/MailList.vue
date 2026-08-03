@@ -31,6 +31,7 @@ const total = ref(0)
 const page = ref(1)
 const pageSize = 25
 const filters = ref<Record<string, string>>({})
+const order = ref('')
 const error = ref('')
 const loading = ref(false)
 
@@ -38,7 +39,10 @@ async function load(p?: number) {
   error.value = ''
   loading.value = true
   try {
-    const res: ListResponse = await store.fetchList(props.apiBase, p ?? page.value, pageSize, filters.value)
+    const res: ListResponse = await store.fetchList(props.apiBase, p ?? page.value, pageSize, {
+      ...filters.value,
+      ...(order.value ? { order: order.value } : {}),
+    })
     rows.value = res.items
     total.value = res.total
     page.value = res.page
@@ -53,6 +57,11 @@ onMounted(() => load(1))
 
 function onFilter(f: Record<string, string>) {
   filters.value = f
+  load(1)
+}
+
+function onSort(o: string) {
+  order.value = o
   load(1)
 }
 
@@ -96,9 +105,11 @@ const activeOn = props.activeValue ?? 'y'
       :page-size="pageSize"
       :loading="loading"
       has-actions
+      sortable
       @update:page="load($event)"
       @filter="onFilter"
       @row-click="open"
+      @sort="onSort"
     >
       <template #cell-active="{ value }">
         {{ value === activeOn ? t('yes_txt') : t('no_txt') }}

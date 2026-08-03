@@ -524,6 +524,37 @@ export const router = createRouter({
         },
         { path: 'system', name: 'system', component: ModulePlaceholder },
         {
+          path: 'system/server-ips',
+          name: 'system-server-ips',
+          component: MailList,
+          meta: { adminOnly: true },
+          props: {
+            apiBase: '/api/server_ip', idField: 'server_ip_id', formBase: '/system/server-ips',
+            columns: [
+              { key: '_server_name', label: 'serverip.col.server' },
+              { key: 'ip_type', label: 'serverip.col.type' },
+              { key: 'ip_address', label: 'serverip.col.ip_address' },
+              { key: 'virtualhost', label: 'serverip.col.virtualhost' },
+              { key: 'virtualhost_port', label: 'serverip.col.ports' },
+            ],
+            titleKey: 'serverip.list_title', addKey: 'serverip.add_ip',
+          },
+        },
+        {
+          path: 'system/server-ips/new',
+          name: 'system-server-ip-new',
+          component: EntityForm,
+          meta: { adminOnly: true },
+          props: { entity: 'server_ip', apiBase: '/api/server_ip', backTo: '/system/server-ips' },
+        },
+        {
+          path: 'system/server-ips/:id(\\d+)',
+          name: 'system-server-ip-edit',
+          component: EntityForm,
+          meta: { adminOnly: true },
+          props: (route) => ({ entity: 'server_ip', apiBase: '/api/server_ip', backTo: '/system/server-ips', id: String(route.params.id) }),
+        },
+        {
           path: 'system/firewall',
           name: 'system-firewall',
           component: MailList,

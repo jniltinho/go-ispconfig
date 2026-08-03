@@ -356,8 +356,25 @@ func (h *entityHandlers[T]) list(c *echo.Context) error {
 	if err := q.Count(&total).Error; err != nil {
 		return err
 	}
+	// ?order=<field>[.desc] sorts by any declared field (identifier is
+	// validated against the entity definition, never raw request input);
+	// the PK tail keeps pagination stable across equal values.
+	order := "`" + h.ent.PK + "`"
+	if o := c.QueryParam("order"); o != "" {
+		field := strings.TrimSuffix(o, ".desc")
+		for f := range h.ent.fields {
+			if f.Name == field {
+				order = "`" + field + "`"
+				if field != o {
+					order += " DESC"
+				}
+				order += ", `" + h.ent.PK + "`"
+				break
+			}
+		}
+	}
 	var recs []T
-	if err := q.Order("`" + h.ent.PK + "`").
+	if err := q.Order(order).
 		Offset((page - 1) * limit).Limit(limit).Find(&recs).Error; err != nil {
 		return err
 	}

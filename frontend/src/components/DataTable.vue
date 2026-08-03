@@ -2,7 +2,7 @@
 // ISPConfig-style list view: dark thead with a second row of inline column
 // filters, zebra striping, hover highlight, right-aligned actions column and
 // server-side pagination driven by props/events.
-import { computed, reactive } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { utilityIcons } from '../icons'
 import { useI18n } from '../i18n'
 
@@ -10,6 +10,8 @@ export interface Column {
   key: string
   label: string
   filterable?: boolean
+  /** sortable=false opts a column out of header sorting. */
+  sortable?: boolean
 }
 
 export type Row = Record<string, unknown>
@@ -23,13 +25,29 @@ const props = defineProps<{
   hasActions?: boolean
   /** loading renders skeleton rows instead of data (D7). */
   loading?: boolean
+  /** sortable enables header-click sorting (emits 'sort' with field[.desc]). */
+  sortable?: boolean
 }>()
 
 const emit = defineEmits<{
   (e: 'update:page', page: number): void
   (e: 'filter', filters: Record<string, string>): void
   (e: 'row-click', row: Row): void
+  (e: 'sort', order: string): void
 }>()
+
+// Header sort state: asc → desc → off, server-side via the 'sort' event.
+const sort = ref<{ key: string; desc: boolean } | null>(null)
+function toggleSort(col: Column) {
+  if (!props.sortable || col.sortable === false || col.key.startsWith('_')) return
+  sort.value =
+    sort.value?.key !== col.key
+      ? { key: col.key, desc: false }
+      : sort.value.desc
+        ? null
+        : { key: col.key, desc: true }
+  emit('sort', sort.value ? `${sort.value.key}${sort.value.desc ? '.desc' : ''}` : '')
+}
 
 const { t } = useI18n()
 const filters = reactive<Record<string, string>>({})
@@ -64,10 +82,25 @@ function goTo(page: number) {
             v-for="col in columns"
             :key="col.key"
             class="px-3 py-2.5 text-left text-xs font-bold uppercase"
+            :aria-sort="
+              sort?.key === col.key ? (sort.desc ? 'descending' : 'ascending') : undefined
+            "
           >
             <!-- t() passes unknown keys through, so labels may be plain
-                 strings or i18n keys (router-driven lists use keys). -->
-            {{ t(col.label) }}
+                 strings or i18n keys (router-driven lists use keys).
+                 Decorated columns (_prefix) are not DB fields → not sortable. -->
+            <button
+              v-if="sortable && col.sortable !== false && !col.key.startsWith('_')"
+              type="button"
+              class="cursor-pointer text-xs font-bold uppercase text-white"
+              @click="toggleSort(col)"
+            >
+              {{ t(col.label) }}
+              <span aria-hidden="true">{{
+                sort?.key === col.key ? (sort.desc ? '▼' : '▲') : ''
+              }}</span>
+            </button>
+            <template v-else>{{ t(col.label) }}</template>
           </th>
           <th class="px-3 py-2.5 text-right text-xs font-bold uppercase">
             <template v-if="hasActions">{{ t('table.actions') }}</template>
