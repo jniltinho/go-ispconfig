@@ -33,6 +33,15 @@ const props = defineProps<{
    */
   optionOverrides?: Record<string, { value: string; label: string }[]>
   /**
+   * resolveSelectOptions supplies select options that depend on the current
+   * form values (e.g. server IPs filtered by server_id). Runs after static
+   * optionOverrides.
+   */
+  resolveSelectOptions?: (
+    fieldName: string,
+    values: Record<string, unknown>,
+  ) => { value: string; label: string }[] | undefined
+  /**
    * validate runs client-side before the save call and, when it returns
    * field errors, blocks the request (mirrors the API rules for instant
    * feedback; the API stays the authority).
@@ -70,6 +79,18 @@ const datalogError = ref('')
 const saving = ref(false)
 /** Merged option overrides: parent props + auto-loaded server_id lookup. */
 const resolvedOverrides = ref<Record<string, { value: string; label: string }[]>>({})
+/** Live form values for dynamic select resolution. */
+const liveValues = ref<Record<string, unknown>>({})
+
+function refreshMetadata() {
+  if (!serverMeta.value) return
+  metadata.value = toFormMetadata(serverMeta.value, liveValues.value)
+}
+
+function onValuesChange(values: Record<string, unknown>) {
+  liveValues.value = values
+  if (props.resolveSelectOptions) refreshMetadata()
+}
 
 /** truthyOption returns the checkbox value meaning "checked" ('y', '1', …). */
 function truthyOption(field: ServerField): string {
@@ -83,7 +104,7 @@ function falsyOption(field: ServerField): string {
 
 // toFormMetadata translates labels/options through i18n and converts
 // defaults to the client control types (checkbox booleans, string values).
-function toFormMetadata(meta: ServerMeta): FormMetadata {
+function toFormMetadata(meta: ServerMeta, values: Record<string, unknown> = {}): FormMetadata {
   return {
     tabs: meta.tabs.map((tab) => ({
       name: tab.name,
@@ -92,7 +113,8 @@ function toFormMetadata(meta: ServerMeta): FormMetadata {
       fields: tab.fields
         .filter((field) => field.label !== '')
         .map((field) => {
-        const override = resolvedOverrides.value[field.name]
+        const dynamic = props.resolveSelectOptions?.(field.name, values)
+        const override = dynamic ?? resolvedOverrides.value[field.name]
         return {
         name: field.name,
         // SELECTs whose options come from a server datasource (not ported
@@ -199,7 +221,8 @@ onMounted(async () => {
     serverMeta.value = meta
     title.value = t(meta.title)
     initial.value = toFormValues(meta, { ...record, ...(props.id ? {} : (props.fixed ?? {})) })
-    metadata.value = toFormMetadata(meta)
+    liveValues.value = { ...initial.value }
+    metadata.value = toFormMetadata(meta, liveValues.value)
   } catch (e) {
     loadError.value = e instanceof ApiError ? e.key : 'error.request_failed'
   }
@@ -240,7 +263,7 @@ async function save(values: Record<string, unknown>) {
 </script>
 
 <template>
-  <div>
+  <div class="w-full">
     <h1 v-if="!embedded" class="mb-3 text-lg font-bold">{{ title }}</h1>
 
     <p
@@ -266,6 +289,7 @@ async function save(values: Record<string, unknown>) {
       :model-value="initial"
       :errors="errors"
       :saving="saving"
+      @values-change="onValuesChange"
       @save="save"
       @cancel="router.push(backTo)"
     />

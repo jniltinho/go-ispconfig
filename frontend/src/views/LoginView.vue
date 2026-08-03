@@ -28,7 +28,8 @@ async function submit() {
 <template>
   <div class="flex min-h-full items-start justify-center bg-bg px-4 pt-[15vh]">
     <div class="w-full max-w-sm border border-border bg-surface shadow-sm">
-      <div class="border-b border-border bg-info px-4 py-3">
+      <div class="flex items-center gap-3 border-b border-border bg-info px-4 py-3">
+        <img src="/logo.svg" alt="" width="32" height="32" class="shrink-0" />
         <span class="text-base font-bold text-brand">{{ t('app.title') }}</span>
       </div>
       <form class="space-y-4 p-6" @submit.prevent="submit">
