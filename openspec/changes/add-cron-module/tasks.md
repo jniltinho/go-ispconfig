@@ -2,7 +2,7 @@
 
 ## 1. Models and validators
 
-- [ ] 1.1 Add GORM model for the `cron` table with explicit `gorm:"column:…"` tags matching the ISPConfig3 schema (`id`, `sys_userid`, `sys_groupid`, `sys_perm_user`, `sys_perm_group`, `sys_perm_other`, `server_id`, `parent_domain_id`, `type` enum url/chrooted/full, `command`, `run_min`, `run_hour`, `run_mday`, `run_month`, `run_wday`, `log`, `active`); unit-test round-trip against MariaDB. Commit.
+- [x] 1.1 Add GORM model for the `cron` table with explicit `gorm:"column:…"` tags matching the ISPConfig3 schema (`id`, `sys_userid`, `sys_groupid`, `sys_perm_user`, `sys_perm_group`, `sys_perm_other`, `server_id`, `parent_domain_id`, `type` enum url/chrooted/full, `command`, `run_min`, `run_hour`, `run_mday`, `run_month`, `run_wday`, `log`, `active`); unit-test round-trip against MariaDB. Commit.
 - [ ] 1.2 Port `validate_cron.inc.php` schedule validators to Go: `run_time_format` for min/hour/mday/wday (charset, ranges, step/range syntax), `run_month_format` (same plus `@reboot`), and `MinFrequencyMinutes` computing `cron_min_freq` from the five fields; table-driven unit tests covering valid/invalid tokens and frequency edge cases (wrap-around, single value, `*/n`). Commit.
 - [ ] 1.3 Port `command_format`: reject CR/LF/NUL; for URL commands require `http`/`https`, hostname-shaped host after `{DOMAIN}` expansion, and no backslash; unit tests. Commit.
 - [ ] 1.4 Add type auto-derivation helper (port of `cron_edit.php::onSubmit`): URL regex → `url`; else owner `limit_cron_type` → `full` or `chrooted`; admin-owned site → `full`; unit tests. Commit.
