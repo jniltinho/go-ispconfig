@@ -124,6 +124,24 @@ nginx/bind configs are validated (`nginx -t`, `named-checkconf`) before any
 reload; on validation failure the original file is restored and the step
 fails loudly.
 
+## Deferred installer capabilities (other modules)
+
+The following configure steps are **not** part of the current
+`go-ispconfig install` pipeline. They are tracked as **Modified
+Capabilities of `add-installer-cli`** and will land when those modules
+are co-scheduled with an installer update:
+
+| Capability | Owning module | Notes |
+|------------|---------------|-------|
+| `configure_pureftpd` + `pureftpd_mysql.conf.master` | [`add-ftp-shell-module`](ftp-shell-module.md) | PureFTPd MySQL auth against `ftp_user`; plugins/UI already ship, packages + conf still manual until installer lands |
+| `configure_jailkit` | [`add-ftp-shell-module`](ftp-shell-module.md) | jailkit package + base chroot sections; daemon plugins already use server `[jailkit]` getconf |
+| `configure_ufw` / firewall package defaults | `add-firewall-module` | UFW apply already in the daemon; package install is installer scope |
+
+Until those steps ship, operators who need FTP/jailkit on a fresh host
+must install `pure-ftpd-mysql` / `jailkit` and drop the MySQL auth conf
+themselves (see [ftp-shell-module.md](ftp-shell-module.md)). Cross-link:
+[ROADMAP.md](ROADMAP.md).
+
 ## Testing the installer (developers)
 
 A real-VM Vagrant rig proves the whole cycle end to end — see

@@ -48,7 +48,7 @@ Reference PHP sources: `install/install.php`, `install/lib/installer_base.lib.ph
 
 ## Non-goals
 
-- Mail stack (postfix/dovecot/rspamd), FTP, jailkit, firewall, monitoring — not installed or configured. Note: PureFTPd/jailkit (from `add-ftp-shell-module`) and UFW (from `add-firewall-module`) installer steps will arrive as a **Modified Capability** of this installer (`installer-cli`) when those changes are scheduled — they are out of scope here, not contradicted.
+- Mail stack (postfix/dovecot/rspamd), FTP, jailkit, firewall, monitoring — not installed or configured. Note: PureFTPd/jailkit (from `add-ftp-shell-module`, now implemented for plugins/API/UI — see `docs/ftp-shell-module.md`) and UFW (from `add-firewall-module`) installer steps (`configure_pureftpd`, `configure_jailkit`, `pureftpd_mysql.conf.master`) remain a **Modified Capability** of this installer (`installer-cli`) — still out of scope for the archived installer change; tracked in `docs/install.md` and `docs/ROADMAP.md`.
 - Multi-server / expert mode (master/slave DB grants, `grant_master_database_rights`) — single server only.
 - CentOS/RHEL/Fedora/openSUSE/Gentoo support; Apache2 support; PowerDNS.
 - Migration of an existing PHP ISPConfig3 host in place (covered by `add-legacy-migration`); the installer targets clean hosts and aborts if it detects an existing ISPConfig3 PHP install.
