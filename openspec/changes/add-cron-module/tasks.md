@@ -30,7 +30,7 @@
 - [x] 4.2 Wire schedule and command validators into create/update; type auto-derivation before store; handler/unit tests for validation failures (no datalog row). Commit.
 - [x] 4.3 Enforce non-admin client limits: `limit_cron` count, `limit_cron_type`, `limit_cron_frequency` via `MinFrequencyMinutes`; admin bypass; tests per limit class. Commit.
 - [x] 4.4 Add `GET /api/sites/crons/:id/runs` paginated history from `sys_log` filtered by the `cron_run id=<id>` convention, gated on read permission for the cron row; tests. Commit.
-- [ ] 4.5 Swaggo annotations for all cron endpoints; `make swagger`; verify Swagger UI lists them; CI staleness check green. Commit.
+- [x] 4.5 Swaggo annotations for all cron endpoints; `make swagger`; verify Swagger UI lists them; CI staleness check green. Commit.
 
 ## 5. Panel UI (Vue)
 
