@@ -198,9 +198,21 @@ func resolveRule(entity string, body map[string]any) (limitRule, bool) {
 			limit: func(c *model.Client) int32 { return c.LimitDatabaseUser },
 			count: countByGroup("web_database_user", ""),
 		}, true
+	case "ftp-users":
+		return limitRule{
+			key:   "error.limit_ftp_user",
+			limit: func(c *model.Client) int32 { return c.LimitFTPUser },
+			count: countByGroup("ftp_user", ""),
+		}, true
+	case "shell-users":
+		return limitRule{
+			key:   "error.limit_shell_user",
+			limit: func(c *model.Client) int32 { return c.LimitShellUser },
+			count: countByGroup("shell_user", ""),
+		}, true
 	default:
-		// Reserved for future modules (ftp/shell/cron): unknown
-		// entities are never vetoed.
+		// Reserved for future modules (cron, …): unknown entities are
+		// never vetoed.
 		return limitRule{}, false
 	}
 }

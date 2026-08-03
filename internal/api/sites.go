@@ -42,6 +42,10 @@ func registerSitesEntities(g *echo.Group, d *Deps) error {
 		return err
 	}
 	return registerSitesCronEntity(g, d)
+	if err := registerSitesFTPShellEntities(g, d); err != nil {
+		return err
+	}
+	return registerSitesDatabaseEntities(g, d)
 }
 
 // --- field helpers (trim the tform port boilerplate) ---
