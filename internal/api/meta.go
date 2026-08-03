@@ -82,7 +82,7 @@ func registerMetaRoutes(g *echo.Group, d *Deps) {
 //	@Description	Active rows from the server table as value/label pairs for form server_id selects.
 //	@Tags			meta
 //	@Produce		json
-//	@Success		200	{array}	Option
+//	@Success		200	{array}		Option
 //	@Failure		401	{object}	ErrorResponse
 //	@Router			/meta/lookups/servers [get]
 //	@Security		CookieAuth
