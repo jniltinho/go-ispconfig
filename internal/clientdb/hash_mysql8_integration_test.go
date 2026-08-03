@@ -26,9 +26,14 @@ func TestHashesAcceptedByMySQL8(t *testing.T) {
 	require.NoError(t, err, string(out))
 	t.Cleanup(func() { _ = exec.Command("docker", "rm", "-f", name).Run() })
 
+	// The official mysql image starts a throwaway server (socket-only) to run
+	// bootstrap/init, shuts it down, then starts the real server. A readiness
+	// probe can catch that first server and pass right before it exits, so
+	// wait for the "ready for connections" log line to appear twice instead.
 	ready := false
 	for range 90 {
-		if exec.Command("docker", "exec", name, "mysql", "-uroot", "-proot", "-e", "SELECT 1").Run() == nil {
+		out, _ := exec.Command("docker", "logs", name).CombinedOutput()
+		if strings.Count(string(out), "mysqld: ready for connections") >= 2 {
 			ready = true
 			break
 		}
