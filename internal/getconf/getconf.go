@@ -222,6 +222,27 @@ func DefaultMailConfig() MailConfig {
 	}
 }
 
+// GetmailConfig is the typed [getmail] section of server.config
+// (add-getmail-module design D6). Only getmail_config_dir exists in
+// ISPConfig (server_config.tform.php Getmail tab); program and user are
+// PHP install-time constants promoted to config so a distro variant
+// needs no code change.
+type GetmailConfig struct {
+	ConfigDir string `ini:"getmail_config_dir"`
+	Program   string `ini:"getmail_program"`
+	User      string `ini:"getmail_user"`
+}
+
+// DefaultGetmailConfig returns the Debian/Ubuntu defaults of the
+// [getmail] section.
+func DefaultGetmailConfig() GetmailConfig {
+	return GetmailConfig{
+		ConfigDir: "/etc/getmail",
+		Program:   "/usr/bin/getmail",
+		User:      "getmail",
+	}
+}
+
 // JailkitConfig is the typed [jailkit] section of server.config, consumed
 // by the jailkit plugin of add-ftp-shell-module. Key names and defaults
 // follow server.ini.master; jailkit_chroot_home keeps the [username]
@@ -258,6 +279,7 @@ type ServerConfig struct {
 	Web     WebConfig
 	DNS     DNSConfig
 	Mail    MailConfig
+	Getmail GetmailConfig
 	Jailkit JailkitConfig
 	Raw     Sections
 }
@@ -283,11 +305,13 @@ func GetServerConfig(db *gorm.DB, serverID uint32) (*ServerConfig, error) {
 		Raw:     raw,
 		DNS:     DefaultDNSConfig(),
 		Mail:    DefaultMailConfig(),
+		Getmail: DefaultGetmailConfig(),
 		Jailkit: DefaultJailkitConfig(),
 	}
 	decodeSection(raw["web"], &cfg.Web)
 	decodeSection(raw["dns"], &cfg.DNS)
 	decodeSection(raw["mail"], &cfg.Mail)
+	decodeSection(raw["getmail"], &cfg.Getmail)
 	decodeSection(raw["jailkit"], &cfg.Jailkit)
 	// Empty dns_backend (or garbage) must not leave the daemon without a
 	// known applying plugin — normalize after decode.

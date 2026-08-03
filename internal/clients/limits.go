@@ -172,6 +172,12 @@ func resolveRule(entity string, body map[string]any) (limitRule, bool) {
 			limit: func(c *model.Client) int32 { return c.LimitMailforward },
 			count: countByGroup("mail_forwarding", "type = ?", "forward"),
 		}, true
+	case "fetchmail":
+		return limitRule{
+			key:   "error.limit_fetchmail",
+			limit: func(c *model.Client) int32 { return c.LimitFetchmail },
+			count: countByGroup("mail_get", ""),
+		}, true
 	case "catchalls":
 		return limitRule{
 			key:   "error.limit_mailcatchall",

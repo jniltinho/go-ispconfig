@@ -144,6 +144,34 @@ export const router = createRouter({
           props: (route) => ({ entity: 'forwards', apiBase: '/api/mail/forwards', backTo: '/mail/forwards', id: String(route.params.id) }),
         },
         {
+          path: 'mail/fetchmail',
+          name: 'mail-fetchmail',
+          component: MailList,
+          props: {
+            apiBase: '/api/mail/fetchmail', idField: 'mailget_id', formBase: '/mail/fetchmail',
+            columns: [
+              { key: 'active', label: 'mail.col.active' },
+              { key: 'type', label: 'mail.col.type' },
+              { key: 'source_server', label: 'mail.col.source_server' },
+              { key: 'source_username', label: 'mail.col.source_username' },
+              { key: 'destination', label: 'mail.col.destination' },
+            ],
+            titleKey: 'mail.fetchmail_title', addKey: 'mail.add_fetchmail',
+          },
+        },
+        {
+          path: 'mail/fetchmail/new',
+          name: 'mail-fetchmail-new',
+          component: EntityForm,
+          props: { entity: 'fetchmail', apiBase: '/api/mail/fetchmail', backTo: '/mail/fetchmail' },
+        },
+        {
+          path: 'mail/fetchmail/:id(\\d+)',
+          name: 'mail-fetchmail-edit',
+          component: EntityForm,
+          props: (route) => ({ entity: 'fetchmail', apiBase: '/api/mail/fetchmail', backTo: '/mail/fetchmail', id: String(route.params.id) }),
+        },
+        {
           path: 'mail/catchalls',
           name: 'mail-catchalls',
           component: MailList,
