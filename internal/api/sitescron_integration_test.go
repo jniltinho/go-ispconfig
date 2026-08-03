@@ -139,6 +139,136 @@ func TestSitesCronAPI(t *testing.T) {
 	})
 }
 
+// TestSitesCronValidationFailures covers task 4.2: invalid schedule/command
+// rejected with 422 and no datalog row; URL forces type=url; @reboot only in
+// run_month; admin non-URL derives type=full.
+func TestSitesCronValidationFailures(t *testing.T) {
+	env := newSitesTestEnv(t, "sitescronval")
+	db, srv := env.db, env.srv
+
+	domainID := env.createDomain(t, env.adminCookie, env.adminCSRF, map[string]any{
+		"server_id": 1, "domain": "cron-val.example.com", "type": "vhost",
+		"ip_address": "*", "active": "y", "hd_quota": -1, "traffic_quota": -1,
+	})
+
+	datalogCount := func(t *testing.T) int64 {
+		t.Helper()
+		var n int64
+		require.NoError(t, db.Model(&model.SysDatalog{}).Where("dbtable = 'cron'").Count(&n).Error)
+		return n
+	}
+
+	t.Run("invalid run_min rejected without datalog", func(t *testing.T) {
+		before := datalogCount(t)
+		status, data := call(t, srv, http.MethodPost, "/api/sites/crons", env.adminCookie, env.adminCSRF,
+			map[string]any{
+				"parent_domain_id": domainID,
+				"command":          "https://cron-val.example.com/job",
+				"run_min":          "60", "run_hour": "*", "run_mday": "*", "run_month": "*", "run_wday": "*",
+				"active": "y",
+			})
+		require.Equal(t, http.StatusUnprocessableEntity, status, "%s", data)
+		assert.Contains(t, string(data), "run_min_error_format")
+		assert.Equal(t, before, datalogCount(t), "no datalog on validation failure")
+	})
+
+	t.Run("@reboot rejected in run_min", func(t *testing.T) {
+		before := datalogCount(t)
+		status, data := call(t, srv, http.MethodPost, "/api/sites/crons", env.adminCookie, env.adminCSRF,
+			map[string]any{
+				"parent_domain_id": domainID,
+				"command":          "https://cron-val.example.com/job",
+				"run_min":          "@reboot", "run_hour": "*", "run_mday": "*", "run_month": "*", "run_wday": "*",
+				"active": "y",
+			})
+		require.Equal(t, http.StatusUnprocessableEntity, status, "%s", data)
+		assert.Equal(t, before, datalogCount(t))
+	})
+
+	t.Run("@reboot accepted in run_month", func(t *testing.T) {
+		status, data := call(t, srv, http.MethodPost, "/api/sites/crons", env.adminCookie, env.adminCSRF,
+			map[string]any{
+				"parent_domain_id": domainID,
+				"command":          "https://cron-val.example.com/reboot",
+				"run_min":          "*", "run_hour": "*", "run_mday": "*", "run_month": "@reboot", "run_wday": "*",
+				"active": "y", "log": "n",
+			})
+		require.Equal(t, http.StatusCreated, status, "%s", data)
+	})
+
+	t.Run("bad URL host rejected without datalog", func(t *testing.T) {
+		before := datalogCount(t)
+		status, data := call(t, srv, http.MethodPost, "/api/sites/crons", env.adminCookie, env.adminCSRF,
+			map[string]any{
+				"parent_domain_id": domainID,
+				"command":          "https://not a host/path",
+				"run_min":          "*", "run_hour": "*", "run_mday": "*", "run_month": "*", "run_wday": "*",
+				"active": "y",
+			})
+		require.Equal(t, http.StatusUnprocessableEntity, status, "%s", data)
+		assert.Contains(t, string(data), "command_error_format")
+		assert.Equal(t, before, datalogCount(t))
+	})
+
+	t.Run("HTTP command forces type url", func(t *testing.T) {
+		status, data := call(t, srv, http.MethodPost, "/api/sites/crons", env.adminCookie, env.adminCSRF,
+			map[string]any{
+				"parent_domain_id": domainID,
+				"command":          "https://cron-val.example.com/forced",
+				"run_min":          "0", "run_hour": "*", "run_mday": "*", "run_month": "*", "run_wday": "*",
+				"type": "full", // client-supplied type ignored
+				"active": "y",
+			})
+		require.Equal(t, http.StatusCreated, status, "%s", data)
+		var rec map[string]any
+		require.NoError(t, json.Unmarshal(data, &rec))
+		assert.Equal(t, "url", rec["type"])
+	})
+
+	t.Run("non-URL on admin site derives type full", func(t *testing.T) {
+		status, data := call(t, srv, http.MethodPost, "/api/sites/crons", env.adminCookie, env.adminCSRF,
+			map[string]any{
+				"parent_domain_id": domainID,
+				"command":          "/usr/bin/php /web/cron.php",
+				"run_min":          "0", "run_hour": "1", "run_mday": "*", "run_month": "*", "run_wday": "*",
+				"type": "url", // overwritten
+				"active": "y",
+			})
+		require.Equal(t, http.StatusCreated, status, "%s", data)
+		var rec map[string]any
+		require.NoError(t, json.Unmarshal(data, &rec))
+		assert.Equal(t, "full", rec["type"])
+	})
+
+	t.Run("client parent with limit_cron_type chrooted", func(t *testing.T) {
+		// Link clienta group to a real client row with limit_cron_type=chrooted.
+		var user model.SysUser
+		require.NoError(t, db.Where("username = ?", "clienta").Take(&user).Error)
+		cli := model.Client{
+			SysUserID: user.UserID, SysGroupID: user.DefaultGroup,
+			SysPermUser: "riud", SysPermGroup: "ru",
+			ContactName: "Client A", Username: "clienta",
+			LimitCron: -1, LimitCronType: "chrooted", LimitCronFrequency: 1,
+		}
+		require.NoError(t, db.Create(&cli).Error)
+		require.NoError(t, db.Model(&model.SysGroup{}).Where("groupid = ?", user.DefaultGroup).
+			Update("client_id", cli.ClientID).Error)
+
+		parent := seedClientVhost(t, env, "clienta-chroot-cron.example.com", "clienta")
+		status, data := call(t, srv, http.MethodPost, "/api/sites/crons", env.aCookie, env.aCSRF,
+			map[string]any{
+				"parent_domain_id": parent.DomainID,
+				"command":          "/usr/bin/php /web/job.php",
+				"run_min":          "0", "run_hour": "2", "run_mday": "*", "run_month": "*", "run_wday": "*",
+				"active": "y",
+			})
+		require.Equal(t, http.StatusCreated, status, "%s", data)
+		var rec map[string]any
+		require.NoError(t, json.Unmarshal(data, &rec))
+		assert.Equal(t, "chrooted", rec["type"])
+	})
+}
+
 // seedClientVhost creates a vhost owned by the named client user's group.
 func seedClientVhost(t *testing.T, env *sitesTestEnv, domain, username string) model.WebDomain {
 	t.Helper()

@@ -7,12 +7,13 @@ import (
 	"github.com/labstack/echo/v5"
 	"gorm.io/gorm"
 
+	"go-ispconfig/internal/cron"
 	"go-ispconfig/internal/model"
 	"go-ispconfig/internal/repository"
 	"go-ispconfig/internal/validator"
 )
 
-// sitesCronEntity is the /api/sites/crons surface (add-cron-module task 4.1):
+// sitesCronEntity is the /api/sites/crons surface (add-cron-module task 4.1+):
 // port of cron.tform.php / sites_cron_* under the Sites module.
 func sitesCronEntity() *Entity {
 	return &Entity{
@@ -37,17 +38,23 @@ func sitesCronEntity() *Entity {
 					{Value: model.CronTypeFull, Label: "cron_type_full_txt"},
 				}),
 				text("command", "command_txt",
-					validator.Rule{Type: "NOTEMPTY", ErrKey: "command_error_empty"}),
+					validator.Rule{Type: "NOTEMPTY", ErrKey: "command_error_empty"},
+					validator.Rule{Type: "CUSTOM", ErrKey: "command_error_format", Fn: checkCronCommand}),
 				text("run_min", "run_min_txt",
-					validator.Rule{Type: "NOTEMPTY", ErrKey: "run_min_error_empty"}),
+					validator.Rule{Type: "NOTEMPTY", ErrKey: "run_min_error_empty"},
+					validator.Rule{Type: "CUSTOM", ErrKey: "run_min_error_format", Fn: checkCronRunMin}),
 				text("run_hour", "run_hour_txt",
-					validator.Rule{Type: "NOTEMPTY", ErrKey: "run_hour_error_empty"}),
+					validator.Rule{Type: "NOTEMPTY", ErrKey: "run_hour_error_empty"},
+					validator.Rule{Type: "CUSTOM", ErrKey: "run_hour_error_format", Fn: checkCronRunHour}),
 				text("run_mday", "run_mday_txt",
-					validator.Rule{Type: "NOTEMPTY", ErrKey: "run_mday_error_empty"}),
+					validator.Rule{Type: "NOTEMPTY", ErrKey: "run_mday_error_empty"},
+					validator.Rule{Type: "CUSTOM", ErrKey: "run_mday_error_format", Fn: checkCronRunMday}),
 				text("run_month", "run_month_txt",
-					validator.Rule{Type: "NOTEMPTY", ErrKey: "run_month_error_empty"}),
+					validator.Rule{Type: "NOTEMPTY", ErrKey: "run_month_error_empty"},
+					validator.Rule{Type: "CUSTOM", ErrKey: "run_month_error_format", Fn: checkCronRunMonth}),
 				text("run_wday", "run_wday_txt",
-					validator.Rule{Type: "NOTEMPTY", ErrKey: "run_wday_error_empty"}),
+					validator.Rule{Type: "NOTEMPTY", ErrKey: "run_wday_error_empty"},
+					validator.Rule{Type: "CUSTOM", ErrKey: "run_wday_error_format", Fn: checkCronRunWday}),
 				checkbox("log", "log_txt", "n"),
 				checkbox("active", "active_txt", "y"),
 			},
@@ -55,9 +62,74 @@ func sitesCronEntity() *Entity {
 	}
 }
 
+// Schedule / command CUSTOM validators (cron.tform.php validate_cron classes).
+
+func checkCronRunMin(_ *validator.Context, value string) string {
+	if value == "" {
+		return ""
+	}
+	if err := cron.ValidateRunTime("run_min", value); err != nil {
+		return "run_min_error_format"
+	}
+	return ""
+}
+
+func checkCronRunHour(_ *validator.Context, value string) string {
+	if value == "" {
+		return ""
+	}
+	if err := cron.ValidateRunTime("run_hour", value); err != nil {
+		return "run_hour_error_format"
+	}
+	return ""
+}
+
+func checkCronRunMday(_ *validator.Context, value string) string {
+	if value == "" {
+		return ""
+	}
+	if err := cron.ValidateRunTime("run_mday", value); err != nil {
+		return "run_mday_error_format"
+	}
+	return ""
+}
+
+func checkCronRunWday(_ *validator.Context, value string) string {
+	if value == "" {
+		return ""
+	}
+	if err := cron.ValidateRunTime("run_wday", value); err != nil {
+		return "run_wday_error_format"
+	}
+	return ""
+}
+
+func checkCronRunMonth(_ *validator.Context, value string) string {
+	if value == "" {
+		return ""
+	}
+	if err := cron.ValidateRunMonth(value); err != nil {
+		return "run_month_error_format"
+	}
+	return ""
+}
+
+// checkCronCommand ports command_format. {DOMAIN} expands with a dummy
+// hostname so field-level validation works before parent resolution; Prepare
+// re-checks with the real parent domain when available.
+func checkCronCommand(_ *validator.Context, value string) string {
+	if value == "" {
+		return ""
+	}
+	if err := cron.ValidateCommand(value, "placeholder.example"); err != nil {
+		return "command_error_format"
+	}
+	return ""
+}
+
 // sitesCronPrepare ports cron_edit.php onSubmit ownership: parent must be
 // a readable vhost; server_id is forced from the parent; parent_domain_id
-// is immutable on update.
+// is immutable on update; type is auto-derived from command + owner limits.
 func sitesCronPrepare(c *echo.Context, d *Deps, id *repository.Identity, body map[string]any) error {
 	ctx := c.Request().Context()
 	fields := map[string][]string{}
@@ -100,10 +172,54 @@ func sitesCronPrepare(c *echo.Context, d *Deps, id *repository.Identity, body ma
 		body["parent_domain_id"] = float64(parent.DomainID)
 	}
 
+	// Domain-aware command check + type auto-derivation (cron_edit.php onSubmit).
+	cmd := bodyString(body, "command")
+	if cmd == "" && old != nil {
+		cmd = old.Command
+	}
+	domain := ""
+	if parent != nil {
+		domain = parent.Domain
+	}
+	if cmd != "" {
+		if err := cron.ValidateCommand(cmd, domain); err != nil {
+			fields["command"] = append(fields["command"], "command_error_format")
+		}
+		ownerLimit, adminOwned := sitesCronOwnerLimit(ctx, d.DB, parent)
+		body["type"] = cron.DeriveType(cmd, ownerLimit, adminOwned)
+	}
+
 	if len(fields) > 0 {
 		return &ValidationError{Fields: fields}
 	}
 	return nil
+}
+
+// bodyString reads a string JSON body value.
+func bodyString(body map[string]any, key string) string {
+	v, _ := body[key].(string)
+	return v
+}
+
+// sitesCronOwnerLimit resolves the parent site's client limit_cron_type
+// (sys_group → client). Missing client (admin-owned site) returns adminOwned.
+func sitesCronOwnerLimit(ctx context.Context, db *gorm.DB, parent *model.WebDomain) (limitType string, adminOwned bool) {
+	if parent == nil || parent.SysGroupID == 0 || parent.SysGroupID == 1 {
+		return "", true
+	}
+	var row struct {
+		LimitCronType string `gorm:"column:limit_cron_type"`
+	}
+	err := db.WithContext(ctx).Raw(`
+		SELECT c.limit_cron_type AS limit_cron_type
+		FROM sys_group g
+		INNER JOIN client c ON c.client_id = g.client_id
+		WHERE g.groupid = ?
+		LIMIT 1`, parent.SysGroupID).Scan(&row).Error
+	if err != nil || row.LimitCronType == "" {
+		return "", true
+	}
+	return row.LimitCronType, false
 }
 
 // sitesCronAfterInsert stamps sys_groupid from the parent site before the
