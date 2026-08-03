@@ -27,7 +27,7 @@ proposal now and get design/specs/tasks when scheduled.
 | `add-cron-module` | Client cron jobs (`cron_module`, `cron_plugin`) — executed by the go-ispconfig daemon scheduler — **implemented** ([docs/cron-module.md](cron-module.md)) |
 | `add-cron-module` | Client cron jobs (`cron_module`, `cron_plugin`) — executed by the go-ispconfig daemon scheduler |
 | `add-firewall-module` | UFW/nftables management (`firewall_plugin`) |
-| `add-monitor-module` | Server monitoring, logs, datalog history UI (`monitor_core_module`) |
+| `add-monitor-module` | Server monitoring, logs, datalog history UI (`monitor_core_module`) — **implemented** ([docs/monitor-module.md](monitor-module.md)) |
 | `add-dns-powerdns-module` | PowerDNS as alternative DNS backend — same DNS UI/API, SQL zone sync (`powerdns_plugin`, `powerdns.sql`) |
 | `add-xmpp-module` | XMPP domains/users (`xmpp_module`, `xmpp_plugin`) — future only, proposal when scheduled |
 | `add-vm-module` | OpenVZ/VM management (`vm_module`, `openvz_plugin`) — future only, proposal when scheduled |
