@@ -39,7 +39,7 @@
 - [x] 6.1 Add Sites sidebar sections for FTP Users and Shell Users in `modules.ts` + routes; FTP Users list (DataTable: username, site, active, server; search) wired to the API; English i18n keys. Commit.
 - [x] 6.2 FTP user form (TabbedForm / EntityForm): main tab + Options tab; admin-only advanced fields; client-side validation mirroring API; create/edit/delete flows. Commit.
 - [x] 6.3 Shell Users list + form (chroot select, ssh_rsa, admin Options tab, parent domain locked on edit); i18n keys. Commit.
-- [ ] 6.4 agent-browser E2E against the built binary: create FTP user under a site, edit dir/quota, delete; create shell user (non-jailkit), toggle active, delete; screenshots to `docs/prints/`. Commit.
+- [x] 6.4 agent-browser E2E against the built binary: create FTP user under a site, edit dir/quota, delete; create shell user (non-jailkit), toggle active, delete; screenshots to `docs/prints/`. Commit.
 
 ## 7. Integration and docs
 
