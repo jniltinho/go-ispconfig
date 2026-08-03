@@ -11271,7 +11271,7 @@ const docTemplate = `{
         "model.SysLog": {
             "type": "object",
             "properties": {
-                "datalogID": {
+                "datalog_id": {
                     "type": "integer"
                 },
                 "loglevel": {
@@ -11280,10 +11280,10 @@ const docTemplate = `{
                 "message": {
                     "type": "string"
                 },
-                "serverID": {
+                "server_id": {
                     "type": "integer"
                 },
-                "syslogID": {
+                "syslog_id": {
                     "type": "integer"
                 },
                 "tstamp": {
