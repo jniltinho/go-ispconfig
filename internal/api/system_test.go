@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"net/netip"
 	"testing"
+	"time"
 
 	"github.com/labstack/echo/v5"
 	"github.com/stretchr/testify/require"
@@ -39,6 +40,15 @@ func TestSchedulerEndpointAdminOnly(t *testing.T) {
 
 	require.Equal(t, http.StatusUnauthorized, get(""))
 	require.Equal(t, http.StatusForbidden, get("usr"), "scheduler status is admin-only")
+}
+
+// TestNextRun covers the next_run computation of the scheduler DTO.
+func TestNextRun(t *testing.T) {
+	now := time.Date(2026, 8, 1, 3, 2, 0, 0, time.UTC)
+	require.Equal(t, "2026-08-01T03:05:00Z", nextRun("*/5 * * * *", now))
+	require.Equal(t, "2026-08-01T04:00:00Z", nextRun("0 * * * *", now))
+	require.Empty(t, nextRun("", now), "absent spec yields no next run")
+	require.Empty(t, nextRun("not a cron spec", now), "invalid spec yields no next run")
 }
 
 // proxyDeps builds Deps with parsed trusted proxy prefixes.

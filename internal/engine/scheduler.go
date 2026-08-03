@@ -76,6 +76,9 @@ func (s *Scheduler) Register(name, spec string, fn JobFunc) error {
 		return fmt.Errorf("engine: parsing cron spec %q for job %q: %w", spec, name, err)
 	}
 	s.jobs = append(s.jobs, &job{name: name, spec: spec, fn: fn})
+	// Mirror the spec so a standalone serve process can list job metadata
+	// (and compute next_run) without talking to the daemon.
+	s.setConfig(context.Background(), name+"_spec", spec)
 	return nil
 }
 

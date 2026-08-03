@@ -30,7 +30,7 @@ type RegisterOptions struct {
 }
 
 // RegisterJobs registers all monitor_* collection jobs on the foundation
-// scheduler and persists each job's cron spec into sys_config group
+// scheduler, which mirrors each job's cron spec into sys_config group
 // scheduler as {name}_spec so a standalone serve process can list metadata.
 func RegisterJobs(sched *engine.Scheduler, db *gorm.DB, opts RegisterOptions) error {
 	if sched == nil {
@@ -167,18 +167,7 @@ func RegisterJobs(sched *engine.Scheduler, db *gorm.DB, opts RegisterOptions) er
 		if err := sched.Register(e.name, e.spec, e.fn); err != nil {
 			return err
 		}
-		if err := PersistJobSpec(context.Background(), db, e.name, e.spec); err != nil {
-			log.Warn("monitor: could not persist job spec", "job", e.name, "error", err)
-		}
 	}
 	log.Info("monitor jobs registered", "count", len(entries), "server_id", serverID)
 	return nil
-}
-
-// PersistJobSpec writes {name}_spec into sys_config group scheduler so the
-// API process can expose cron expressions without talking to the daemon.
-func PersistJobSpec(ctx context.Context, db *gorm.DB, name, spec string) error {
-	return db.WithContext(ctx).
-		Exec("REPLACE INTO sys_config (`group`, `name`, `value`) VALUES (?, ?, ?)",
-			"scheduler", name+"_spec", spec).Error
 }

@@ -8355,7 +8355,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Lists the daemon scheduler jobs with their last-run time and status, read from the sys_config \"scheduler\" mirror the daemon persists after every job execution. Admin only.",
+                "description": "Lists the daemon scheduler jobs with their cron spec, last-run time, status and computed next run, read from the sys_config \"scheduler\" mirror the daemon persists at registration and after every job execution. Admin only.",
                 "produces": [
                     "application/json"
                 ],
@@ -9111,6 +9111,16 @@ const docTemplate = `{
                     "description": "Name is the job identifier (\"datalog_prune\").",
                     "type": "string",
                     "example": "datalog_prune"
+                },
+                "next_run": {
+                    "description": "NextRun is the RFC3339 time of the next activation derived from Spec,\nempty when Spec is absent or unparsable.",
+                    "type": "string",
+                    "example": "2026-08-01T03:05:00Z"
+                },
+                "spec": {
+                    "description": "Spec is the cron expression the daemon registered the job with, empty\nwhen the daemon has not run since the mirror was introduced.",
+                    "type": "string",
+                    "example": "*/5 * * * *"
                 },
                 "status": {
                     "description": "Status is \"ok\" or \"error: \u003cmessage\u003e\" from the last execution.",
