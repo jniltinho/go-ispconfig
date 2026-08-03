@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"regexp"
 	"slices"
 	"strings"
 
@@ -12,7 +11,6 @@ import (
 
 	"go-ispconfig/internal/database"
 	"go-ispconfig/internal/getconf"
-	"go-ispconfig/internal/model"
 	"go-ispconfig/internal/powerdns"
 )
 
@@ -139,34 +137,13 @@ func (st *State) renderPdnsLocal() string {
 	).Replace(powerdns.LocalMasterTemplate)
 }
 
-// dnsBackendRe matches the [dns] dns_backend line of a server.config INI.
-var dnsBackendRe = regexp.MustCompile(`(?m)^[ \t]*dns_backend[ \t]*=.*$`)
-
 // setDNSBackendKey returns cfg with dns_backend set to backend, adding the
 // key to the [dns] section when it is missing (adopted ISPConfig schemas).
 func setDNSBackendKey(cfg, backend string) string {
-	line := "dns_backend=" + backend
-	if dnsBackendRe.MatchString(cfg) {
-		return dnsBackendRe.ReplaceAllString(cfg, line)
-	}
-	if i := strings.Index(cfg, "[dns]"); i >= 0 {
-		j := i + len("[dns]")
-		return cfg[:j] + "\n" + line + cfg[j:]
-	}
-	return strings.TrimRight(cfg, "\n") + "\n\n[dns]\n" + line + "\n"
+	return setINIKey(cfg, "[dns]", "dns_backend", backend)
 }
 
 // setServerDNSBackend persists the dns_backend choice in the local server row.
 func setServerDNSBackend(db *gorm.DB, hostname, backend string) error {
-	var srv model.Server
-	if err := db.Where("server_name = ?", hostname).Order("server_id").Take(&srv).Error; err != nil {
-		return fmt.Errorf("loading server row %q: %w", hostname, err)
-	}
-	updated := setDNSBackendKey(srv.Config, backend)
-	if updated == srv.Config {
-		return nil
-	}
-	return db.Model(&model.Server{}).
-		Where("server_id = ?", srv.ServerID).
-		Update("config", updated).Error
+	return updateServerConfig(db, hostname, "[dns]", map[string]string{"dns_backend": backend})
 }

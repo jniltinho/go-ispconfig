@@ -63,3 +63,15 @@ func TestApache2StepEnablesTheUnit(t *testing.T) {
 	}
 	assert.True(t, enabled, "apache2 unit is enabled by its own step")
 }
+
+// TestSetINIKeyWebSection: the web server choice replaces an existing key,
+// is inserted into an existing section and creates a missing one.
+func TestSetINIKeyWebSection(t *testing.T) {
+	assert.Equal(t, "[web]\nserver_type=apache\nuser=www-data\n",
+		setINIKey("[web]\nserver_type=nginx\nuser=www-data\n", "[web]", "server_type", "apache"))
+	assert.Equal(t, "[web]\nvhost_conf_dir=/etc/apache2/sites-available\nuser=www-data\n",
+		setINIKey("[web]\nuser=www-data\n", "[web]", "vhost_conf_dir", "/etc/apache2/sites-available"),
+		"a key the seeded INI never had is inserted, not dropped")
+	assert.Equal(t, "[dns]\nx=1\n\n[web]\nserver_type=apache\n",
+		setINIKey("[dns]\nx=1\n", "[web]", "server_type", "apache"))
+}

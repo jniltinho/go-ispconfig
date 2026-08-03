@@ -2,13 +2,8 @@ package nginx
 
 import (
 	"context"
-	"fmt"
-	"os"
-	"path/filepath"
-	"regexp"
-	"slices"
-	"strings"
-	"time"
+
+	sitepkg "go-ispconfig/internal/site"
 
 	"go-ispconfig/internal/getconf"
 )
@@ -31,372 +26,43 @@ type site struct {
 	sslChanged bool
 }
 
-// systemNameRe is the allowed system user/group name pattern (PHP
-// is_allowed_user).
-var systemNameRe = regexp.MustCompile(`^[a-zA-Z0-9.\-_]{1,32}$`)
+// allowedSystemName reports whether name may own a website.
+func allowedSystemName(name string) bool { return sitepkg.AllowedSystemName(name) }
 
-// forbiddenSystemNames are names a website may never run as.
-var forbiddenSystemNames = []string{"root", "ispconfig", "vmail", "getmail"}
+// webFolderOf returns the folder below document_root serving the site.
+func webFolderOf(d row) string { return sitepkg.WebFolder(sitepkg.Row(d)) }
 
-// blacklistedWebFolders are first path elements a vhostsubdomain/vhostalias
-// web_folder may not use (PHP is_blacklisted_web_path).
-var blacklistedWebFolders = []string{
-	"bin", "cgi-bin", "dev", "etc", "home", "lib", "lib64", "log",
-	"ssl", "usr", "var", "proc", "net", "sys", "srv", "sbin", "run",
-}
-
-// allowedSystemName reports whether name may own a website. A leading "-" is
-// rejected so the name can never be parsed as an option flag by the
-// privileged useradd/groupadd/chown commands the daemon runs as root
-// (e.g. system_user "-u0" would create a UID-0 account).
-func allowedSystemName(name string) bool {
-	return name != "" && !strings.HasPrefix(name, "-") &&
-		!slices.Contains(forbiddenSystemNames, name) && systemNameRe.MatchString(name)
-}
-
-// webFolderOf returns the folder below document_root serving the site
-// ("web", "web/sub" for a vhost with web_folder, or the raw web_folder for
-// vhostsubdomain/vhostalias).
-func webFolderOf(d row) string {
-	if d.str("type") == "vhost" {
-		if wf := trimSlashes(d.str("web_folder")); wf != "" {
-			return "web/" + wf
-		}
-		return "web"
-	}
-	return trimSlashes(d.str("web_folder"))
-}
-
-// logFolderOf returns the log folder below document_root ("log", or
-// "log/<subdomain-host>" for vhostsubdomain/vhostalias).
-func logFolderOf(d row, parentDomain string) string {
-	if d.str("type") == "vhost" {
-		return "log"
-	}
-	host := d.str("domain")
-	if parentDomain != "" && strings.HasSuffix(host, "."+parentDomain) {
-		host = strings.TrimSuffix(host, "."+parentDomain)
-	}
-	if host == "" || host == d.str("domain") {
-		host = fmt.Sprintf("web%d", d.num("domain_id"))
-	}
-	return "log/" + host
-}
-
-// ensureSite provisions the site filesystem and system user/group for a
-// vhost-type web_domain (design D4, idempotent): directory tree, ownership,
-// user/group creation and docroot move on rename. All shell interaction goes
-// through the plugin's CommandRunner.
-func (p *Plugin) ensureSite(ctx context.Context, s site) error {
-	d := s.new
-	docroot := d.str("document_root")
-	basedir := s.cfg.WebsiteBasedir
-
-	if err := safeDomain(d.str("domain")); err != nil {
-		return err
-	}
-	if err := safeSitePath(docroot, basedir); err != nil {
-		return err
-	}
-	username, groupname := d.str("system_user"), d.str("system_group")
-	if !allowedSystemName(username) || !allowedSystemName(groupname) {
-		return fmt.Errorf("nginx: website user/group not allowed: user=%q group=%q", username, groupname)
-	}
-	webFolder := webFolderOf(d)
-	if d.str("type") != "vhost" {
-		parts := strings.Split(strings.ToLower(webFolder), "/")
-		if webFolder == "" || slices.Contains(blacklistedWebFolders, parts[0]) {
-			return fmt.Errorf("nginx: blacklisted or empty web folder %q", webFolder)
-		}
-	}
-	// The web folder is user-controllable (web_folder column): revalidate the
-	// resolved path so a "../.." folder can never escape the docroot the
-	// daemon chowns/chmods as root.
-	if err := safeSitePath(filepath.Join(docroot, webFolder), basedir); err != nil {
-		return fmt.Errorf("nginx: web folder escapes docroot: %w", err)
-	}
-
-	// Create group and user when missing (port of the groupadd/useradd
-	// block; connect_userid_to_webid fixed uids and chroot are not ported).
-	if err := p.ensureGroup(ctx, groupname); err != nil {
-		return err
-	}
-	if err := p.ensureUser(ctx, username, groupname, docroot, s.cfg.AddWebUsersToSshusersGroup == "y"); err != nil {
-		return err
-	}
-
-	// Security level 20 (default): the nginx worker user joins the client
-	// group so it can read the site's files behind the 0710/0750 perms (port
-	// of add_user_to_group). Without it nginx 403s on static files and 500s
-	// on auth_basic_user_file.
-	if d.str("type") == "vhost" && s.cfg.SecurityLevel == "20" {
-		nginxUser := s.cfg.NginxUser
-		if nginxUser == "" {
-			nginxUser = "www-data"
-		}
-		if out, err := p.runner.Run(ctx, "usermod", "-a", "-G", groupname, nginxUser); err != nil {
-			return fmt.Errorf("nginx: adding %s to group %s: %w: %s", nginxUser, groupname, err, out)
-		}
-	}
-
-	// Docroot move on rename/client change (vhost only: sub/alias sites live
-	// inside their parent's docroot).
-	if s.action == "update" && d.str("type") == "vhost" &&
-		s.old.str("document_root") != "" && s.old.str("document_root") != docroot {
-		if err := p.moveDocroot(ctx, s, docroot); err != nil {
-			return err
-		}
-	}
-
-	logFolder := logFolderOf(d, s.parentDomain)
-
-	// Directory tree (idempotent). Perms follow the PHP security-level-20
-	// defaults; tmp is 1777 per the nginx-vhost spec.
-	type dir struct {
-		rel        string
-		mode       os.FileMode
-		user, grp  string
-		defaultTop bool // only created for plain vhosts
-	}
-	dirs := []dir{
-		{rel: "", mode: 0o755, user: "root", grp: "root"},
-		{rel: webFolder, mode: 0o751, user: username, grp: groupname},
-		{rel: logFolder, mode: 0o750, user: "root", grp: groupname},
-		{rel: "ssl", mode: 0o755, user: "root", grp: "root", defaultTop: true},
-		{rel: "tmp", mode: os.ModeSticky | 0o777, user: username, grp: groupname, defaultTop: true},
-		{rel: "private", mode: 0o710, user: username, grp: groupname, defaultTop: true},
-		{rel: "cgi-bin", mode: 0o755, user: username, grp: groupname, defaultTop: true},
-	}
-	if d.num("errordocs") != 0 {
-		dirs = append(dirs, dir{rel: webFolder + "/error", mode: 0o755, user: username, grp: groupname})
-	}
-	if d.str("stats_type") != "" {
-		dirs = append(dirs, dir{rel: webFolder + "/stats", mode: 0o755, user: username, grp: groupname})
-	}
-	for _, e := range dirs {
-		if e.defaultTop && d.str("type") != "vhost" {
-			continue // parent vhost already owns ssl/tmp/private/cgi-bin
-		}
-		path := filepath.Join(docroot, e.rel)
-		if err := os.MkdirAll(path, 0o755); err != nil {
-			return fmt.Errorf("nginx: creating %s: %w", path, err)
-		}
-		if err := os.Chmod(path, e.mode); err != nil {
-			return fmt.Errorf("nginx: chmod %s: %w", path, err)
-		}
-		if err := p.chown(ctx, path, e.user, e.grp, false); err != nil {
-			return err
-		}
-	}
-
-	// Per-domain nginx log directory (referenced by the vhost template).
-	// ponytail: plain directory instead of the PHP bind-mount + fstab dance;
-	// logs live only under logBaseDir, docroot/log stays an empty tree.
-	domainLogDir := filepath.Join(p.logBaseDir, d.str("domain"))
-	if err := os.MkdirAll(domainLogDir, 0o755); err != nil {
-		return fmt.Errorf("nginx: creating %s: %w", domainLogDir, err)
-	}
-	if err := os.Chmod(domainLogDir, 0o750); err != nil {
-		return fmt.Errorf("nginx: chmod %s: %w", domainLogDir, err)
-	}
-	if err := p.chown(ctx, domainLogDir, "root", groupname, false); err != nil {
-		return err
-	}
-
-	// Domain rename: drop the old domain's log directory.
-	if s.action == "update" && s.old.str("domain") != "" && s.old.str("domain") != d.str("domain") {
-		oldLogDir := filepath.Join(p.logBaseDir, s.old.str("domain"))
-		if !strings.Contains(s.old.str("domain"), "..") && !strings.Contains(s.old.str("domain"), "/") {
-			if err := os.RemoveAll(oldLogDir); err != nil {
-				return fmt.Errorf("nginx: removing old log dir %s: %w", oldLogDir, err)
-			}
-		}
-	}
-
-	// Default index page (port of the PHP skeleton copy: apache2/nginx
-	// plugin writes standard_index.html when the web folder has no index
-	// yet), so a fresh site serves HTTP 200 instead of an error page.
-	webDir := filepath.Join(docroot, webFolder)
-	hasIndex := false
-	for _, name := range []string{"index.html", "index.php", "standard_index.html"} {
-		if _, err := os.Stat(filepath.Join(webDir, name)); err == nil {
-			hasIndex = true
-			break
-		}
-	}
-	if !hasIndex {
-		idx := filepath.Join(webDir, "standard_index.html")
-		if err := os.WriteFile(idx, []byte(standardIndexHTML), 0o644); err != nil {
-			return fmt.Errorf("nginx: writing %s: %w", idx, err)
-		}
-		if err := p.chown(ctx, idx, username, groupname, false); err != nil {
-			return err
-		}
-	}
-
-	// Website symlinks (website_symlinks config): the rendered vhost's root
-	// is website_basedir/<domain>/<web_folder>, which resolves through
-	// these links, so they are load-bearing, not cosmetic.
-	if err := p.ensureSymlinks(s, docroot); err != nil {
-		return err
-	}
-	return nil
-}
-
-// standardIndexHTML is the default page of a freshly created website
-// (stand-in for ISPConfig's conf/index/standard_index.html_en skeleton).
-const standardIndexHTML = `<!DOCTYPE html>
-<html><head><title>Welcome!</title></head>
-<body><h1>Welcome to your website!</h1>
-<p>This is the default index page of your website.</p>
-<p>This file may be deleted or overwritten without any difficulty. This is
-produced by the file <b>standard_index.html</b> in the web directory.</p>
-</body></html>
-`
-
-// symlinkTargets expands the website_symlinks templates for one domain and
-// client id, trailing slash removed.
+// symlinkTargets expands the website_symlinks templates for one domain.
 func symlinkTargets(cfg *getconf.WebConfig, domain string, clientID int64) []string {
-	var out []string
-	for _, tmpl := range strings.Split(cfg.WebsiteSymlinks, ":") {
-		tmpl = strings.TrimSpace(tmpl)
-		if tmpl == "" {
-			continue
-		}
-		link := strings.ReplaceAll(tmpl, "[client_id]", fmt.Sprint(clientID))
-		link = strings.ReplaceAll(link, "[website_domain]", domain)
-		out = append(out, strings.TrimSuffix(link, "/"))
-	}
-	return out
+	return sitepkg.SymlinkTargets(cfg, domain, clientID)
 }
 
-// ensureSymlinks creates the configured website symlinks pointing at the
-// docroot and removes stale ones after a rename, docroot move or client
-// change (port of the website_symlinks blocks of update()).
-func (p *Plugin) ensureSymlinks(s site, docroot string) error {
-	d := s.new
-	// Remove links of the previous domain/client when anything moved.
-	if s.action == "update" && s.old.str("domain") != "" &&
-		(s.old.str("domain") != d.str("domain") || s.old.str("document_root") != docroot || s.oldClientID != s.clientID) {
-		oldClient := s.oldClientID
-		if oldClient == 0 {
-			oldClient = s.clientID
-		}
-		for _, link := range symlinkTargets(s.cfg, s.old.str("domain"), oldClient) {
-			if info, err := os.Lstat(link); err == nil && info.Mode()&os.ModeSymlink != 0 {
-				if err := os.Remove(link); err != nil {
-					return fmt.Errorf("nginx: removing old symlink %s: %w", link, err)
-				}
-			}
-		}
-	}
-	for _, link := range symlinkTargets(s.cfg, d.str("domain"), s.clientID) {
-		if err := safeSitePath(link, s.cfg.WebsiteBasedir); err != nil {
-			p.log.Warn("nginx: skipping symlink outside website_basedir", "link", link)
-			continue
-		}
-		if info, err := os.Lstat(link); err == nil {
-			if info.Mode()&os.ModeSymlink == 0 {
-				continue // a real file/dir is never replaced
-			}
-			if target, err := os.Readlink(link); err == nil && target == docroot+"/" {
-				continue // already in place
-			}
-			// Symlink points at an old docroot: replace it.
-			if err := os.Remove(link); err != nil {
-				return fmt.Errorf("nginx: replacing symlink %s: %w", link, err)
-			}
-		}
-		if err := os.MkdirAll(filepath.Dir(link), 0o755); err != nil {
-			return fmt.Errorf("nginx: creating %s: %w", filepath.Dir(link), err)
-		}
-		if err := os.Symlink(docroot+"/", link); err != nil {
-			return fmt.Errorf("nginx: creating symlink %s: %w", link, err)
-		}
-		p.log.Info("nginx: created symlink", "link", link, "target", docroot)
-	}
-	return nil
-}
-
-// moveDocroot moves the site data when document_root changed (rename or
-// client change), port of the PHP move block without symlink/fstab/chroot
-// handling.
-func (p *Plugin) moveDocroot(ctx context.Context, s site, newDocroot string) error {
-	oldDocroot := s.old.str("document_root")
-	if err := safeSitePath(oldDocroot, s.cfg.WebsiteBasedir); err != nil {
+// ensureSite provisions the site filesystem and system user/group of a
+// vhost-type web_domain. The layout itself is shared with the Apache plugin
+// (internal/site); nginx only contributes its worker user — which joins the
+// client group at security level 20 — and its own log directory root.
+func (p *Plugin) ensureSite(ctx context.Context, s site) error {
+	if err := safeDomain(s.new.str("domain")); err != nil {
 		return err
 	}
-	if _, err := os.Stat(oldDocroot); os.IsNotExist(err) {
-		return nil // nothing to move; the tree is created fresh below
-	}
-	// A clean target is required: rename anything already there.
-	if _, err := os.Stat(newDocroot); err == nil {
-		backup := newDocroot + "_bak_" + time.Now().Format("2006_01_02_15_04_05")
-		if err := os.Rename(newDocroot, backup); err != nil {
-			return fmt.Errorf("nginx: renaming existing %s: %w", newDocroot, err)
-		}
-		p.log.Info("nginx: renamed existing directory in new docroot location", "from", newDocroot, "to", backup)
-	}
-	if err := os.MkdirAll(filepath.Dir(newDocroot), 0o755); err != nil {
-		return fmt.Errorf("nginx: creating %s: %w", filepath.Dir(newDocroot), err)
-	}
-	// ponytail: os.Rename instead of `mv` — website_basedir is one
-	// filesystem in the supported layouts; swap for a runner `mv` if
-	// cross-device moves ever matter.
-	if err := os.Rename(oldDocroot, newDocroot); err != nil {
-		return fmt.Errorf("nginx: moving %s to %s: %w", oldDocroot, newDocroot, err)
-	}
-	p.log.Info("nginx: moved site to new document root", "from", oldDocroot, "to", newDocroot)
-
-	if err := p.chown(ctx, newDocroot, s.new.str("system_user"), s.new.str("system_group"), true); err != nil {
-		return err
-	}
-	// Update the system user's home directory and group.
-	if out, err := p.runner.Run(ctx, "usermod",
-		"--home", newDocroot, "--gid", s.new.str("system_group"), s.new.str("system_user")); err != nil {
-		return fmt.Errorf("nginx: usermod %s: %w: %s", s.new.str("system_user"), err, out)
-	}
-	return nil
-}
-
-// ensureGroup creates the system group when it does not exist yet.
-func (p *Plugin) ensureGroup(ctx context.Context, group string) error {
-	if _, err := p.runner.Run(ctx, "getent", "group", group); err == nil {
-		return nil
-	}
-	if out, err := p.runner.Run(ctx, "groupadd", group); err != nil {
-		return fmt.Errorf("nginx: groupadd %s: %w: %s", group, err, out)
-	}
-	p.log.Info("nginx: added group", "group", group)
-	return nil
-}
-
-// ensureUser creates the system user when it does not exist yet.
-func (p *Plugin) ensureUser(ctx context.Context, user, group, home string, sshusers bool) error {
-	if _, err := p.runner.Run(ctx, "getent", "passwd", user); err == nil {
-		return nil
-	}
-	args := []string{"-d", home, "-g", group}
-	if sshusers {
-		args = append(args, "-G", "sshusers")
-	}
-	args = append(args, "-s", "/bin/false", user)
-	if out, err := p.runner.Run(ctx, "useradd", args...); err != nil {
-		return fmt.Errorf("nginx: useradd %s: %w: %s", user, err, out)
-	}
-	p.log.Info("nginx: added user", "user", user)
-	return nil
+	return sitepkg.Ensure(ctx, sitepkg.Request{
+		Tag:          "nginx",
+		WorkerUser:   s.cfg.NginxUser,
+		LogBaseDir:   p.logBaseDir,
+		Cfg:          s.cfg,
+		Action:       s.action,
+		Old:          sitepkg.Row(s.old),
+		New:          sitepkg.Row(s.new),
+		ParentDomain: s.parentDomain,
+		ClientID:     s.clientID,
+		OldClientID:  s.oldClientID,
+		Runner:       p.runner,
+		Log:          p.log,
+	})
 }
 
 // chown changes ownership through the command runner (the daemon runs as
 // root in production; tests fake the runner).
 func (p *Plugin) chown(ctx context.Context, path, user, group string, recursive bool) error {
-	args := []string{user + ":" + group, path}
-	if recursive {
-		args = append([]string{"-R"}, args...)
-	}
-	if out, err := p.runner.Run(ctx, "chown", args...); err != nil {
-		return fmt.Errorf("nginx: chown %s: %w: %s", path, err, out)
-	}
-	return nil
+	return sitepkg.Chown(ctx, p.runner, path, user, group, recursive)
 }

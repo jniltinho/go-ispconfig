@@ -84,18 +84,39 @@ func (apache2Step) Run(ctx context.Context, st *State) error {
 	if err := os.MkdirAll(filepath.Dir(acmeConf), 0o755); err != nil {
 		return err
 	}
-	changed, restore, err := writeFileBackup(acmeConf, []byte(apacheAcmeConf(st.AcmeWebroot)), 0o644)
+	var restores []func() error
+	_, restore, err := writeFileBackup(acmeConf, []byte(apacheAcmeConf(st.AcmeWebroot)), 0o644)
 	if err != nil {
 		return err
+	}
+	if restore != nil {
+		restores = append(restores, restore)
 	}
 	if _, err := st.Exec.Run(ctx, nil, "a2enconf", "-q", "go-ispconfig-acme"); err != nil {
 		return fmt.Errorf("enabling the acme conf: %w", err)
 	}
 
+	// Debian's apache2.conf only includes sites-enabled/*.conf, but the
+	// daemon writes <domain>.vhost (ISPConfig naming), so without this
+	// include every rendered site is silently ignored and the default vhost
+	// answers instead. conf-enabled is processed just before sites-enabled,
+	// which keeps the distro file untouched.
+	sitesConf := filepath.Join(p.ApacheConfigDir, "conf-available", "go-ispconfig-sites.conf")
+	_, restoreSites, err := writeFileBackup(sitesConf, []byte(apacheSitesInclude(p.ApacheVhostEnabledDir)), 0o644)
+	if err != nil {
+		return err
+	}
+	if restoreSites != nil {
+		restores = append(restores, restoreSites)
+	}
+	if _, err := st.Exec.Run(ctx, nil, "a2enconf", "-q", "go-ispconfig-sites"); err != nil {
+		return fmt.Errorf("enabling the sites conf: %w", err)
+	}
+
 	if _, err := st.Exec.Run(ctx, nil, "apache2ctl", "-t"); err != nil {
-		if changed {
-			if rerr := restore(); rerr != nil {
-				return fmt.Errorf("apache2ctl -t failed (%v) and restoring %s failed too: %w", err, acmeConf, rerr)
+		for _, undo := range restores {
+			if rerr := undo(); rerr != nil {
+				return fmt.Errorf("apache2ctl -t failed (%v) and restoring the previous config failed too: %w", err, rerr)
 			}
 		}
 		return fmt.Errorf("apache2ctl -t rejected the configuration (previous config restored): %w", err)
@@ -109,7 +130,35 @@ func (apache2Step) Run(ctx context.Context, st *State) error {
 	if _, err := st.Exec.Run(ctx, nil, "systemctl", "reload", p.ApacheService); err != nil {
 		return fmt.Errorf("reloading apache2: %w", err)
 	}
-	return nil
+	// The seeded server config always carries the nginx defaults; without
+	// this the daemon on an Apache host registers the nginx plugin and every
+	// site fails writing its vhost into /etc/nginx.
+	return setServerWebServer(st, WebServerApache)
+}
+
+// setServerWebServer persists the web server choice in the local server row:
+// [web] server_type (which plugin the daemon registers) and the vhost
+// directories that plugin writes into.
+func setServerWebServer(st *State, webServer string) error {
+	if st.DB == nil {
+		return nil
+	}
+	p := st.Profile
+	keys := map[string]string{
+		"server_type":                  "nginx",
+		"vhost_conf_dir":               p.NginxVhostConfDir,
+		"vhost_conf_enabled_dir":       p.NginxVhostEnabledDir,
+		"nginx_vhost_conf_dir":         p.NginxVhostConfDir,
+		"nginx_vhost_conf_enabled_dir": p.NginxVhostEnabledDir,
+	}
+	if webServer == WebServerApache {
+		// "apache" is the spelling getconf and the fail2ban jail selection
+		// compare against, matching ISPConfig's server.ini.
+		keys["server_type"] = "apache"
+		keys["vhost_conf_dir"] = p.ApacheVhostConfDir
+		keys["vhost_conf_enabled_dir"] = p.ApacheVhostEnabledDir
+	}
+	return updateServerConfig(st.DB, st.Answers.Hostname, "[web]", keys)
 }
 
 // apacheAcmeConf is the server-wide Let's Encrypt challenge alias. It is
@@ -124,4 +173,19 @@ Alias /.well-known/acme-challenge %[1]s/.well-known/acme-challenge
 	Require all granted
 </Directory>
 `, strings.TrimSuffix(webroot, "/"))
+}
+
+// apacheSitesInclude pulls the daemon-rendered <domain>.vhost files into the
+// server config: Debian's apache2.conf globs sites-enabled/*.conf only. The
+// general options are the ones ISPConfig ships in apache_ispconfig.conf that
+// every site depends on — without the DirectoryIndex a fresh site answers
+// with a directory listing instead of its standard_index.html.
+func apacheSitesInclude(enabledDir string) string {
+	return fmt.Sprintf(`# Managed by go-ispconfig — do not edit.
+ServerTokens ProductOnly
+ServerSignature Off
+DirectoryIndex index.html index.cgi index.pl index.php index.xhtml index.htm standard_index.html
+
+IncludeOptional %s/*.vhost
+`, strings.TrimSuffix(enabledDir, "/"))
 }

@@ -8,8 +8,6 @@ import (
 	"path/filepath"
 
 	"gorm.io/gorm"
-
-	"go-ispconfig/internal/model"
 )
 
 // Rspamd package/unit names, identical on all five supported distros.
@@ -148,8 +146,8 @@ func ensureRspamdUsersInclude(path string) (bool, error) {
 // mailServerRow reports whether this host's server row carries the mail
 // role.
 func mailServerRow(db *gorm.DB, hostname string) (bool, error) {
-	var srv model.Server
-	if err := db.Where("server_name = ?", hostname).Order("server_id").Take(&srv).Error; err != nil {
+	srv, err := localServer(db, hostname)
+	if err != nil {
 		return false, fmt.Errorf("loading server row %q: %w", hostname, err)
 	}
 	return srv.MailServer == 1, nil
