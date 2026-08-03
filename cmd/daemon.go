@@ -26,6 +26,7 @@ import (
 	"go-ispconfig/internal/database"
 	"go-ispconfig/internal/dns"
 	"go-ispconfig/internal/engine"
+	"go-ispconfig/internal/fail2ban"
 	"go-ispconfig/internal/firewall"
 	"go-ispconfig/internal/ftp"
 	"go-ispconfig/internal/getconf"
@@ -119,6 +120,10 @@ var daemonCmd = &cobra.Command{
 			ftp.NewPlugin(db, runner, logger),
 			shell.NewPlugin(db, runner, logger),
 			jailkit.NewPlugin(db, runner, logger),
+			// Re-renders the fail2ban jails when server.config changes:
+			// the HTTP jail follows [web] server_type, so a nginx/apache
+			// switch must prune the previous drop-in.
+			fail2ban.NewPlugin(runner, logger),
 		}
 		var mailPlugin *mail.Plugin
 		var getmailPlugin *mail.GetmailPlugin

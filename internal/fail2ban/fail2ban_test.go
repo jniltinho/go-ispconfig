@@ -190,3 +190,21 @@ func TestWriteIsIdempotent(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "[custom]\n", string(content))
 }
+
+// TestWritePrunesOrphans: switching the web server removes the drop-in of
+// the previous HTTP jail instead of leaving it enabled on a log file that
+// no longer exists.
+func TestWritePrunesOrphans(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "jail.d")
+
+	_, err := Write(dir, Jails("nginx"))
+	require.NoError(t, err)
+	require.FileExists(t, filepath.Join(dir, "ispconfig-nginx-http-auth.local"))
+
+	changed, err := Write(dir, Jails("apache"))
+	require.NoError(t, err)
+	assert.True(t, changed)
+	assert.NoFileExists(t, filepath.Join(dir, "ispconfig-nginx-http-auth.local"))
+	assert.FileExists(t, filepath.Join(dir, "ispconfig-apache-auth.local"))
+	assert.FileExists(t, filepath.Join(dir, "ispconfig-sshd.local"))
+}

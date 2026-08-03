@@ -82,21 +82,41 @@ bantime  = %d
 `, JailDir, j.Name, j.Filter, j.LogPath, j.Name, j.Ports, j.Maxretry, defaultFindtime, defaultBantime)
 }
 
-// Write renders every jail into dir as ispconfig-<name>.local and reports
-// whether any file changed (idempotent re-run writes nothing).
+// Write renders every jail into dir as ispconfig-<name>.local and removes
+// the panel-owned drop-ins that are no longer part of the set — switching
+// the web server must not leave the previous HTTP jail behind watching a
+// log file that no longer exists. It reports whether anything changed
+// (idempotent re-run writes and removes nothing).
 func Write(dir string, jails []Jail) (bool, error) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return false, fmt.Errorf("creating %s: %w", dir, err)
 	}
 	changed := false
+	wanted := make(map[string]bool, len(jails))
 	for _, j := range jails {
-		path := filepath.Join(dir, "ispconfig-"+j.Name+".local")
+		name := "ispconfig-" + j.Name + ".local"
+		wanted[name] = true
+		path := filepath.Join(dir, name)
 		content := []byte(j.Render())
 		if old, err := os.ReadFile(path); err == nil && bytes.Equal(old, content) {
 			continue
 		}
 		if err := os.WriteFile(path, content, 0o644); err != nil {
 			return changed, fmt.Errorf("writing %s: %w", path, err)
+		}
+		changed = true
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return changed, fmt.Errorf("reading %s: %w", dir, err)
+	}
+	for _, e := range entries {
+		name := e.Name()
+		if wanted[name] || !strings.HasPrefix(name, "ispconfig-") || !strings.HasSuffix(name, ".local") {
+			continue
+		}
+		if err := os.Remove(filepath.Join(dir, name)); err != nil {
+			return changed, fmt.Errorf("removing %s: %w", filepath.Join(dir, name), err)
 		}
 		changed = true
 	}
