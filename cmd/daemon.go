@@ -113,14 +113,26 @@ var daemonCmd = &cobra.Command{
 			modules = append(modules, clientdb.NewModule())
 			plugins = append(plugins, clientdb.NewPlugin(db, runner, cfg.Database.ClientDBConf, srv.ServerID, logger))
 		}
-		// Cron module: only on web servers with the module enabled in
-		// config.toml (cron-module-events / design D1: server.web_server = 1
-		// and !disable_cron_module). Client-job plugin lands in task 3.7.
+		// Cron module + client-job plugin: only on web servers with the
+		// module enabled in config.toml (cron-module-events / design D1:
+		// server.web_server = 1 and !disable_cron_module).
+		var cronPlugin *cron.Plugin
 		if cron.Enabled(srv.WebServer, cfg.Daemon.DisableCronModule) {
+			cronPlugin = cron.NewPlugin(db, srv.ServerID, cron.NewClientJobRunner(logger), logger)
 			modules = append(modules, cron.NewModule())
+			plugins = append(plugins, cronPlugin)
 		}
 		if err := reg.Load(modules, plugins); err != nil {
 			return err
+		}
+		if cronPlugin != nil {
+			if n, err := cron.LoadActiveJobs(context.Background(), db, srv.ServerID, cronPlugin.Runner(), cronPlugin.JobFactory()); err != nil {
+				logger.Error("cron: loading active jobs failed", "error", err)
+			} else {
+				logger.Info("cron: active jobs loaded", "count", n)
+			}
+			cronPlugin.Runner().Start()
+			defer cronPlugin.Runner().Stop()
 		}
 
 		daemon, err := engine.NewDaemon(db, reg, services, logger)

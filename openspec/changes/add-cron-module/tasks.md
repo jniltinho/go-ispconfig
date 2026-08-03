@@ -20,7 +20,7 @@
 - [x] 3.4 Implement full/chrooted executor: placeholder expansion (`{DOMAIN}`, `{DOCROOT_CLIENT}`, `[web_root]`, `{SITE_PHP}` from `server_php` join / `/usr/bin/php` fallback), argv split without shell, cwd `{document_root}/web`, chrooted path strip of `document_root`; unit tests. Commit.
 - [x] 3.5 Implement fail-safe privilege drop: resolve site uid/gid, refuse root, set `Credential` + `NoNewPrivileges`, context timeout + process-group kill; abort and log when drop fails; tests with stubbed/user-namespace-friendly helpers. Commit.
 - [x] 3.6 Implement execution log writer: `sys_log` rows with the `cron_run id=…` message convention when `log='y'` (and always on security aborts); bounded output tail; unit tests. Commit.
-- [ ] 3.7 Implement cron plugin: subscribe to `cron_insert`/`cron_update`/`cron_delete`, resolve parent `web_domain`, skip when parent missing/root-owned (PHP WARN parity), drive the runner; never write under `crontab_dir`. Commit.
+- [x] 3.7 Implement cron plugin: subscribe to `cron_insert`/`cron_update`/`cron_delete`, resolve parent `web_domain`, skip when parent missing/root-owned (PHP WARN parity), drive the runner; never write under `crontab_dir`. Commit.
 - [ ] 3.8 Implement legacy cutover on plugin load: delete `ispc_*` / `ispc_chrooted_*` (and `*.cron`) under getconf `cron.crontab_dir`, log removals, then load active jobs; tests with a temp dir. Commit.
 - [ ] 3.9 Integration test: API-level insert of an active cron → datalog row → daemon process → runner holds the job; update to inactive removes it; delete removes it; assert no files created under a temp `crontab_dir`. Commit.
 
