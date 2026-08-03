@@ -44,3 +44,4 @@ Admins need to see, from the panel, whether the server is healthy: CPU/memory/di
 - Multi-server monitoring aggregation (single-server first, like the foundation).
 - Checks with no counterpart in our stack: OpenVZ, MongoDB, ClamAV/mail-queue (until the mail module lands), raid/rkhunter/fail2ban checks may be stubbed or deferred to design.
 - `dataloghistory_undo.php` (undo a datalog change) — risky, out of scope.
+- `system_update` is implemented but **opt-in** (`RegisterOptions.EnableSystemUpdate`): it only reads `apt-get -s upgrade`, so on non-apt hosts it can report nothing but `no_state` and stays unregistered by default.

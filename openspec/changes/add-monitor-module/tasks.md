@@ -34,20 +34,20 @@
 
 ## 5. Panel UI (Vue + i18n)
 
-- [ ] 5.1 Register Monitor module in `frontend/src/modules.ts` (sections: system state, key check details, ISPConfig log, jobqueue, datalog history, scheduler admin-only); router entries; English keys in `en.json`. Commit.
-- [ ] 5.2 System state overview view (all servers + per-server cards, state colors, messages, link to details); optional refresh control. Commit.
-- [ ] 5.3 Check detail views for metrics (cpu/mem/disk/load/services/os/kernel/ispc) and log tails (ispconfig/letsencrypt/messages) driven by monitor data API. Commit.
-- [ ] 5.4 sys_log DataTable with filters; admin clear single + batch; wire store. Commit.
-- [ ] 5.5 Jobqueue DataTable and datalog history DataTable + detail view with old/new field diff (no undo). Commit.
-- [ ] 5.6 Scheduler jobs admin table (name, spec, last run, next run, status). Commit.
-- [ ] 5.7 Dashboard dashlets: server state summary, failed scheduler jobs, jobqueue/last datalog activity. Commit.
+- [x] 5.1 Register Monitor module in `frontend/src/modules.ts` (sections: system state, key check details, ISPConfig log, jobqueue, datalog history, scheduler admin-only); router entries; English keys in `en.json`. Commit.
+- [x] 5.2 System state overview view (all servers + per-server cards, state colors, messages, link to details); optional refresh control. Commit.
+- [x] 5.3 Check detail views for metrics (cpu/mem/disk/load/services/os/kernel/ispc) and log tails (ispconfig/letsencrypt/messages) driven by monitor data API. Commit.
+- [x] 5.4 sys_log DataTable with filters; admin clear single + batch; wire store. Commit.
+- [x] 5.5 Jobqueue DataTable and datalog history DataTable + detail view with old/new field diff (no undo). Commit.
+- [x] 5.6 Scheduler jobs admin table (name, spec, last run, next run, status). Commit.
+- [x] 5.7 Dashboard dashlets: server state summary, failed scheduler jobs, jobqueue/last datalog activity. Commit.
 
 ## 6. E2E tests (agent-browser)
 
-- [ ] 6.1 Seed helpers/fixtures for sample `monitor_data`, `sys_log`, pending + historical `sys_datalog`, scheduler `sys_config` keys. Commit.
-- [ ] 6.2 agent-browser E2E: admin login → system state → one metric detail → sys_log → jobqueue → datalog history detail → scheduler jobs; screenshots to `docs/prints/`. Commit.
+- [x] 6.1 Seed helpers/fixtures for sample `monitor_data`, `sys_log`, pending + historical `sys_datalog`, scheduler `sys_config` keys. Commit.
+- [x] 6.2 agent-browser E2E: admin login → system state → one metric detail → sys_log → jobqueue → datalog history detail → scheduler jobs; screenshots to `docs/prints/`. Commit.
 
 ## 7. Docs
 
-- [ ] 7.1 Write `docs/monitor-module.md`: architecture (scheduler jobs, no SO access from API), table/type catalog, dual-format note and PHP rollback implication, prune window, permissions, API overview, dashlets; link from README/ROADMAP if needed. Commit.
-- [ ] 7.2 Mark this change's completed tasks in `tasks.md` as work lands; keep proposal Why/Non-goals in sync if any intentional deferral (e.g. `system_update`) is finalized. Commit.
+- [x] 7.1 Write `docs/monitor-module.md`: architecture (scheduler jobs, no SO access from API), table/type catalog, dual-format note and PHP rollback implication, prune window, permissions, API overview, dashlets; link from README/ROADMAP if needed. Commit.
+- [x] 7.2 Mark this change's completed tasks in `tasks.md` as work lands; keep proposal Why/Non-goals in sync if any intentional deferral (e.g. `system_update`) is finalized. Commit.
