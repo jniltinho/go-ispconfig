@@ -624,7 +624,7 @@ func (h *entityHandlers[T]) applyClientGroup(ctx context.Context, rec *T, body m
 		return nil
 	}
 	g := uint32(bodyInt(body, "client_group_id"))
-	if g == 0 || !(id.IsAdmin() || id.InGroup(g)) {
+	if g == 0 || (!id.IsAdmin() && !id.InGroup(g)) {
 		return nil
 	}
 	return h.setField(ctx, rec, "sys_groupid", g)
