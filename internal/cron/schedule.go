@@ -29,6 +29,9 @@ var cronFields = map[string]cronField{
 	"run_wday":  {min: 0, max: 7, unit: 1440},
 }
 
+// ValidateRunTime ports validate_cron.inc.php::run_time_format for min/hour/
+// mday/wday: charset, ranges, step/range syntax. run_month must use
+// ValidateRunMonth (which also allows @reboot).
 func ValidateRunTime(field, value string) error {
 	if field == "run_month" {
 		return errors.New("run_month requires month validation")
@@ -36,6 +39,8 @@ func ValidateRunTime(field, value string) error {
 	return validateRunField(field, value)
 }
 
+// ValidateRunMonth ports validate_cron.inc.php::run_month_format: same rules
+// as ValidateRunTime plus the literal @reboot token.
 func ValidateRunMonth(value string) error {
 	if value == "@reboot" {
 		return nil
@@ -84,6 +89,9 @@ func validateRunField(field, value string) error {
 	return nil
 }
 
+// MinFrequencyMinutes ports validate_cron.inc.php cron_min_freq: the smallest
+// interval in minutes implied by the five schedule fields (wrap-around, single
+// value, and */n step cases). @reboot month is skipped for the frequency floor.
 func MinFrequencyMinutes(runMin, runHour, runMday, runMonth, runWday string) (int, error) {
 	fields := []struct {
 		name  string
