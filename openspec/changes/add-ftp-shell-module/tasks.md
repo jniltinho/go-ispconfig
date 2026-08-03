@@ -44,5 +44,5 @@
 ## 7. Integration and docs
 
 - [x] 7.1 End-to-end integration test against MariaDB: API FTP create → datalog → daemon run → directory exists; API shell create (non-jailkit) → datalog → daemon run → expected runner commands for useradd/chpasswd/ssh; API shell create with `chroot=jailkit` → jailkit commands sequenced after base. Commit.
-- [ ] 7.2 Module docs in `docs/` (FTP PureFTPd MySQL auth model, shell account lifecycle, jailkit ops, security kill-switch, migration notes: existing accounts/jails left until next event; pointer that installer PureFTPd/jailkit steps live in `add-installer-cli`). Commit.
+- [x] 7.2 Module docs in `docs/` (FTP PureFTPd MySQL auth model, shell account lifecycle, jailkit ops, security kill-switch, migration notes: existing accounts/jails left until next event; pointer that installer PureFTPd/jailkit steps live in `add-installer-cli`). Commit.
 - [ ] 7.3 Note in `add-installer-cli` / installer tracking (or ROADMAP cross-link) that `configure_pureftpd` / `configure_jailkit` / `pureftpd_mysql.conf.master` remain a Modified Capability of the installer change when this module is scheduled — no installer code in this change unless that change is co-scheduled. Commit.
