@@ -97,12 +97,12 @@ func CollectServerLoad(ctx context.Context) (map[string]any, string, error) {
 	}
 
 	data := map[string]any{
-		"load_1":     avg.Load1,
-		"load_5":     avg.Load5,
-		"load_15":    avg.Load15,
-		"up_days":    upDays,
-		"up_hours":   upHours,
-		"up_minutes": upMinutes,
+		"load_1":      avg.Load1,
+		"load_5":      avg.Load5,
+		"load_15":     avg.Load15,
+		"up_days":     upDays,
+		"up_hours":    upHours,
+		"up_minutes":  upMinutes,
 		"user_online": users,
 		"uptime": fmt.Sprintf(
 			" up %d days, %d:%02d, %d users, load average: %.2f, %.2f, %.2f",
@@ -181,8 +181,8 @@ func CollectISPCInfo(_ context.Context) (map[string]any, string, error) {
 // each result. serverID is the local server row.
 func RunBasicCollectors(ctx context.Context, db *gorm.DB, serverID uint32) error {
 	type job struct {
-		typ  string
-		fn   func(context.Context) (map[string]any, string, error)
+		typ string
+		fn  func(context.Context) (map[string]any, string, error)
 	}
 	jobs := []job{
 		{"cpu_info", CollectCPUInfo},

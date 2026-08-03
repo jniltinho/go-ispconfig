@@ -37,16 +37,16 @@ type CheckSummary struct {
 
 // ServerState is the aggregated system-state view for one server.
 type ServerState struct {
-	ServerID   uint32            `json:"server_id"`
-	ServerName string            `json:"server_name"`
-	State      string            `json:"state"`
-	OSName     string            `json:"os_name,omitempty"`
-	OSVersion  string            `json:"os_version,omitempty"`
-	ISPCName   string            `json:"ispc_name,omitempty"`
-	ISPCVersion string           `json:"ispc_version,omitempty"`
-	Messages   []Message         `json:"messages"`
-	Counts     map[string]int    `json:"counts"`
-	Checks     []CheckSummary    `json:"checks"`
+	ServerID    uint32         `json:"server_id"`
+	ServerName  string         `json:"server_name"`
+	State       string         `json:"state"`
+	OSName      string         `json:"os_name,omitempty"`
+	OSVersion   string         `json:"os_version,omitempty"`
+	ISPCName    string         `json:"ispc_name,omitempty"`
+	ISPCVersion string         `json:"ispc_version,omitempty"`
+	Messages    []Message      `json:"messages"`
+	Counts      map[string]int `json:"counts"`
+	Checks      []CheckSummary `json:"checks"`
 }
 
 // AggregateServerState builds the per-server overview from newest monitor_data
@@ -155,12 +155,9 @@ func messageForType(typ, state string) (Message, bool) {
 	if state == "no_state" {
 		return Message{}, false
 	}
-	text := typeMessageText(typ, state)
-	sev := state
-	if sev == "ok" {
-		// ok messages still listed under ok bucket for disk when present.
-	}
-	return Message{Severity: sev, Type: typ, Text: text}, true
+	// ok messages are still listed (under the ok bucket) so the UI can show
+	// healthy checks.
+	return Message{Severity: state, Type: typ, Text: typeMessageText(typ, state)}, true
 }
 
 func typeMessageText(typ, state string) string {

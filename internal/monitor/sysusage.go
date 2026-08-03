@@ -19,13 +19,13 @@ const MaxSysUsagePoints = 15
 
 // SysUsagePayload is the JSON body for type sys_usage.
 type SysUsagePayload struct {
-	Tstamp int64       `json:"tstamp"`
-	Load   []float64   `json:"load"`
-	Mem    []float64   `json:"mem"`
-	Time   []string    `json:"time"`
-	Net    []NetPoint  `json:"net,omitempty"`
-	Rx     uint64      `json:"rx"`
-	Tx     uint64      `json:"tx"`
+	Tstamp int64      `json:"tstamp"`
+	Load   []float64  `json:"load"`
+	Mem    []float64  `json:"mem"`
+	Time   []string   `json:"time"`
+	Net    []NetPoint `json:"net,omitempty"`
+	Rx     uint64     `json:"rx"`
+	Tx     uint64     `json:"tx"`
 }
 
 // NetPoint is one rx/tx sample in KB/s.

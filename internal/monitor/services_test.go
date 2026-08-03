@@ -9,9 +9,9 @@ import (
 )
 
 type fakeProber struct {
-	tcp  map[int]bool
-	udp  map[int]bool
-	ftp  map[int]bool
+	tcp   map[int]bool
+	udp   map[int]bool
+	ftp   map[int]bool
 	mysql bool
 }
 
@@ -84,7 +84,7 @@ func TestCollectServices_mysql(t *testing.T) {
 func TestNetProber_fakeListener(t *testing.T) {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
-	defer ln.Close()
+	defer ln.Close() //nolint:errcheck // test listener
 	go func() {
 		for {
 			c, err := ln.Accept()

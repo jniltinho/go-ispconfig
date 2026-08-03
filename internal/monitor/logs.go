@@ -52,7 +52,7 @@ func TailFile(path string, maxLines int) (string, error) {
 		}
 		return "", err
 	}
-	defer f.Close()
+	defer f.Close() //nolint:errcheck // read-only file
 
 	var lines []string
 	sc := bufio.NewScanner(f)

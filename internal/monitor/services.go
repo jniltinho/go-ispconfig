@@ -7,6 +7,7 @@ import (
 	"net"
 	"time"
 
+	// MySQL driver for the MariaDB service probe.
 	_ "github.com/go-sql-driver/mysql"
 	"gorm.io/gorm"
 
@@ -52,7 +53,7 @@ func (p NetProber) CheckTCP(host string, port int) bool {
 	if err != nil {
 		return false
 	}
-	defer conn.Close()
+	defer conn.Close() //nolint:errcheck // probe connection
 	if port == 80 {
 		_ = conn.SetDeadline(time.Now().Add(5 * time.Second))
 		_, _ = conn.Write([]byte(
@@ -95,7 +96,7 @@ func (p NetProber) CheckMySQL(dsn string) bool {
 	if err != nil {
 		return false
 	}
-	defer db.Close()
+	defer db.Close() //nolint:errcheck // probe connection
 	db.SetConnMaxLifetime(p.timeout())
 	ctx, cancel := context.WithTimeout(context.Background(), p.timeout())
 	defer cancel()

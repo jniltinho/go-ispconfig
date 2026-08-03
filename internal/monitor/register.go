@@ -19,11 +19,11 @@ const (
 
 // RegisterOptions configures monitor job registration.
 type RegisterOptions struct {
-	ServerID  uint32
-	MySQLDSN  string
-	LogPaths  LogPaths
-	Prober    Prober
-	Version   string
+	ServerID uint32
+	MySQLDSN string
+	LogPaths LogPaths
+	Prober   Prober
+	Version  string
 	// EnableSystemUpdate registers the optional hourly system_update job.
 	EnableSystemUpdate bool
 	Log                *slog.Logger
