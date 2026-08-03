@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 
 	"gorm.io/gorm"
 
@@ -90,8 +91,20 @@ type WebConfig struct {
 	LeAutoCleanupDenylist       string `ini:"le_auto_cleanup_denylist"`
 }
 
+// DNS backend identifiers for [dns] dns_backend (design D2 of
+// add-dns-powerdns-module). Exactly one applying plugin is active per server.
+const (
+	DNSBackendBind     = "bind"
+	DNSBackendPowerDNS = "powerdns"
+)
+
+// DefaultPowerDNSAXFRConf is the path written by restartPowerDNS for the
+// global allow-axfr-ips list (PHP: /etc/powerdns/pdns.d/pdns.ispconfig-axfr).
+const DefaultPowerDNSAXFRConf = "/etc/powerdns/pdns.d/pdns.ispconfig-axfr"
+
 // DNSConfig is the typed [dns] section of server.config (Bind paths and
-// ownership), key names as in server.ini.master.
+// ownership), key names as in server.ini.master plus Go additions for the
+// PowerDNS backend (dns_backend, powerdns_axfr_conf).
 type DNSConfig struct {
 	BindUser               string `ini:"bind_user"`
 	BindGroup              string `ini:"bind_group"`
@@ -104,8 +117,44 @@ type DNSConfig struct {
 	DisableBindLog         string `ini:"disable_bind_log"`
 	// DNSSECResignDays is the dns_resign job threshold in days (Go
 	// addition, design D6; empty or non-positive means the built-in
-	// default).
+	// default). Bind backend only.
 	DNSSECResignDays string `ini:"dnssec_resign_days"`
+	// DNSBackend selects the applying DNS plugin: "bind" (default) or
+	// "powerdns". Empty / unknown values normalize to bind.
+	DNSBackend string `ini:"dns_backend"`
+	// PowerDNSAXFRConf is the file rewritten on powerdns service restart
+	// with allow-axfr-ips=… (default DefaultPowerDNSAXFRConf).
+	PowerDNSAXFRConf string `ini:"powerdns_axfr_conf"`
+}
+
+// DefaultDNSConfig returns the Debian/Ubuntu defaults for the [dns]
+// section. GetServerConfig applies them before decoding so missing keys
+// (including dns_backend) behave as bind.
+func DefaultDNSConfig() DNSConfig {
+	return DNSConfig{
+		BindUser:               "root",
+		BindGroup:              "bind",
+		BindZonefilesDir:       "/etc/bind",
+		BindKeyfilesDir:        "/etc/bind",
+		BindZonefilesMasterPfx: "pri.",
+		BindZonefilesSlavePfx:  "slave/sec.",
+		NamedConfPath:          "/etc/bind/named.conf",
+		NamedConfLocalPath:     "/etc/bind/named.conf.local",
+		DisableBindLog:         "n",
+		DNSBackend:             DNSBackendBind,
+		PowerDNSAXFRConf:       DefaultPowerDNSAXFRConf,
+	}
+}
+
+// NormalizeDNSBackend maps empty/unknown values to "bind"; only "powerdns"
+// (case-insensitive) selects the PowerDNS plugin.
+func NormalizeDNSBackend(v string) string {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case DNSBackendPowerDNS:
+		return DNSBackendPowerDNS
+	default:
+		return DNSBackendBind
+	}
 }
 
 // MailConfig is the typed [mail] section of server.config (design D13
@@ -230,11 +279,22 @@ func GetServerConfig(db *gorm.DB, serverID uint32) (*ServerConfig, error) {
 		return nil, fmt.Errorf("loading server %d config: %w", serverID, err)
 	}
 	raw := ParseINI(StripSlashes(server.Config))
-	cfg := &ServerConfig{Raw: raw, Mail: DefaultMailConfig(), Jailkit: DefaultJailkitConfig()}
+	cfg := &ServerConfig{
+		Raw:     raw,
+		DNS:     DefaultDNSConfig(),
+		Mail:    DefaultMailConfig(),
+		Jailkit: DefaultJailkitConfig(),
+	}
 	decodeSection(raw["web"], &cfg.Web)
 	decodeSection(raw["dns"], &cfg.DNS)
 	decodeSection(raw["mail"], &cfg.Mail)
 	decodeSection(raw["jailkit"], &cfg.Jailkit)
+	// Empty dns_backend (or garbage) must not leave the daemon without a
+	// known applying plugin — normalize after decode.
+	cfg.DNS.DNSBackend = NormalizeDNSBackend(cfg.DNS.DNSBackend)
+	if cfg.DNS.PowerDNSAXFRConf == "" {
+		cfg.DNS.PowerDNSAXFRConf = DefaultPowerDNSAXFRConf
+	}
 	return cfg, nil
 }
 

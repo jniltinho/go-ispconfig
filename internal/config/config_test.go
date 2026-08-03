@@ -87,3 +87,32 @@ func TestExplicitMissingFileFails(t *testing.T) {
 
 	require.Error(t, Init(filepath.Join(t.TempDir(), "nope.toml")))
 }
+
+func TestPowerDNSConfigDefaultsAndOverride(t *testing.T) {
+	t.Cleanup(viper.Reset)
+	viper.Reset()
+
+	// Empty file: PowerDNS DSN override is empty (derive from database.dsn).
+	require.NoError(t, Init(writeConfig(t, "")))
+	cfg, err := Load()
+	require.NoError(t, err)
+	require.Equal(t, "", cfg.PowerDNS.DSN)
+
+	t.Cleanup(viper.Reset)
+	viper.Reset()
+	path := writeConfig(t, `
+[powerdns]
+dsn = "ispconfig:secret@tcp(127.0.0.1:3306)/powerdns?parseTime=true"
+`)
+	require.NoError(t, Init(path))
+	cfg, err = Load()
+	require.NoError(t, err)
+	require.Equal(t, "ispconfig:secret@tcp(127.0.0.1:3306)/powerdns?parseTime=true", cfg.PowerDNS.DSN)
+
+	// Env override.
+	t.Setenv("GOISP_POWERDNS_DSN", "root:root@tcp(db:3306)/powerdns")
+	require.NoError(t, Init(path))
+	cfg, err = Load()
+	require.NoError(t, err)
+	require.Equal(t, "root:root@tcp(db:3306)/powerdns", cfg.PowerDNS.DSN)
+}

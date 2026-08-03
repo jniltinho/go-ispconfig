@@ -4,7 +4,7 @@
 
 - [x] 1.1 Embed `base/ispconfig3_install/install/sql/powerdns.sql` and `install/tpl/pdns.local.master` into the binary (installer + tests); unit-test that the embedded SQL creates `domains`, `records`, `supermasters`, `domainmetadata` with `ispconfig_id` on domains/records. Commit.
 - [x] 1.2 Add GORM models for PowerDNS tables `domains` and `records` (and stubs if needed for metadata) with explicit `gorm:"column:..."`, table names matching `powerdns.sql`; unit-test round-trip against a MariaDB `powerdns` database. Commit.
-- [ ] 1.3 Add `[dns] dns_backend` (`bind`|`powerdns`, default bind) and `powerdns_axfr_conf` to the dns getconf section; optional PowerDNS DSN override in `config.toml`; tests for defaults and parsing. Commit.
+- [x] 1.3 Add `[dns] dns_backend` (`bind`|`powerdns`, default bind) and `powerdns_axfr_conf` to the dns getconf section; optional PowerDNS DSN override in `config.toml`; tests for defaults and parsing. Commit.
 - [ ] 1.4 Implement PowerDNS DB open helper (same-host MariaDB credentials + database `powerdns`, or override DSN); fail clearly when backend is powerdns and DB is unreachable. Commit.
 
 ## 2. PowerDNS plugin — zone/record/slave SQL sync

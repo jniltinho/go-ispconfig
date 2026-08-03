@@ -23,6 +23,19 @@ type Config struct {
 	Queue     QueueConfig     `toml:"queue" mapstructure:"queue"`
 	Templates TemplatesConfig `toml:"templates" mapstructure:"templates"`
 	Mail      MailConfig      `toml:"mail" mapstructure:"mail"`
+	// PowerDNS holds optional overrides for the PowerDNS gmysql connection
+	// when dns_backend=powerdns (default: same host as [database] with
+	// database name "powerdns").
+	PowerDNS PowerDNSConfig `toml:"powerdns" mapstructure:"powerdns"`
+}
+
+// PowerDNSConfig is the optional [powerdns] section of config.toml. An empty
+// DSN means the daemon builds one from the main MariaDB credentials +
+// database "powerdns" (design D3).
+type PowerDNSConfig struct {
+	// DSN overrides the PowerDNS MariaDB connection (full Go MySQL DSN).
+	// Empty: derive from [database].dsn with database name powerdns.
+	DSN string `toml:"dsn" mapstructure:"dsn"`
 }
 
 // MailConfig is the optional SMTP transport used by the client messaging
@@ -153,6 +166,7 @@ func setDefaults() {
 	viper.SetDefault("mail.smtp_user", "")
 	viper.SetDefault("mail.smtp_pass", "")
 	viper.SetDefault("mail.from", "")
+	viper.SetDefault("powerdns.dsn", "")
 }
 
 // Init configures the global Viper instance: defaults, GOISP_ environment
