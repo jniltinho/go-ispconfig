@@ -37,6 +37,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'save', values: Record<string, unknown>): void
   (e: 'cancel'): void
+  (e: 'values-change', values: Record<string, unknown>): void
 }>()
 
 const { t } = useI18n()
@@ -66,6 +67,12 @@ function fieldLabel(name: string): string {
 
 const errorList = () => Object.entries(props.errors ?? {}).filter(([, msgs]) => msgs.length > 0)
 
+watch(
+  values,
+  (v) => emit('values-change', { ...v }),
+  { deep: true },
+)
+
 // When server validation errors arrive, stay on (or jump to) the first tab
 // holding an offending field so the inline message is visible.
 watch(
@@ -88,7 +95,11 @@ watch(
 </script>
 
 <template>
-  <form class="border border-border bg-surface" @submit.prevent="emit('save', { ...values })">
+  <form
+    class="border border-border bg-surface"
+    data-test="tabbed-form"
+    @submit.prevent="emit('save', { ...values })"
+  >
     <!-- Flat tabs -->
     <div role="tablist" class="flex border-b border-border bg-bg">
       <button
@@ -98,7 +109,7 @@ watch(
         role="tab"
         :aria-selected="activeTab === tab.name"
         :aria-controls="`tabpanel-${tab.name}`"
-        class="-mb-px border-r border-border px-5 py-2.5 text-sm font-bold transition-colors duration-150"
+        class="-mb-px border-r border-border px-4 py-2 text-sm font-bold transition-colors duration-150"
         :class="
           activeTab === tab.name
             ? 'border-b border-b-surface bg-surface text-text'
@@ -119,13 +130,13 @@ watch(
     />
 
     <!-- Fields of the active tab -->
-    <div class="px-3 py-6">
+    <div class="px-4 py-4">
       <template v-for="tab in metadata.tabs" :key="tab.name">
         <div
           v-show="activeTab === tab.name"
           :id="`tabpanel-${tab.name}`"
           role="tabpanel"
-          class="space-y-4"
+          class="mx-auto max-w-xl space-y-2"
         >
           <template v-for="field in tab.fields" :key="field.name">
             <!-- Fieldset legend as a sub-heading (original trait) -->
@@ -135,10 +146,10 @@ watch(
             >
               {{ field.label }}
             </p>
-            <div v-else class="flex items-start gap-4">
+            <div v-else class="flex items-start gap-3">
             <label
               :for="`field-${field.name}`"
-              class="w-48 shrink-0 pt-1.5 text-right text-sm font-semibold after:content-[':']"
+              class="w-44 shrink-0 pt-1 text-right text-sm font-semibold after:content-[':']"
             >
               {{ field.label }}
             </label>
@@ -149,7 +160,7 @@ watch(
                 v-model="values[field.name] as string"
                 :type="field.type"
                 :disabled="field.readonly"
-                class="w-full max-w-md border border-border bg-surface px-3 py-1.5 text-sm outline-none focus:border-link disabled:bg-bg disabled:text-text/60"
+                class="w-full border border-border bg-surface px-2 py-1 text-sm outline-none focus:border-link disabled:bg-bg disabled:text-text/60"
                 :class="{ 'border-danger-border': errors?.[field.name]?.length }"
               />
               <textarea
@@ -158,7 +169,7 @@ watch(
                 v-model="values[field.name] as string"
                 rows="4"
                 :disabled="field.readonly"
-                class="w-full max-w-md border border-border bg-surface px-3 py-1.5 text-sm outline-none focus:border-link disabled:bg-bg disabled:text-text/60"
+                class="w-full border border-border bg-surface px-2 py-1 text-sm outline-none focus:border-link disabled:bg-bg disabled:text-text/60"
                 :class="{ 'border-danger-border': errors?.[field.name]?.length }"
               />
               <select
@@ -166,7 +177,7 @@ watch(
                 :id="`field-${field.name}`"
                 v-model="values[field.name] as string"
                 :disabled="field.readonly"
-                class="w-full max-w-md border border-border bg-surface px-3 py-1.5 text-sm outline-none focus:border-link disabled:bg-bg disabled:text-text/60"
+                class="w-full border border-border bg-surface px-2 py-1 text-sm outline-none focus:border-link disabled:bg-bg disabled:text-text/60"
                 :class="{ 'border-danger-border': errors?.[field.name]?.length }"
               >
                 <option v-for="opt in field.options" :key="opt.value" :value="opt.value">
@@ -179,7 +190,7 @@ watch(
                 v-model="values[field.name] as boolean"
                 type="checkbox"
                 :disabled="field.readonly"
-                class="mt-2"
+                class="mt-1"
               />
               <p
                 v-if="errors?.[field.name]?.length"
@@ -195,7 +206,7 @@ watch(
     </div>
 
     <!-- Save / Cancel -->
-    <div class="flex justify-end gap-2 border-t border-border bg-bg px-4 py-3">
+    <div class="flex justify-end gap-2 border-t border-border bg-bg px-4 py-2">
       <button
         type="button"
         data-test="form-cancel"
