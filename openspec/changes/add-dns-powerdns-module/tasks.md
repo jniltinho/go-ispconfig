@@ -40,8 +40,8 @@
 
 ## 6. Shared surface verification (no new API/UI features)
 
-- [ ] 6.1 Confirm existing DNS REST API + Vue panel need no code changes for PowerDNS; if any read-only backend indicator is required for ops, keep it out of scope unless a one-line server-info field already exists — document backend is server-config only. Commit only if a tiny doc-facing fix is needed; otherwise skip commit.
-- [ ] 6.2 agent-browser smoke against a PowerDNS-backed daemon (docker or local): login, create zone via wizard, add A/MX/TXT, toggle DNSSEC wanted, verify panel still works (SQL side asserted in Go tests). Screenshots to `docs/prints/`. Commit.
+- [x] 6.1 Confirm existing DNS REST API + Vue panel need no code changes for PowerDNS; if any read-only backend indicator is required for ops, keep it out of scope unless a one-line server-info field already exists — document backend is server-config only. Commit only if a tiny doc-facing fix is needed; otherwise skip commit. (Verified: `internal/api/dns*.go` and `frontend/src/views/dns/*.vue` never read `dns_backend` — the only `Bind(` hits are Echo's request binder, unrelated. No code or doc fix needed; no commit.)
+- [x] 6.2 agent-browser smoke against a PowerDNS-backed daemon (docker or local): login, create zone via wizard, add A/MX/TXT, toggle DNSSEC wanted, verify panel still works (SQL side asserted in Go tests). Screenshots to `docs/prints/`. Commit. (`e2e/panel-dns-powerdns.sh` + self-contained bootstrap `scripts/e2e-dns-powerdns.sh` / `make e2e-dns-powerdns`; ran green end-to-end: login, zones list, wizard create with DNSSEC checkbox ticked, template A/NS/MX/TXT records present, manual A record added. The daemon is not started by this script — it follows the existing `e2e/panel-*.sh` convention of panel-only smoke; the daemon-side SQL sync is the Go integration test from 7.1.)
 
 ## 7. Integration tests and docs
 

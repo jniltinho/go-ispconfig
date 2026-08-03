@@ -107,6 +107,14 @@ e2e-database:
 e2e-ftp-shell:
 	PANEL_URL=$(PANEL_URL) ADMIN_PASSWORD=$(ADMIN_PASSWORD) e2e/panel-ftp-shell.sh
 
+## DNS-module E2E (agent-browser) against a running built binary whose local
+## server row is provisioned with [dns] dns_backend=powerdns:
+##   make e2e-dns-powerdns PANEL_URL=http://127.0.0.1:8098 ADMIN_PASSWORD=...
+## Self-contained bootstrap (docker MariaDB + powerdns schema + build +
+## serve, no running panel required): scripts/e2e-dns-powerdns.sh
+e2e-dns-powerdns:
+	PANEL_URL=$(PANEL_URL) ADMIN_PASSWORD=$(ADMIN_PASSWORD) e2e/panel-dns-powerdns.sh
+
 ## Unified UI QA E2E: baseline smoke + every module suite + theme, in order,
 ## against ONE running panel. Precondition: freshly migrated DB with the
 ## seeded admin plus one DNS zone id=1 (panel-theme.sh requirement).
