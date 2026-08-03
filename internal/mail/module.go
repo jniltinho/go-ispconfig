@@ -17,7 +17,7 @@ import (
 // events (design D2). spamfilter_policy has no daemon hook in PHP either.
 var hookedTables = []string{
 	"mail_domain", "mail_user", "mail_forwarding",
-	"mail_transport", "mail_access",
+	"mail_transport", "mail_access", "mail_get",
 	"spamfilter_users", "spamfilter_wblist",
 }
 

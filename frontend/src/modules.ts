@@ -49,6 +49,7 @@ export const modules: ModuleDef[] = [
       { labelKey: 'sidebar.mail.forwards', path: '/mail/forwards' },
       { labelKey: 'sidebar.mail.catchalls', path: '/mail/catchalls' },
       { labelKey: 'sidebar.mail.alias_domains', path: '/mail/alias-domains' },
+      { labelKey: 'sidebar.mail.fetchmail', path: '/mail/fetchmail' },
       { labelKey: 'sidebar.mail.transports', path: '/mail/transports' },
       { labelKey: 'sidebar.mail.spamfilter_policies', path: '/mail/spamfilter/policies', adminOnly: true, group: 'sidebar.group.spamfilter' },
       { labelKey: 'sidebar.mail.spamfilter_users', path: '/mail/spamfilter/users' },
