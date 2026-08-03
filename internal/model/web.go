@@ -205,3 +205,86 @@ type ShellUser struct {
 
 // TableName maps ShellUser to the ISPConfig table shell_user.
 func (ShellUser) TableName() string { return "shell_user" }
+
+// DirectiveSnippet is a reusable apache/nginx/php configuration fragment
+// sites can reference (table directive_snippets).
+type DirectiveSnippet struct {
+	DirectiveSnippetsID       uint32 `gorm:"column:directive_snippets_id;primaryKey;autoIncrement"`
+	SysUserID                 uint32 `gorm:"column:sys_userid"`
+	SysGroupID                uint32 `gorm:"column:sys_groupid"`
+	SysPermUser               string `gorm:"column:sys_perm_user"`
+	SysPermGroup              string `gorm:"column:sys_perm_group"`
+	SysPermOther              string `gorm:"column:sys_perm_other"`
+	Name                      string `gorm:"column:name"`
+	Type                      string `gorm:"column:type"`
+	Snippet                   string `gorm:"column:snippet"`
+	CustomerViewable          string `gorm:"column:customer_viewable"`
+	RequiredPHPSnippets       string `gorm:"column:required_php_snippets"`
+	Active                    string `gorm:"column:active"`
+	MasterDirectiveSnippetsID uint32 `gorm:"column:master_directive_snippets_id"`
+	UpdateSites               string `gorm:"column:update_sites"`
+}
+
+// TableName maps DirectiveSnippet to the ISPConfig table directive_snippets.
+func (DirectiveSnippet) TableName() string { return "directive_snippets" }
+
+// FTPTraffic is the daily in/out byte counter of an FTP host
+// (table ftp_traffic).
+type FTPTraffic struct {
+	Hostname    string    `gorm:"column:hostname"`
+	TrafficDate time.Time `gorm:"column:traffic_date"`
+	InBytes     uint64    `gorm:"column:in_bytes"`
+	OutBytes    uint64    `gorm:"column:out_bytes"`
+}
+
+// TableName maps FTPTraffic to the ISPConfig table ftp_traffic.
+func (FTPTraffic) TableName() string { return "ftp_traffic" }
+
+// WebBackup is one website or database backup archive tracked on a server
+// (table web_backup).
+type WebBackup struct {
+	BackupID       uint32 `gorm:"column:backup_id;primaryKey;autoIncrement"`
+	ServerID       uint32 `gorm:"column:server_id"`
+	ParentDomainID uint32 `gorm:"column:parent_domain_id"`
+	BackupType     string `gorm:"column:backup_type"`
+	BackupMode     string `gorm:"column:backup_mode"`
+	BackupFormat   string `gorm:"column:backup_format"`
+	Tstamp         uint32 `gorm:"column:tstamp"`
+	Filename       string `gorm:"column:filename"`
+	Filesize       string `gorm:"column:filesize"`
+	BackupPassword string `gorm:"column:backup_password"`
+}
+
+// TableName maps WebBackup to the ISPConfig table web_backup.
+func (WebBackup) TableName() string { return "web_backup" }
+
+// WebTraffic is the daily traffic counter of a website (table web_traffic).
+type WebTraffic struct {
+	Hostname     string     `gorm:"column:hostname"`
+	TrafficDate  *time.Time `gorm:"column:traffic_date"`
+	TrafficBytes uint64     `gorm:"column:traffic_bytes"`
+}
+
+// TableName maps WebTraffic to the ISPConfig table web_traffic.
+func (WebTraffic) TableName() string { return "web_traffic" }
+
+// WebDavUser is a WebDAV account bound to a website folder
+// (table webdav_user).
+type WebDavUser struct {
+	WebdavUserID   uint32 `gorm:"column:webdav_user_id;primaryKey;autoIncrement"`
+	SysUserID      uint32 `gorm:"column:sys_userid"`
+	SysGroupID     uint32 `gorm:"column:sys_groupid"`
+	SysPermUser    string `gorm:"column:sys_perm_user"`
+	SysPermGroup   string `gorm:"column:sys_perm_group"`
+	SysPermOther   string `gorm:"column:sys_perm_other"`
+	ServerID       uint32 `gorm:"column:server_id"`
+	ParentDomainID uint32 `gorm:"column:parent_domain_id"`
+	Username       string `gorm:"column:username"`
+	UsernamePrefix string `gorm:"column:username_prefix"`
+	Password       string `gorm:"column:password"`
+	Active         string `gorm:"column:active"`
+	Dir            string `gorm:"column:dir"`
+}
+
+// TableName maps WebDavUser to the ISPConfig table webdav_user.
+func (WebDavUser) TableName() string { return "webdav_user" }

@@ -64,16 +64,33 @@ func ddlColumns(t *testing.T) map[string]map[string]ddlColumn {
 }
 
 var allModels = []any{
-	SysUser{}, SysGroup{}, SysDatalog{}, SysRemoteAction{}, SysConfig{},
-	SysIni{}, SysLog{}, SysSession{}, Server{}, ServerIP{}, ServerPHP{},
-	Client{}, WebDomain{}, WebFolder{}, WebFolderUser{}, FTPUser{}, ShellUser{},
-	DNSSoa{}, DNSRr{}, DNSSlave{}, DNSTemplate{},
-	ClientTemplate{}, ClientTemplateAssigned{}, ClientMessageTemplate{}, Country{},
-	MailDomain{}, MailUser{}, MailForwarding{}, MailTransport{}, MailAccess{},
-	SpamfilterPolicy{}, SpamfilterUser{}, SpamfilterWblist{},
-	WebDatabase{}, WebDatabaseUser{},
+	APSInstance{}, APSInstanceSetting{}, APSPackage{}, APSSetting{},
+	Client{}, Domain{},
+	ClientTemplate{}, ClientTemplateAssigned{}, ClientMessageTemplate{},
+	Country{}, ClientCircle{},
 	Cron{},
+	WebDatabase{}, WebDatabaseUser{},
+	DNSSoa{}, DNSRr{}, DNSSlave{}, DNSTemplate{}, DNSSSLCA{},
+	Firewall{}, IPTables{},
+	HelpFaq{}, HelpFaqSection{},
+	MailDomain{}, MailUser{}, MailForwarding{}, MailTransport{},
+	MailAccess{}, MailGet{}, MailBackup{}, MailContentFilter{},
+	MailMailinglist{}, MailRelayDomain{}, MailRelayRecipient{},
+	MailTraffic{}, MailUserFilter{},
 	MonitorData{},
+	OpenVZIP{}, OpenVZOSTemplate{}, OpenVZTemplate{}, OpenVZTraffic{},
+	OpenVZVM{},
+	RemoteSession{}, RemoteUser{},
+	Server{}, ServerIP{}, ServerPHP{}, ServerIPMap{},
+	SpamfilterPolicy{}, SpamfilterUser{}, SpamfilterWblist{},
+	SupportMessage{},
+	SysUser{}, SysGroup{}, SysDatalog{}, SysRemoteAction{}, SysConfig{},
+	SysIni{}, SysLog{}, AttemptsLogin{}, SysSession{}, SysCron{},
+	SysDBSync{}, SysFileSync{}, SysMessage{}, SysTheme{},
+	WebDomain{}, WebFolder{}, WebFolderUser{}, FTPUser{}, ShellUser{},
+	DirectiveSnippet{}, FTPTraffic{}, WebBackup{}, WebTraffic{},
+	WebDavUser{},
+	XMPPDomain{}, XMPPUser{},
 }
 
 // TestModelsMatchDDL asserts that every GORM model maps exactly the columns
@@ -136,29 +153,18 @@ func goTypeClass(typ reflect.Type) string {
 	}
 }
 
-// TestModelTypesMatchDDL goes beyond column names for the tables the daemon
-// writes through: every field's Go type class must match the DDL type, and
-// nullable numeric/time columns must be pointers so a database NULL survives
-// a scan/insert round trip (e.g. dns_rr.serial, client.created_at).
+// TestModelTypesMatchDDL goes beyond column names: every field's Go type
+// class must match the DDL type, and nullable numeric/time columns must be
+// pointers so a database NULL survives a scan/insert round trip
+// (e.g. dns_rr.serial, client.created_at).
 func TestModelTypesMatchDDL(t *testing.T) {
 	ddl := ddlColumns(t)
-	critical := map[string]any{
-		"sys_datalog":       SysDatalog{},
-		"server":            Server{},
-		"web_domain":        WebDomain{},
-		"dns_soa":           DNSSoa{},
-		"dns_rr":            DNSRr{},
-		"client":            Client{},
-		"web_database":      WebDatabase{},
-		"web_database_user": WebDatabaseUser{},
-		"ftp_user":          FTPUser{},
-		"shell_user":        ShellUser{},
-	}
 
 	cache := &sync.Map{}
-	for table, m := range critical {
+	for _, m := range allModels {
 		s, err := schema.Parse(m, cache, schema.NamingStrategy{})
 		require.NoError(t, err)
+		table := s.Table
 
 		for _, f := range s.Fields {
 			col, ok := ddl[table][f.DBName]

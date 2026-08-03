@@ -142,3 +142,18 @@ type Client struct {
 
 // TableName maps Client to the ISPConfig table client.
 func (Client) TableName() string { return "client" }
+
+// Domain is an entry of the domain list a client may pick from when
+// creating sites, mail domains or DNS zones (table domain).
+type Domain struct {
+	DomainID     uint32 `gorm:"column:domain_id;primaryKey;autoIncrement"`
+	SysUserID    uint32 `gorm:"column:sys_userid"`
+	SysGroupID   uint32 `gorm:"column:sys_groupid"`
+	SysPermUser  string `gorm:"column:sys_perm_user"`
+	SysPermGroup string `gorm:"column:sys_perm_group"`
+	SysPermOther string `gorm:"column:sys_perm_other"`
+	Domain       string `gorm:"column:domain"`
+}
+
+// TableName maps Domain to the ISPConfig table domain.
+func (Domain) TableName() string { return "domain" }

@@ -125,9 +125,27 @@ type Country struct {
 	Name          string `gorm:"column:name" json:"name,omitempty"`
 	PrintableName string `gorm:"column:printable_name" json:"printable_name"`
 	ISO3          string `gorm:"column:iso3" json:"iso3,omitempty"`
-	Numcode       int16  `gorm:"column:numcode" json:"numcode,omitempty"`
+	Numcode       *int16 `gorm:"column:numcode" json:"numcode,omitempty"`
 	EU            string `gorm:"column:eu;default:n" json:"eu"`
 }
 
 // TableName maps Country to the ISPConfig table country.
 func (Country) TableName() string { return "country" }
+
+// ClientCircle groups clients so a reseller can act on several of them at
+// once (table client_circle).
+type ClientCircle struct {
+	CircleID     int32  `gorm:"column:circle_id;primaryKey;autoIncrement"`
+	SysUserID    int32  `gorm:"column:sys_userid"`
+	SysGroupID   int32  `gorm:"column:sys_groupid"`
+	SysPermUser  string `gorm:"column:sys_perm_user"`
+	SysPermGroup string `gorm:"column:sys_perm_group"`
+	SysPermOther string `gorm:"column:sys_perm_other"`
+	CircleName   string `gorm:"column:circle_name"`
+	ClientIds    string `gorm:"column:client_ids"`
+	Description  string `gorm:"column:description"`
+	Active       string `gorm:"column:active"`
+}
+
+// TableName maps ClientCircle to the ISPConfig table client_circle.
+func (ClientCircle) TableName() string { return "client_circle" }

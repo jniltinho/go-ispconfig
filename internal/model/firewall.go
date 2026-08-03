@@ -25,3 +25,22 @@ func (Firewall) TableName() string { return "firewall" }
 // writes a {old,new} diff the daemon later consumes as firewall_*
 // events.
 func (Firewall) DBHistory() bool { return true }
+
+// IPTables is a single firewall rule pushed to the server iptables
+// ruleset (table iptables).
+type IPTables struct {
+	IPTablesID    uint32 `gorm:"column:iptables_id;primaryKey;autoIncrement"`
+	ServerID      uint32 `gorm:"column:server_id"`
+	Table         string `gorm:"column:table"`
+	SourceIP      string `gorm:"column:source_ip"`
+	DestinationIP string `gorm:"column:destination_ip"`
+	Protocol      string `gorm:"column:protocol"`
+	Singleport    string `gorm:"column:singleport"`
+	Multiport     string `gorm:"column:multiport"`
+	State         string `gorm:"column:state"`
+	Target        string `gorm:"column:target"`
+	Active        string `gorm:"column:active"`
+}
+
+// TableName maps IPTables to the ISPConfig table iptables.
+func (IPTables) TableName() string { return "iptables" }
