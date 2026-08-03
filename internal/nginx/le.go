@@ -10,6 +10,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"go-ispconfig/internal/web"
 )
 
 // AcmeWebroot is the directory every vhost serves under
@@ -21,13 +23,14 @@ const AcmeWebroot = "/usr/local/ispconfig/interface/acme"
 // leProbeTimeout bounds one domain-reachability HTTP request.
 const leProbeTimeout = 8 * time.Second
 
-// leClientKind identifies the detected ACME client.
-type leClientKind int
+// leClientKind identifies the detected ACME client. The detection itself is
+// shared with the Apache plugin through internal/web.
+type leClientKind = web.ACMEKind
 
 const (
-	leNone leClientKind = iota
-	leAcme
-	leCertbot
+	leNone    = web.ACMENone
+	leAcme    = web.ACMEAcme
+	leCertbot = web.ACMECertbot
 )
 
 // leClient wraps the detected acme.sh / certbot binary (Go port of
@@ -44,20 +47,12 @@ type leClient struct {
 	httpGet func(url string) (string, error)
 }
 
-// acmeScriptCandidates / certbotCandidates mirror the PHP `which` lists.
-var acmeScriptCandidates = []string{"acme.sh", "/root/.acme.sh/acme.sh"}
-var certbotCandidates = []string{"certbot", "/opt/eff.org/certbot/venv/bin/certbot", "letsencrypt"}
-
 // newLEClient detects an ACME client (acme.sh preferred, certbot fallback).
 // It returns a client with kind leNone when neither is found.
 func (p *Plugin) newLEClient(ctx context.Context) *leClient {
 	c := &leClient{plugin: p, webroot: p.acmeWebroot(), httpGet: httpGetString}
-	if script := p.whichExecutable(ctx, acmeScriptCandidates); script != "" {
-		c.kind, c.script = leAcme, script
-		c.version = p.probeClientVersion(ctx, script)
-	} else if script := p.whichExecutable(ctx, certbotCandidates); script != "" {
-		c.kind, c.script = leCertbot, script
-		c.version = p.probeClientVersion(ctx, script)
+	if c.kind, c.script = web.DetectACME(ctx, p.runner); c.kind != leNone {
+		c.version = p.probeClientVersion(ctx, c.script)
 	}
 	return c
 }
@@ -68,25 +63,6 @@ func (p *Plugin) acmeWebroot() string {
 		return p.leWebroot
 	}
 	return AcmeWebroot
-}
-
-// whichExecutable runs `which` over the candidates and returns the first
-// executable path.
-func (p *Plugin) whichExecutable(ctx context.Context, candidates []string) string {
-	out, err := p.runner.Run(ctx, "which", candidates...)
-	if err != nil {
-		return ""
-	}
-	for _, line := range strings.Split(string(out), "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-		if info, err := os.Stat(line); err == nil && info.Mode()&0o111 != 0 {
-			return line
-		}
-	}
-	return ""
 }
 
 // versionRe extracts a dotted version from `<client> --version` output.

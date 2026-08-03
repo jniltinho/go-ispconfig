@@ -65,11 +65,8 @@ func TestRenewNoClientIsNoop(t *testing.T) {
 	assert.NoError(t, p.renewCertificates(context.Background()))
 }
 
-// TestRenewalHappenedCertbot pins the certbot marker parsing.
-func TestRenewalHappenedCertbot(t *testing.T) {
-	assert.False(t, renewalHappened(leCertbot, "No renewals were attempted."))
-	assert.True(t, renewalHappened(leCertbot, "Congratulations, all renewals succeeded"))
-}
+// The renew body itself now lives in internal/web (shared with Apache); its
+// output-marker parsing is pinned by web/le_renew_test.go.
 
 // TestRegisterRenewal adds the daily job to a scheduler and refuses a
 // duplicate.
