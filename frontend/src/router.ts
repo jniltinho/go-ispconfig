@@ -13,6 +13,7 @@ import WebFolderList from './views/sites/WebFolderList.vue'
 import WebFolderUserList from './views/sites/WebFolderUserList.vue'
 import DatabaseList from './views/sites/DatabaseList.vue'
 import DatabaseForm from './views/sites/DatabaseForm.vue'
+import DatabaseUserForm from './views/sites/DatabaseUserForm.vue'
 import DatabaseUserList from './views/sites/DatabaseUserList.vue'
 import CronList from './views/sites/CronList.vue'
 import CronForm from './views/sites/CronForm.vue'
@@ -458,24 +459,13 @@ export const router = createRouter({
         {
           path: 'sites/database-users/new',
           name: 'sites-database-user-new',
-          component: EntityForm,
-          props: {
-            entity: 'database-users',
-            apiBase: '/api/sites/database-users',
-            backTo: '/sites/database-users',
-          },
+          component: DatabaseUserForm,
         },
         {
           path: 'sites/database-users/:id',
           name: 'sites-database-user-edit',
-          component: EntityForm,
-          props: (route) => ({
-            entity: 'database-users',
-            apiBase: '/api/sites/database-users',
-            backTo: '/sites/database-users',
-            id: String(route.params.id),
-            readonlyFields: ['server_id', 'database_user_prefix'],
-          }),
+          component: DatabaseUserForm,
+          props: (route) => ({ id: String(route.params.id) }),
         },
         { path: 'dns', name: 'dns', component: ZoneList },
         { path: 'dns/wizard', name: 'dns-wizard', component: ZoneWizard },

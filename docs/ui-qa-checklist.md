@@ -92,10 +92,10 @@ Update after each QA batch. **Baseline** (task 1.3) only checks T4 + login for s
 | Folder form | `/sites/folders/new\|:id` | — | F* | ⬜ | |
 | Folder users list | `/sites/folders/:fid/users` | L* | — | ⬜ | |
 | Folder user form | `…/users/new\|:id` | — | F* | ⬜ | |
-| Databases list | `/sites/databases` | L* (L5 critical) | — | ⬜ | |
-| Database form | `/sites/databases/new\|:id` | — | F* | ⬜ | |
-| DB users list | `/sites/database-users` | L* | — | ⬜ | |
-| DB user form | `/sites/database-users/new\|:id` | — | F* | ⬜ | |
+| Databases list | `/sites/databases` | L* (L5 critical) | — | ✅ | decorated filters OK; Yes/No active filter via API normalize |
+| Database form | `/sites/databases/new\|:id` | — | F* | ✅ | server/website/user selects |
+| DB users list | `/sites/database-users` | L* | — | ✅ | `_client` filter OK |
+| DB user form | `/sites/database-users/new\|:id` | — | F* | ✅ | server select; hide empty-label dual-hash field |
 | Crons | `/sites/crons` | — | — | — | N/A until cron merged |
 | FTP users | `/sites/ftp-users` | — | — | — | N/A until ftp-shell merged |
 | Shell users | `/sites/shell-users` | — | — | — | N/A until ftp-shell merged |

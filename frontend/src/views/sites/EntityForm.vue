@@ -86,7 +86,10 @@ function toFormMetadata(meta: ServerMeta): FormMetadata {
     tabs: meta.tabs.map((tab) => ({
       name: tab.name,
       label: t(tab.label),
-      fields: tab.fields.map((field) => {
+      // Skip server-only columns (empty label) e.g. dual-hash password_sha2.
+      fields: tab.fields
+        .filter((field) => field.label !== '')
+        .map((field) => {
         const override = props.optionOverrides?.[field.name]
         return {
         name: field.name,

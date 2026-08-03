@@ -9,7 +9,7 @@
 ## 2. Sites / databases / cron / ftp-shell
 
 - [x] 2.1 Sites web domains list+form QA + fixes. Commit.
-- [ ] 2.2 Databases + database users list filters/forms QA + fixes. Commit.
+- [x] 2.2 Databases + database users list filters/forms QA + fixes. Commit.
 - [ ] 2.3 Cron list/form/history QA + fixes (after cron on main). Commit.
 - [ ] 2.4 FTP users + shell users list/form QA + fixes (after ftp on main). Commit.
 
