@@ -42,4 +42,4 @@
 ## 6. E2E and docs
 
 - [x] 6.1 agent-browser E2E against the built binary: create URL cron, edit schedule/active/log, open run history (seed `sys_log` if needed), delete job, client isolation; screenshots to `docs/prints/`. Commit.
-- [x] 6.2 Module docs in `docs/cron-module.md`: architecture (module/plugin/runner), schedule fields, job types, privilege-drop guarantees, `sys_log` run convention, legacy crontab cutover, client limits, migration notes; link from ROADMAP. Commit.
+- [ ] 6.2 Module docs in `docs/cron-module.md`: architecture (module/plugin/runner), schedule fields, job types, privilege-drop guarantees, `sys_log` run convention, legacy crontab cutover, client limits, migration notes; link from ROADMAP. Commit.
