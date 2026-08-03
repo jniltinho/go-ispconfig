@@ -7,9 +7,12 @@ package mail
 //	go test ./internal/mail -run TestGetmailGolden -update-getmail
 
 import (
+	"bytes"
 	"context"
 	"flag"
+	"log/slog"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -178,6 +181,41 @@ func TestGetmailFetchJobArgv(t *testing.T) {
 		"setpriv --reuid 999 --regid 999 --clear-groups /usr/bin/getmail -g "+dir+
 			" -r "+filepath.Join(dir, "a.conf")+" -r "+filepath.Join(dir, "b.conf"),
 		runner.all()[0])
+}
+
+// failingRunner returns the error of a real process that exited non-zero, so
+// the exit-status extraction is exercised against a genuine *exec.ExitError.
+type failingRunner struct{ err error }
+
+func (f *failingRunner) Run(context.Context, string, ...string) ([]byte, error) {
+	return []byte("getmail: server unreachable"), f.err
+}
+
+// TestGetmailFetchJobLogsExitCode: a failing fetch keeps the job green (one
+// dead remote must not mask the accounts that worked) but the exit code and
+// the account it ran as must reach the log, or alerting has nothing to key on.
+func TestGetmailFetchJobLogsExitCode(t *testing.T) {
+	g, _, dir := testGetmail(t)
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "a.conf"), nil, 0o600))
+	g.LookupUser = func(string) (string, string, error) { return "999", "999", nil }
+
+	var buf bytes.Buffer
+	g.base.log = slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	g.base.runner = &failingRunner{err: exec.Command("sh", "-c", "exit 7").Run()}
+
+	require.NoError(t, g.fetchJob(context.Background()), "a bad fetch is not a job failure")
+	logged := buf.String()
+	assert.Contains(t, logged, "level=ERROR")
+	assert.Contains(t, logged, "exit_code=7")
+	assert.Contains(t, logged, "user="+getconf.DefaultGetmailConfig().User)
+	assert.Contains(t, logged, "server unreachable")
+}
+
+// TestGetmailExitCodeUnknown: an error that carries no exit status (exec
+// failure, timeout kill) reports -1 instead of a misleading 0.
+func TestGetmailExitCodeUnknown(t *testing.T) {
+	assert.Equal(t, -1, exitCode(os.ErrNotExist))
+	assert.Equal(t, 7, exitCode(exec.Command("sh", "-c", "exit 7").Run()))
 }
 
 func TestGetmailFetchJobSkipsEmptyDir(t *testing.T) {

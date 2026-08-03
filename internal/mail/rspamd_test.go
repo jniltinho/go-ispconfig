@@ -7,6 +7,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
+	"gorm.io/gorm/utils/tests"
 
 	"go-ispconfig/internal/engine"
 	"go-ispconfig/internal/getconf"
@@ -34,6 +36,30 @@ func TestClassifyIdentity(t *testing.T) {
 	}
 	_, ok = classifyIdentity("mail_get_insert", row{"email": "x@y.z"})
 	assert.False(t, ok, "unknown event skipped")
+}
+
+// TestResolvePolicyRejectsAddressWithoutDomain: classifyIdentity normalises
+// every identity today, but resolvePolicy must not slice on a missing "@" if
+// a future caller hands it a raw address.
+func TestResolvePolicyRejectsAddressWithoutDomain(t *testing.T) {
+	db, err := gorm.Open(tests.DummyDialector{}, &gorm.Config{DryRun: true})
+	require.NoError(t, err)
+	r := NewRspamdPlugin(NewPlugin(db, nil, &fakeRunner{}, 1, nil), "")
+
+	for _, id := range []settingsIdentity{
+		{typ: "mail_user", email: ""},
+		{typ: "mail_user", email: "nodomain"},
+		{typ: "spamfilter_user", email: "nodomain"},
+	} {
+		assert.NotPanics(t, func() {
+			assert.Nil(t, r.resolvePolicy(context.Background(), id, row{}))
+		}, "email %q", id.email)
+	}
+	// A well-formed identity still reaches the lookup: the dry-run DB runs no
+	// statement and reports no error, so the guard is the only thing that can
+	// turn this into a nil policy.
+	assert.NotNil(t, r.resolvePolicy(context.Background(),
+		settingsIdentity{typ: "mail_user", email: "u@example.com"}, row{}))
 }
 
 func TestIdnEncodeAndValidEmail(t *testing.T) {

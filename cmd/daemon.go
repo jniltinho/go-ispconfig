@@ -97,11 +97,13 @@ var daemonCmd = &cobra.Command{
 			logger.Warn("daemon: could not load server web config, defaulting to nginx", "error", err)
 		}
 		var (
-			nginxPlugin *nginx.Plugin
-			webPlugin   engine.Plugin
+			nginxPlugin  *nginx.Plugin
+			apachePlugin *apache2.Plugin
+			webPlugin    engine.Plugin
 		)
 		if webServerType == "apache" || webServerType == "apache2" {
-			webPlugin = apache2.NewPlugin(db, services, runner, cfg.Templates.CustomDir, logger)
+			apachePlugin = apache2.NewPlugin(db, services, runner, cfg.Templates.CustomDir, logger)
+			webPlugin = apachePlugin
 		} else {
 			nginxPlugin = nginx.NewPlugin(db, services, runner, cfg.Templates.CustomDir, logger)
 			webPlugin = nginxPlugin
@@ -246,10 +248,16 @@ var daemonCmd = &cobra.Command{
 		if err := sched.RegisterDatalogPruning(daemon.ServerID(), cfg.Daemon.DatalogRetentionDays); err != nil {
 			return err
 		}
-		// Certificate renewal is still nginx-only; the Apache plugin renders
-		// whatever certificate files are on disk but does not drive ACME yet.
+		// Certificate renewal belongs to whichever web plugin is loaded: the
+		// ACME client renews every certificate on the host, only the service
+		// reloaded afterwards differs. Exactly one of the two is non-nil.
 		if nginxPlugin != nil {
 			if err := nginxPlugin.RegisterRenewal(sched); err != nil {
+				return err
+			}
+		}
+		if apachePlugin != nil {
+			if err := apachePlugin.RegisterRenewal(sched); err != nil {
 				return err
 			}
 		}

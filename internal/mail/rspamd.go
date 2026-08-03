@@ -232,6 +232,14 @@ func (r *RspamdPlugin) resolvePolicy(ctx context.Context, id settingsIdentity, u
 	if r.base.db == nil {
 		return nil
 	}
+	// classifyIdentity normalises every identity to an address or an @domain
+	// form, so the separator is always there today; an explicit guard keeps a
+	// future caller from slicing on -1.
+	at := strings.Index(id.email, "@")
+	if at < 0 {
+		return nil
+	}
+	domain := id.email[at:]
 	var pol policyRow
 	if id.typ == "spamfilter_user" {
 		if pid := useRow.num("policy_id"); pid > 0 {
@@ -242,7 +250,6 @@ func (r *RspamdPlugin) resolvePolicy(ctx context.Context, id settingsIdentity, u
 			}
 			return &pol
 		}
-		domain := id.email[strings.Index(id.email, "@"):]
 		err := r.base.db.WithContext(ctx).Table("spamfilter_users u").
 			Select("p.*").
 			Joins("INNER JOIN spamfilter_policy p ON p.id = u.policy_id").
@@ -253,7 +260,6 @@ func (r *RspamdPlugin) resolvePolicy(ctx context.Context, id settingsIdentity, u
 		}
 		return &pol
 	}
-	domain := id.email[strings.Index(id.email, "@"):]
 	err := r.base.db.WithContext(ctx).Table("spamfilter_users u").
 		Select("p.*").
 		Joins("INNER JOIN spamfilter_policy p ON p.id = u.policy_id").

@@ -2,8 +2,10 @@ package mail
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"os/user"
 	"path/filepath"
 	"regexp"
@@ -294,9 +296,24 @@ func (g *GetmailPlugin) fetchJob(ctx context.Context) error {
 	}
 	out, err := g.base.runner.Run(ctx, "setpriv", args...)
 	if err != nil {
-		g.base.log.Error("getmail: fetch reported errors", "error", err, "output", string(out))
+		// The exit code is what alerting keys on: 0 never reaches here, and
+		// getmail's own codes distinguish a bad rc file from an unreachable
+		// remote. -1 means the process died on a signal or never ran.
+		g.base.log.Error("getmail: fetch reported errors",
+			"error", err, "exit_code", exitCode(err), "user", cfg.User,
+			"rc_files", len(rcFiles), "output", strings.TrimSpace(string(out)))
 	}
 	return nil
+}
+
+// exitCode extracts the process exit status from a runner error, -1 when the
+// error is not an exit status (signal, timeout, exec failure).
+func exitCode(err error) int {
+	var ee *exec.ExitError
+	if errors.As(err, &ee) {
+		return ee.ExitCode()
+	}
+	return -1
 }
 
 // rcFiles lists the *.conf files directly in dir, sorted for a
