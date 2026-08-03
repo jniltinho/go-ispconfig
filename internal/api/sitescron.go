@@ -192,7 +192,9 @@ func sitesCronPrepare(c *echo.Context, d *Deps, id *repository.Identity, body ma
 	if len(fields) > 0 {
 		return &ValidationError{Fields: fields}
 	}
-	return nil
+
+	// Client limits (non-admin): count / type / frequency (task 4.3).
+	return sitesCronEnforceLimits(ctx, d.DB, id, body, old)
 }
 
 // bodyString reads a string JSON body value.
@@ -207,19 +209,110 @@ func sitesCronOwnerLimit(ctx context.Context, db *gorm.DB, parent *model.WebDoma
 	if parent == nil || parent.SysGroupID == 0 || parent.SysGroupID == 1 {
 		return "", true
 	}
-	var row struct {
-		LimitCronType string `gorm:"column:limit_cron_type"`
+	cli, err := sitesCronClientByGroup(ctx, db, parent.SysGroupID)
+	if err != nil || cli == nil || cli.LimitCronType == "" {
+		return "", true
 	}
+	return cli.LimitCronType, false
+}
+
+// sitesCronClientByGroup loads the client row owning a sys_group (nil if none).
+func sitesCronClientByGroup(ctx context.Context, db *gorm.DB, groupID uint32) (*model.Client, error) {
+	if groupID == 0 || groupID == 1 {
+		return nil, nil
+	}
+	var cli model.Client
 	err := db.WithContext(ctx).Raw(`
-		SELECT c.limit_cron_type AS limit_cron_type
+		SELECT c.*
 		FROM sys_group g
 		INNER JOIN client c ON c.client_id = g.client_id
 		WHERE g.groupid = ?
-		LIMIT 1`, parent.SysGroupID).Scan(&row).Error
-	if err != nil || row.LimitCronType == "" {
-		return "", true
+		LIMIT 1`, groupID).Scan(&cli).Error
+	if err != nil {
+		return nil, err
 	}
-	return row.LimitCronType, false
+	if cli.ClientID == 0 {
+		return nil, nil
+	}
+	return &cli, nil
+}
+
+// sitesCronEnforceLimits ports cron_edit.php limit checks for non-admins:
+// limit_cron count (create only), limit_cron_type, limit_cron_frequency.
+// Admins bypass. Returns *LimitError (403) on veto.
+func sitesCronEnforceLimits(ctx context.Context, db *gorm.DB, id *repository.Identity, body map[string]any, old *model.Cron) error {
+	if id == nil || id.IsAdmin() {
+		return nil
+	}
+	cli, err := sitesCronClientByGroup(ctx, db, id.DefaultGroup)
+	if err != nil {
+		return err
+	}
+	if cli == nil {
+		return nil
+	}
+
+	// Count limit on create only (PHP onSubmit).
+	if old == nil && cli.LimitCron >= 0 {
+		var n int64
+		if err := db.WithContext(ctx).Model(&model.Cron{}).
+			Where("sys_groupid = ?", id.DefaultGroup).Count(&n).Error; err != nil {
+			return err
+		}
+		if n >= int64(cli.LimitCron) {
+			return &LimitError{Key: "error.limit_cron"}
+		}
+	}
+
+	// Type limit after auto-derivation (PHP onInsertSave/onUpdateSave).
+	typ := bodyString(body, "type")
+	if typ == "" && old != nil {
+		typ = old.Type
+	}
+	switch cli.LimitCronType {
+	case model.CronTypeURL:
+		if typ != "" && typ != model.CronTypeURL {
+			return &LimitError{Key: "error.limit_cron_type"}
+		}
+	case model.CronTypeChrooted:
+		if typ == model.CronTypeFull {
+			return &LimitError{Key: "error.limit_cron_type"}
+		}
+	}
+
+	// Frequency floor (PHP cron_min_freq vs limit_cron_frequency).
+	if cli.LimitCronFrequency > 1 {
+		runMin := bodyString(body, "run_min")
+		runHour := bodyString(body, "run_hour")
+		runMday := bodyString(body, "run_mday")
+		runMonth := bodyString(body, "run_month")
+		runWday := bodyString(body, "run_wday")
+		if old != nil {
+			if runMin == "" {
+				runMin = old.RunMin
+			}
+			if runHour == "" {
+				runHour = old.RunHour
+			}
+			if runMday == "" {
+				runMday = old.RunMday
+			}
+			if runMonth == "" {
+				runMonth = old.RunMonth
+			}
+			if runWday == "" {
+				runWday = old.RunWday
+			}
+		}
+		// Incomplete schedules are left to field validators.
+		if runMin != "" && runHour != "" && runMday != "" && runMonth != "" && runWday != "" {
+			freq, err := cron.MinFrequencyMinutes(runMin, runHour, runMday, runMonth, runWday)
+			if err == nil && freq < int(cli.LimitCronFrequency) {
+				return &LimitError{Key: "error.limit_cron_frequency"}
+			}
+		}
+	}
+	return nil
 }
 
 // sitesCronAfterInsert stamps sys_groupid from the parent site before the

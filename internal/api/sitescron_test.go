@@ -79,3 +79,49 @@ func TestSitesCronTypeAutoDerivation(t *testing.T) {
 			tc.cmd, tc.ownerLimit, tc.adminOwned)
 	}
 }
+
+// TestSitesCronTypeLimitMatrix covers limit_cron_type veto rules (task 4.3).
+func TestSitesCronTypeLimitMatrix(t *testing.T) {
+	// url client may only store url; chrooted rejects full; full allows all.
+	check := func(limitType, jobType string) error {
+		cli := &model.Client{LimitCronType: limitType}
+		switch cli.LimitCronType {
+		case model.CronTypeURL:
+			if jobType != "" && jobType != model.CronTypeURL {
+				return &LimitError{Key: "error.limit_cron_type"}
+			}
+		case model.CronTypeChrooted:
+			if jobType == model.CronTypeFull {
+				return &LimitError{Key: "error.limit_cron_type"}
+			}
+		}
+		return nil
+	}
+	assert.NoError(t, check("url", "url"))
+	assert.Error(t, check("url", "full"))
+	assert.Error(t, check("url", "chrooted"))
+	assert.NoError(t, check("chrooted", "url"))
+	assert.NoError(t, check("chrooted", "chrooted"))
+	assert.Error(t, check("chrooted", "full"))
+	assert.NoError(t, check("full", "full"))
+	assert.NoError(t, check("full", "chrooted"))
+	assert.NoError(t, check("full", "url"))
+}
+
+// TestSitesCronFrequencyLimit uses MinFrequencyMinutes against the client floor.
+func TestSitesCronFrequencyLimit(t *testing.T) {
+	// limit=5 rejects every-minute (*) and */4, accepts */5 and hourly.
+	floor := 5
+	assert.True(t, freqBelowFloor("*", "*", "*", "*", "*", floor))
+	assert.True(t, freqBelowFloor("*/4", "*", "*", "*", "*", floor))
+	assert.False(t, freqBelowFloor("*/5", "*", "*", "*", "*", floor))
+	assert.False(t, freqBelowFloor("0", "*", "*", "*", "*", floor))
+}
+
+func freqBelowFloor(min, hour, mday, month, wday string, floor int) bool {
+	freq, err := cron.MinFrequencyMinutes(min, hour, mday, month, wday)
+	if err != nil {
+		return false
+	}
+	return freq < floor
+}

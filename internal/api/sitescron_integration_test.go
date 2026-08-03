@@ -269,6 +269,108 @@ func TestSitesCronValidationFailures(t *testing.T) {
 	})
 }
 
+// TestSitesCronClientLimits covers task 4.3: limit_cron count, type, frequency
+// with admin bypass and no datalog on veto.
+func TestSitesCronClientLimits(t *testing.T) {
+	env := newSitesTestEnv(t, "sitescronlim")
+	db, srv := env.db, env.srv
+
+	// Provision clienta with tight limits: 1 cron, url-only, min freq 5.
+	var user model.SysUser
+	require.NoError(t, db.Where("username = ?", "clienta").Take(&user).Error)
+	cli := model.Client{
+		SysUserID: user.UserID, SysGroupID: user.DefaultGroup,
+		SysPermUser: "riud", SysPermGroup: "ru",
+		ContactName: "Limited Cron", Username: "clienta",
+		LimitCron: 1, LimitCronType: "url", LimitCronFrequency: 5,
+	}
+	require.NoError(t, db.Create(&cli).Error)
+	require.NoError(t, db.Model(&model.SysGroup{}).Where("groupid = ?", user.DefaultGroup).
+		Update("client_id", cli.ClientID).Error)
+
+	parent := seedClientVhost(t, env, "lim-cron.example.com", "clienta")
+
+	datalogCount := func(t *testing.T) int64 {
+		t.Helper()
+		var n int64
+		require.NoError(t, db.Model(&model.SysDatalog{}).Where("dbtable = 'cron'").Count(&n).Error)
+		return n
+	}
+
+	t.Run("first url cron within count limit", func(t *testing.T) {
+		status, data := call(t, srv, http.MethodPost, "/api/sites/crons", env.aCookie, env.aCSRF,
+			map[string]any{
+				"parent_domain_id": parent.DomainID,
+				"command":          "https://lim-cron.example.com/job1",
+				"run_min":          "*/5", "run_hour": "*", "run_mday": "*", "run_month": "*", "run_wday": "*",
+				"active": "y",
+			})
+		require.Equal(t, http.StatusCreated, status, "%s", data)
+	})
+
+	t.Run("second cron blocked by limit_cron count", func(t *testing.T) {
+		before := datalogCount(t)
+		status, data := call(t, srv, http.MethodPost, "/api/sites/crons", env.aCookie, env.aCSRF,
+			map[string]any{
+				"parent_domain_id": parent.DomainID,
+				"command":          "https://lim-cron.example.com/job2",
+				"run_min":          "*/5", "run_hour": "*", "run_mday": "*", "run_month": "*", "run_wday": "*",
+				"active": "y",
+			})
+		require.Equal(t, http.StatusForbidden, status, "%s", data)
+		assert.Contains(t, string(data), "error.limit_cron")
+		assert.Equal(t, before, datalogCount(t))
+	})
+
+	t.Run("frequency limit rejects every-minute schedule on update", func(t *testing.T) {
+		// Raise count so we can create, then test frequency via update.
+		require.NoError(t, db.Model(&model.Client{}).Where("client_id = ?", cli.ClientID).
+			Update("limit_cron", int32(-1)).Error)
+		// Find existing job.
+		var job model.Cron
+		require.NoError(t, db.Where("sys_groupid = ?", user.DefaultGroup).First(&job).Error)
+		before := datalogCount(t)
+		status, data := call(t, srv, http.MethodPut, fmt.Sprintf("/api/sites/crons/%d", job.ID),
+			env.aCookie, env.aCSRF,
+			map[string]any{
+				"command": job.Command,
+				"run_min": "*", "run_hour": "*", "run_mday": "*", "run_month": "*", "run_wday": "*",
+				"active": "y", "log": "n",
+			})
+		require.Equal(t, http.StatusForbidden, status, "%s", data)
+		assert.Contains(t, string(data), "error.limit_cron_frequency")
+		assert.Equal(t, before, datalogCount(t))
+	})
+
+	t.Run("url-only client cannot create full jobs", func(t *testing.T) {
+		before := datalogCount(t)
+		status, data := call(t, srv, http.MethodPost, "/api/sites/crons", env.aCookie, env.aCSRF,
+			map[string]any{
+				"parent_domain_id": parent.DomainID,
+				"command":          "/usr/bin/php /web/job.php",
+				"run_min":          "0", "run_hour": "*", "run_mday": "*", "run_month": "*", "run_wday": "*",
+				"active": "y",
+			})
+		require.Equal(t, http.StatusForbidden, status, "%s", data)
+		assert.Contains(t, string(data), "error.limit_cron_type")
+		assert.Equal(t, before, datalogCount(t))
+	})
+
+	t.Run("admin bypasses limits for client site", func(t *testing.T) {
+		// Re-tighten count and create as admin against the same parent.
+		require.NoError(t, db.Model(&model.Client{}).Where("client_id = ?", cli.ClientID).
+			Updates(map[string]any{"limit_cron": int32(1), "limit_cron_type": "url"}).Error)
+		status, data := call(t, srv, http.MethodPost, "/api/sites/crons", env.adminCookie, env.adminCSRF,
+			map[string]any{
+				"parent_domain_id": parent.DomainID,
+				"command":          "https://lim-cron.example.com/admin-bypass",
+				"run_min":          "*", "run_hour": "*", "run_mday": "*", "run_month": "*", "run_wday": "*",
+				"active": "y",
+			})
+		require.Equal(t, http.StatusCreated, status, "%s", data)
+	})
+}
+
 // seedClientVhost creates a vhost owned by the named client user's group.
 func seedClientVhost(t *testing.T, env *sitesTestEnv, domain, username string) model.WebDomain {
 	t.Helper()
