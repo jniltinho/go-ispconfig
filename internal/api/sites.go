@@ -543,7 +543,11 @@ func webFolderEntity() *Entity {
 		Name:     "web-folders",
 		Title:    "web_folder_edit_title",
 		Prepare:  webFolderPrepare,
-		Decorate: datalogStateDecorator("web_folder", "web_folder_id"),
+		Decorate: siteChildDecorate("web_folder", "web_folder_id"),
+		ListFilters: map[string]ListFilterFunc{
+			"_server_name":   relatedNameFilter("server_id", "server", "server_id", "server_name"),
+			"_parent_domain": relatedNameFilter("parent_domain_id", "web_domain", "domain_id", "domain"),
+		},
 		Tabs: []Tab{{
 			Name: "folder", Label: "folder_tab_txt",
 			Fields: []Field{

@@ -114,7 +114,7 @@ async function remove(row: Row) {
           type="button"
           :title="t('sites.delete')"
           :aria-label="t('sites.delete')"
-          class="ml-1 border border-border bg-surface p-1 hover:bg-danger"
+          class="ml-1 border border-danger-border bg-danger p-1 text-danger-text"
           @click.stop="remove(row)"
         >
           <component :is="utilityIcons.delete" :size="14" />

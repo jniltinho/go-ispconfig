@@ -535,10 +535,10 @@ export const router = createRouter({
           props: {
             apiBase: '/api/firewall', idField: 'firewall_id', formBase: '/system/firewall',
             columns: [
-              { key: 'active', label: 'Active' },
-              { key: '_server_name', label: 'Server' },
-              { key: 'tcp_port', label: 'Open TCP ports' },
-              { key: 'udp_port', label: 'Open UDP ports' },
+              { key: 'active', label: 'firewall.col.active' },
+              { key: '_server_name', label: 'firewall.col.server' },
+              { key: 'tcp_port', label: 'firewall.col.tcp_port' },
+              { key: 'udp_port', label: 'firewall.col.udp_port' },
             ],
             titleKey: 'firewall.firewalls_title', addKey: 'firewall.add_firewall',
           },

@@ -88,7 +88,7 @@ Update after each QA batch. **Baseline** (task 1.3) only checks T4 + login for s
 |---|---|---|---|---|---|
 | Web domains list | `/sites` | L* | — | ✅ | `_server_name` decorate+filter; active Yes/No normalize |
 | Web domain form | `/sites/domains/new\|:id` | — | F* | ✅ | server + parent selects via lookups |
-| Folders list | `/sites/folders` | L* | — | ⬜ | |
+| Folders list | `/sites/folders` | L* | — | ✅ | was raw server/domain ids — now `_server_name`/`_parent_domain` decorate+filter (task 4.1) |
 | Folder form | `/sites/folders/new\|:id` | — | F* | ⬜ | |
 | Folder users list | `/sites/folders/:fid/users` | L* | — | ⬜ | |
 | Folder user form | `…/users/new\|:id` | — | F* | ⬜ | |

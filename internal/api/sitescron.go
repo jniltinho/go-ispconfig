@@ -26,9 +26,9 @@ func sitesCronEntity() *Entity {
 		},
 		AfterInsert:  sitesCronAfterInsert,
 		BeforeUpdate: sitesCronBeforeUpdate,
-		// ftpShellDecorate's password redaction is a no-op for cron rows;
+		// siteChildDecorate's password redaction is a no-op for cron rows;
 		// reused for datalog state + _server_name/_parent_domain columns.
-		Decorate: ftpShellDecorate("cron", "id"),
+		Decorate: siteChildDecorate("cron", "id"),
 		ListFilters: map[string]ListFilterFunc{
 			"_server_name":   relatedNameFilter("server_id", "server", "server_id", "server_name"),
 			"_parent_domain": relatedNameFilter("parent_domain_id", "web_domain", "domain_id", "domain"),
