@@ -4503,6 +4503,80 @@
                 }
             }
         },
+        "/meta/lookups/client-groups": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "sys_group rows of clients (client_id \u003e 0) as value/label pairs, label \"company :: contact (username)\". Empty for non-admin sessions.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "meta"
+                ],
+                "summary": "Client group select options",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/api.Option"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/meta/lookups/server-ips": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Vhost-enabled rows from server_ip with server id and IPv4/IPv6 type. Non-admin sessions only see shared IPs (client_id = 0).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "meta"
+                ],
+                "summary": "Server IP select options",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/api.ServerIPOption"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/meta/lookups/servers": {
             "get": {
                 "security": [
@@ -8331,6 +8405,22 @@
                     "description": "Status is \"ok\" or \"error: \u003cmessage\u003e\" from the last execution.",
                     "type": "string",
                     "example": "ok"
+                }
+            }
+        },
+        "api.ServerIPOption": {
+            "type": "object",
+            "properties": {
+                "ip_address": {
+                    "type": "string",
+                    "example": "10.0.0.1"
+                },
+                "ip_type": {
+                    "type": "string",
+                    "example": "IPv4"
+                },
+                "server_id": {
+                    "type": "integer"
                 }
             }
         },

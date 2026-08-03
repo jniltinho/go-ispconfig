@@ -61,6 +61,9 @@ func TestWebDomainEntityDeclaresKnownColumnsOnly(t *testing.T) {
 	// performs; a typoed column would panic schema.Parse or fail here.
 	h := dryDomainHandlers(t)
 	for f := range h.ent.fields {
+		if f.Virtual {
+			continue
+		}
 		require.NotNil(t, h.schema.LookUpField(f.Name), "unknown column %s", f.Name)
 	}
 }

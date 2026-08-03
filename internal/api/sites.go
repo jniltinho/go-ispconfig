@@ -110,6 +110,11 @@ func webDomainEntity() *Entity {
 				Fields: []Field{
 					selectField("server_id", "server_id_txt", "INTEGER", nil, nil,
 						validator.Rule{Type: "ISPOSITIVE", ErrKey: "no_server_error"}),
+					// Virtual: maps onto sys_groupid via applyClientGroup
+					// (tform client_group_id); options come from the
+					// client-groups lookup.
+					{Name: "client_group_id", Label: "client_txt", Datatype: "INTEGER",
+						Formtype: "SELECT", Default: "0", AdminOnly: true, Virtual: true},
 					selectField("ip_address", "ip_address_txt", "VARCHAR", "*", nil),
 					selectField("ipv6_address", "ipv6_address_txt", "VARCHAR", "", nil),
 					text("domain", "domain_txt",
@@ -154,7 +159,10 @@ func webDomainEntity() *Entity {
 						{Value: "no", Label: "disabled_txt"},
 						{Value: "php-fpm", Label: "PHP-FPM"},
 					}),
-					selectField("server_php_id", "server_php_id_txt", "INTEGER", "0", nil),
+					// ponytail: single "Default" option; per-server PHP
+					// versions get a lookup when multi-PHP support lands.
+					selectField("server_php_id", "server_php_id_txt", "INTEGER", "0",
+						[]Option{{Value: "0", Label: "Default"}}),
 					checkbox("perl", "perl_txt", "n"),
 					checkbox("ruby", "ruby_txt", "n"),
 					checkbox("python", "python_txt", "n"),
@@ -631,9 +639,16 @@ func webFolderUserPrepare(c *echo.Context, d *Deps, id *repository.Identity, bod
 // visibility") ---
 
 // webDomainDecorate adds datalog state plus the server hostname so the
-// websites list can filter/display names instead of raw server_id.
+// websites list can filter/display names instead of raw server_id, and
+// mirrors sys_groupid as client_group_id for the virtual form field.
 func webDomainDecorate() func(ctx context.Context, db *gorm.DB, items []map[string]any) error {
-	return serverNameDecorate(datalogStateDecorator("web_domain", "domain_id"))
+	inner := serverNameDecorate(datalogStateDecorator("web_domain", "domain_id"))
+	return func(ctx context.Context, db *gorm.DB, items []map[string]any) error {
+		for _, it := range items {
+			it["client_group_id"] = it["sys_groupid"]
+		}
+		return inner(ctx, db, items)
+	}
 }
 
 // datalogStateDecorator returns a Decorate hook adding the per-record
