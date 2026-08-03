@@ -33,9 +33,9 @@ func registerDNSRecordRoutes(g *echo.Group, d *Deps) {
 	g.DELETE("/records/:id", deleteDNSRecord(d))
 }
 
-// dnsTxn runs fn in a transaction with the datalog after-commit notifier
+// datalogTxn runs fn in a transaction with the datalog after-commit notifier
 // (mirror of repository.txn for the multi-row DNS operations).
-func dnsTxn(ctx context.Context, db *gorm.DB, fn func(tx *gorm.DB) error) error {
+func datalogTxn(ctx context.Context, db *gorm.DB, fn func(tx *gorm.DB) error) error {
 	ctx, flush := datalog.NotifyAfterCommit(ctx)
 	if err := db.WithContext(ctx).Transaction(fn); err != nil {
 		return err
@@ -246,7 +246,7 @@ func createDNSRecord(d *Deps) echo.HandlerFunc {
 		}
 
 		ctx := c.Request().Context()
-		err = dnsTxn(ctx, d.DB, func(tx *gorm.DB) error {
+		err = datalogTxn(ctx, d.DB, func(tx *gorm.DB) error {
 			if err := tx.Create(rr).Error; err != nil {
 				return err
 			}
@@ -294,7 +294,7 @@ func updateDNSRecord(d *Deps) echo.HandlerFunc {
 		ctx := c.Request().Context()
 
 		var out map[string]any
-		err := dnsTxn(ctx, d.DB, func(tx *gorm.DB) error {
+		err := datalogTxn(ctx, d.DB, func(tx *gorm.DB) error {
 			var old model.DNSRr
 			err := tx.Scopes(repository.WithPerm(id, repository.PermUpdate)).
 				Where("id = ?", c.Param("id")).First(&old).Error
@@ -358,7 +358,7 @@ func deleteDNSRecord(d *Deps) echo.HandlerFunc {
 		if id == nil {
 			return repository.ErrPermissionDenied
 		}
-		err := dnsTxn(c.Request().Context(), d.DB, func(tx *gorm.DB) error {
+		err := datalogTxn(c.Request().Context(), d.DB, func(tx *gorm.DB) error {
 			var old model.DNSRr
 			err := tx.Scopes(repository.WithPerm(id, repository.PermDelete)).
 				Where("id = ?", c.Param("id")).First(&old).Error

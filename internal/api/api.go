@@ -75,5 +75,6 @@ func Register(e *echo.Echo, d *Deps) error {
 	registerMetaRoutes(protected, d)
 	registerSystemRoutes(protected, d)
 	registerMonitorRoutes(protected, d)
+	registerServerConfigRoutes(protected, d)
 	return registerEntities(protected, d)
 }

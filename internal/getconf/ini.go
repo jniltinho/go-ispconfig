@@ -5,7 +5,9 @@
 package getconf
 
 import (
+	"maps"
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -44,6 +46,28 @@ func ParseINI(ini string) Sections {
 		}
 	}
 	return config
+}
+
+// String re-serialises the document into the INI text stored in
+// server.config (port of ini_parser::get_ini_string). PHP preserves the
+// original key order; Go maps have none, so sections and keys are written
+// sorted — the daemon parses by name, and a stable order keeps a
+// read/modify/write round trip diff-free.
+func (s Sections) String() string {
+	var b strings.Builder
+	for _, name := range slices.Sorted(maps.Keys(s)) {
+		b.WriteString("[")
+		b.WriteString(name)
+		b.WriteString("]\n")
+		for _, key := range slices.Sorted(maps.Keys(s[name])) {
+			b.WriteString(key)
+			b.WriteString("=")
+			b.WriteString(s[name][key])
+			b.WriteString("\n")
+		}
+		b.WriteString("\n")
+	}
+	return b.String()
 }
 
 // StripSlashes removes one level of backslash escaping, like PHP's

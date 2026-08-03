@@ -137,6 +137,45 @@ func LogDelete(tx *gorm.DB, rec any, username string) error {
 	return logChange(tx, "d", rec, nil, username)
 }
 
+// LogServerConfig journals a server.config change so the owning node picks
+// the new INI up on its next datalog cycle (port of
+// interface/web/admin/server_config_edit.php:176). The server table is
+// deliberately not Tracked — role flags, mirror ids and the cursor column
+// must never travel — so this is a targeted writer rather than an opt-in:
+// the config column is the only server change that is journaled. No row is
+// written when the INI is unchanged. Call it inside the updating
+// transaction.
+func LogServerConfig(tx *gorm.DB, serverID uint32, oldConfig, newConfig, username string) error {
+	if oldConfig == newConfig {
+		return nil
+	}
+	if username == "" {
+		username = "admin"
+	}
+	data, err := json.Marshal(Diff{
+		Old: map[string]any{"server_id": serverID, "config": oldConfig},
+		New: map[string]any{"server_id": serverID, "config": newConfig},
+	})
+	if err != nil {
+		return fmt.Errorf("datalog: encoding server config diff: %w", err)
+	}
+	row := model.SysDatalog{
+		ServerID: serverID,
+		DBTable:  "server",
+		DBIdx:    fmt.Sprintf("server_id:%d", serverID),
+		Action:   "u",
+		Tstamp:   int32(time.Now().Unix()),
+		User:     username,
+		Data:     string(data),
+		Status:   "ok",
+	}
+	if err := tx.Create(&row).Error; err != nil {
+		return fmt.Errorf("datalog: inserting sys_datalog row for server config: %w", err)
+	}
+	markReady(tx.Statement.Context, serverID)
+	return nil
+}
+
 // logChange builds and inserts the sys_datalog row for one mutation.
 func logChange(tx *gorm.DB, action string, oldRec, newRec any, username string) error {
 	ref := newRec
