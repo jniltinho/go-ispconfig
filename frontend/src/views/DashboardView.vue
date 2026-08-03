@@ -11,6 +11,7 @@ import { useAuthStore } from '../stores/auth'
 import { stateClass, type ServerState } from './monitor/state'
 import MetricChart from '../components/MetricChart.vue'
 import QuotaBlock, { type QuotaRow } from '../components/QuotaBlock.vue'
+import LimitBlock, { type LimitRow } from '../components/LimitBlock.vue'
 
 const { t } = useI18n()
 const auth = useAuthStore()
@@ -42,6 +43,11 @@ const hdQuota = ref<QuotaRow[]>([])
 const mailQuota = ref<QuotaRow[]>([])
 const dbQuota = ref<QuotaRow[]>([])
 
+// Account limits dashlet (legacy dashlet_limits). Admins get unlimited: the
+// legacy dashlet then prints nothing but "unlimited", so we hide the block.
+const limits = ref<LimitRow[]>([])
+const limitsUnlimited = ref(false)
+
 /** quotaRows reads one monitor_data type and maps it to the block shape. */
 async function quotaRows<T>(type: string, map: (row: T) => QuotaRow): Promise<QuotaRow[]> {
   try {
@@ -67,6 +73,13 @@ onMounted(async () => {
     'database_size',
     (r) => ({ name: r.database_name, used: r.size, total: r.quota }),
   )
+  try {
+    const res = await api.get<{ unlimited: boolean; limits: LimitRow[] }>('/api/monitor/limits')
+    limitsUnlimited.value = res.unlimited
+    limits.value = res.limits ?? []
+  } catch {
+    // Unauthenticated edge or backend without the endpoint: block stays out.
+  }
   try {
     const rows =
       (await api.get<{ server_id: number; data?: SysUsage }[] | null>(
@@ -223,6 +236,13 @@ onMounted(async () => {
         />
         <QuotaBlock v-if="mailQuota.length" :title="t('dashboard.quota.mailbox')" :rows="mailQuota" />
         <QuotaBlock v-if="dbQuota.length" :title="t('dashboard.quota.database')" :rows="dbQuota" />
+      </div>
+    </template>
+
+    <template v-if="limitsUnlimited || limits.length">
+      <h2 class="page-title">{{ t('limits.title') }}</h2>
+      <div class="mb-4">
+        <LimitBlock :rows="limits" :unlimited="limitsUnlimited" />
       </div>
     </template>
   </div>

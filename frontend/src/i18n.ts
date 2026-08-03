@@ -3,10 +3,12 @@
 // fallback. Adding a language = adding a JSON file to src/locales/ and
 // registering it in `locales` below.
 import en from './locales/en.json'
+import ptBR from './locales/pt-BR.json'
 
 type Messages = Record<string, string>
 
-const locales: Record<string, Messages> = { en }
+// pt-BR is partial on purpose: untranslated keys fall back to en below.
+const locales: Record<string, Messages> = { en, 'pt-BR': ptBR }
 
 let current = 'en'
 

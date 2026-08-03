@@ -507,6 +507,14 @@ func webDomainAfterInsert(ctx context.Context, tx *gorm.DB, id *repository.Ident
 	}
 	cols := []string{"added_date", "added_by"}
 
+	path, basedirTpl := defaultWebsitePath, ""
+	if cfg, err := getconf.GetServerConfig(tx, rec.ServerID); err == nil {
+		if cfg.Web.WebsitePath != "" {
+			path = cfg.Web.WebsitePath
+		}
+		basedirTpl = cfg.Web.PHPOpenBasedir
+	}
+
 	switch rec.Type {
 	case "vhost":
 		var group model.SysGroup
@@ -516,17 +524,14 @@ func webDomainAfterInsert(ctx context.Context, tx *gorm.DB, id *repository.Ident
 		}
 		clientID := group.ClientID
 
-		path := defaultWebsitePath
-		if cfg, err := getconf.GetServerConfig(tx, rec.ServerID); err == nil && cfg.Web.WebsitePath != "" {
-			path = cfg.Web.WebsitePath
-		}
 		rec.DocumentRoot = strings.NewReplacer(
 			"[client_id]", strconv.FormatUint(uint64(clientID), 10),
 			"[website_id]", strconv.FormatUint(uint64(rec.DomainID), 10),
 		).Replace(path)
 		rec.SystemUser = fmt.Sprintf("web%d", rec.DomainID)
 		rec.SystemGroup = fmt.Sprintf("client%d", clientID)
-		cols = append(cols, "document_root", "system_user", "system_group")
+		rec.PHPOpenBasedir = expandOpenBasedir(basedirTpl, rec.DocumentRoot, rec.Domain, "")
+		cols = append(cols, "document_root", "system_user", "system_group", "php_open_basedir")
 	case "vhostsubdomain", "vhostalias":
 		var parent model.WebDomain
 		if err := tx.Where("domain_id = ?", rec.ParentDomainID).Take(&parent).Error; err != nil {
@@ -537,9 +542,34 @@ func webDomainAfterInsert(ctx context.Context, tx *gorm.DB, id *repository.Ident
 		rec.SystemUser = parent.SystemUser
 		rec.SystemGroup = parent.SystemGroup
 		rec.AllowOverride = parent.AllowOverride
-		cols = append(cols, "sys_groupid", "document_root", "system_user", "system_group", "allow_override")
+		rec.PHPOpenBasedir = expandOpenBasedir(basedirTpl, parent.DocumentRoot, rec.Domain, rec.WebFolder)
+		cols = append(cols, "sys_groupid", "document_root", "system_user", "system_group",
+			"allow_override", "php_open_basedir")
 	}
 	return tx.Model(rec).Select(cols).Updates(rec).Error
+}
+
+// expandOpenBasedir ports the php_open_basedir derivation of
+// web_vhost_domain_edit onAfterInsert: the server's php_open_basedir template
+// with its [website_path] / [website_domain] placeholders expanded. Without
+// it the FPM pool falls back to the bare document_root and loses /tmp,
+// /usr/share/php and the /var/www/<domain> symlink the vhost root points at.
+// webFolder is empty for a vhost; for vhostsubdomain/vhostalias the "/web"
+// suffix of the two placeholders becomes the record's own web folder.
+func expandOpenBasedir(tmpl, docroot, domain, webFolder string) string {
+	if tmpl == "" {
+		return ""
+	}
+	pairs := []string{}
+	if webFolder != "" {
+		// Longer patterns first: Replacer matches them in the given order.
+		pairs = append(pairs,
+			"[website_path]/web", docroot+"/"+webFolder,
+			"[website_domain]/web", domain+"/"+webFolder,
+		)
+	}
+	pairs = append(pairs, "[website_path]", docroot, "[website_domain]", domain)
+	return strings.NewReplacer(pairs...).Replace(tmpl)
 }
 
 // --- web-folder and web-folder-user entities ---

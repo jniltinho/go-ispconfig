@@ -5016,6 +5016,40 @@ const docTemplate = `{
                 }
             }
         },
+        "/monitor/limits": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "The logged-in client's limit_* columns next to their current usage (port of dashboard/dashlets/limits.php). Rows with a limit of 0 are omitted; -1 means unlimited. Quota rows (limit_mailquota, limit_web_quota, limit_database_quota) report megabytes instead of counts. Admins get {\"unlimited\": true}.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "monitor"
+                ],
+                "summary": "Account limits",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.AccountLimits"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/monitor/state": {
             "get": {
                 "security": [
@@ -8390,6 +8424,22 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "api.AccountLimits": {
+            "type": "object",
+            "properties": {
+                "limits": {
+                    "description": "Limits are the caller's limit_* columns with their current usage,\nin the order limits.php prints them.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/clients.LimitUsage"
+                    }
+                },
+                "unlimited": {
+                    "description": "Unlimited is true for admins and panel users without a client row;\nLimits is then empty.",
+                    "type": "boolean"
+                }
+            }
+        },
         "api.CronRunItem": {
             "type": "object",
             "properties": {
@@ -9317,6 +9367,30 @@ const docTemplate = `{
             "type": "object",
             "additionalProperties": {
                 "type": "string"
+            }
+        },
+        "clients.LimitUsage": {
+            "type": "object",
+            "properties": {
+                "field": {
+                    "description": "Field is the client column name (limit_web_domain, ...).",
+                    "type": "string",
+                    "example": "limit_web_domain"
+                },
+                "limit": {
+                    "description": "Limit is the configured cap; -1 means unlimited.",
+                    "type": "integer",
+                    "example": 10
+                },
+                "quota": {
+                    "description": "Quota marks rows where limit and usage are megabytes, not counts.",
+                    "type": "boolean"
+                },
+                "usage": {
+                    "description": "Usage is the current count, or the assigned MB for quota rows.",
+                    "type": "integer",
+                    "example": 3
+                }
             }
         },
         "importer.Action": {
