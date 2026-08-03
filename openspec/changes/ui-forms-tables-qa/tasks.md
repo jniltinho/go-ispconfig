@@ -30,4 +30,4 @@
 ## 5. Close-out
 
 - [x] 5.1 Redeploy binary to lab `.10`; full smoke. Commit docs only if needed.
-- [ ] 5.2 Archive OpenSpec change when checklist all green; PR to main.
+- [x] 5.2 Archive OpenSpec change when checklist all green; PR to main.
