@@ -74,5 +74,6 @@ func Register(e *echo.Echo, d *Deps) error {
 	protected := g.Group("", auth.RequireAuth())
 	registerMetaRoutes(protected, d)
 	registerSystemRoutes(protected, d)
+	registerMonitorRoutes(protected, d)
 	return registerEntities(protected, d)
 }
