@@ -29,7 +29,7 @@ var (
 // (flag name == answers key).
 var answerFlagNames = map[string]bool{
 	"hostname": true, "panel-port": true, "db-name": true, "db-user": true,
-	"db-root-password": true, "web": true, "dns": true, "php-fpm": true,
+	"db-root-password": true, "web": true, "dns": true, "dns-backend": true, "php-fpm": true,
 	"acme": true, "acme-client": true, "admin-email": true,
 }
 
@@ -84,9 +84,10 @@ database, credentials, certificates or the admin user.`,
 				names[i] = s.Name()
 			}
 			_, _ = fmt.Fprintf(cmd.OutOrStdout(),
-				"Dry run — no changes made.\nDistro: %s (%s)\nHostname: %s  Panel port: %d  web=%v dns=%v php-fpm=%v acme=%v\nSteps: %s\n",
+				"Dry run — no changes made.\nDistro: %s (%s)\nHostname: %s  Panel port: %d  web=%v dns=%v (%s) php-fpm=%v acme=%v\nSteps: %s\n",
 				profile.Name, profile.ID, answers.Hostname, answers.PanelPort,
-				answers.EnableWeb, answers.EnableDNS, answers.InstallPHPFPM, answers.InstallAcme,
+				answers.EnableWeb, answers.EnableDNS, answers.DNSBackend,
+				answers.InstallPHPFPM, answers.InstallAcme,
 				strings.Join(names, " → "))
 			return nil
 		}
@@ -112,7 +113,8 @@ func init() {
 	f.String("db-user", "ispconfig", "ISPConfig database user")
 	f.String("db-root-password", "", "MariaDB root password (only when unix socket auth is unavailable)")
 	f.String("web", "y", "configure the web server (nginx) [y/n]")
-	f.String("dns", "y", "configure the DNS server (bind) [y/n]")
+	f.String("dns", "y", "configure the DNS server [y/n]")
+	f.String("dns-backend", "bind", "DNS backend to configure: bind or powerdns")
 	f.String("php-fpm", "y", "install the distro php-fpm package for hosted sites [y/n]")
 	f.String("acme", "n", "install an ACME client for site Let's Encrypt certificates [y/n]")
 	f.String("acme-client", "acme.sh", "ACME client to install: acme.sh or certbot")

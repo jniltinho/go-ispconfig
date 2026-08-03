@@ -109,6 +109,33 @@ func TestJailkitConfigDefaultsAndDecode(t *testing.T) {
 	assert.Equal(t, "lesspipe pico unzip zip patch which", cfg.ChrootAppPrograms)
 }
 
+func TestDNSConfigDefaultsAndBackend(t *testing.T) {
+	cfg := DefaultDNSConfig()
+	assert.Equal(t, DNSBackendBind, cfg.DNSBackend)
+	assert.Equal(t, DefaultPowerDNSAXFRConf, cfg.PowerDNSAXFRConf)
+	assert.Equal(t, "/etc/bind", cfg.BindZonefilesDir)
+	assert.Equal(t, "pri.", cfg.BindZonefilesMasterPfx)
+
+	// Decode powerdns backend + custom AXFR path; absent keys keep defaults.
+	raw := ParseINI("[dns]\ndns_backend=powerdns\n" +
+		"powerdns_axfr_conf=/tmp/pdns.axfr\n" +
+		"bind_user=named\n")
+	decodeSection(raw["dns"], &cfg)
+	assert.Equal(t, DNSBackendPowerDNS, cfg.DNSBackend)
+	assert.Equal(t, "/tmp/pdns.axfr", cfg.PowerDNSAXFRConf)
+	assert.Equal(t, "named", cfg.BindUser)
+	assert.Equal(t, "bind", cfg.BindGroup, "default kept for absent key")
+
+	// NormalizeDNSBackend: empty/unknown → bind; case-insensitive powerdns.
+	assert.Equal(t, DNSBackendBind, NormalizeDNSBackend(""))
+	assert.Equal(t, DNSBackendBind, NormalizeDNSBackend("  "))
+	assert.Equal(t, DNSBackendBind, NormalizeDNSBackend("BIND"))
+	assert.Equal(t, DNSBackendBind, NormalizeDNSBackend("mydns"))
+	assert.Equal(t, DNSBackendPowerDNS, NormalizeDNSBackend("powerdns"))
+	assert.Equal(t, DNSBackendPowerDNS, NormalizeDNSBackend(" PowerDNS "))
+	assert.Equal(t, DNSBackendPowerDNS, NormalizeDNSBackend("POWERDNS"))
+}
+
 func TestMailConfigDefaultsAndDecode(t *testing.T) {
 	// Defaults survive a missing [mail] section entirely.
 	cfg := DefaultMailConfig()

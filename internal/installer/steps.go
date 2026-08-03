@@ -13,6 +13,7 @@ func InstallSteps() []Step {
 		tlsCertStep{},
 		nginxBaseStep{},
 		bindBaseStep{},
+		powerDNSStep{},
 		acmeStep{},
 		systemdStep{},
 		summaryStep{},

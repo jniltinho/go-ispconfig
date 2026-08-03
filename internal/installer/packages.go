@@ -26,7 +26,7 @@ func (packagesStep) Name() string { return "packages" }
 // Run installs the missing packages of the profile set (php-fpm only when
 // the php-fpm answer is enabled) with one apt-get invocation.
 func (packagesStep) Run(ctx context.Context, st *State) error {
-	wanted := append([]string{}, st.Profile.Packages...)
+	wanted := st.packageSet()
 	if st.Answers.InstallPHPFPM {
 		wanted = append(wanted, st.Profile.PHPFPMPackage())
 	}
@@ -62,7 +62,7 @@ func (packagesStep) Run(ctx context.Context, st *State) error {
 		services = append(services, p.NginxService)
 	}
 	if st.Answers.EnableDNS {
-		services = append(services, p.BindService)
+		services = append(services, st.DNSService())
 	}
 	if st.Answers.InstallPHPFPM {
 		services = append(services, p.PHPFPMService)

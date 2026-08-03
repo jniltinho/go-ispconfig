@@ -9,8 +9,10 @@ surfaced in the panel.
 Packages: `internal/dns` (module + bind plugin + bind service),
 `internal/api` + `frontend/` (DNS REST API and UI). The daemon loads the
 dns module and bind plugin only on DNS servers (`server.dns_server = 1`,
-`cmd/daemon.go`); the PowerDNS backend of the PHP original is a separate
-future change (`add-dns-powerdns-module`).
+`cmd/daemon.go`) and only when the server's `[dns] dns_backend` is `bind`
+(the default). PowerDNS is now a supported alternative applying backend
+— same events, same panel/API, different daemon plugin — see
+[powerdns-module.md](powerdns-module.md).
 
 ## Event flow
 

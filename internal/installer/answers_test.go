@@ -34,8 +34,8 @@ func TestResolveAnswersPrecedenceFlagOverFile(t *testing.T) {
 
 func TestResolveAnswersPromptLayer(t *testing.T) {
 	// Prompt order: hostname, panel-port, db-name, db-user, web, dns,
-	// php-fpm, acme, acme-client, admin-email.
-	in := strings.NewReader("prompted.example.com\n\n\n\n\n\nn\n\n\n\n")
+	// dns-backend, php-fpm, acme, acme-client, admin-email.
+	in := strings.NewReader("prompted.example.com\n\n\n\n\n\n\nn\n\n\n\n")
 	var out strings.Builder
 	a, err := ResolveAnswers(ResolveOptions{Interactive: true, In: in, Out: &out})
 	require.NoError(t, err)

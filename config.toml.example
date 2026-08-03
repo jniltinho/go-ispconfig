@@ -93,3 +93,10 @@ custom_dir = "/etc/go-ispconfig/templates-custom"
 # Keep false until a migration cutover from PHP ISPConfig is final: PHP cannot
 # verify bcrypt, so enabling this breaks the documented rollback path.
 rehash_legacy = false
+
+# Optional PowerDNS gmysql connection override. Used only when the local
+# server row has [dns] dns_backend=powerdns in server.config (panel/DB).
+# Empty dsn (default): open the same MariaDB host/user/password as
+# [database] with database name "powerdns" (PHP parity).
+# [powerdns]
+# dsn = "ispconfig:secret@tcp(127.0.0.1:3306)/powerdns?charset=utf8mb4&parseTime=True&loc=Local"

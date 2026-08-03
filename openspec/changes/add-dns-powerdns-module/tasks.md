@@ -2,49 +2,49 @@
 
 ## 1. Models, config, and embedded assets
 
-- [ ] 1.1 Embed `base/ispconfig3_install/install/sql/powerdns.sql` and `install/tpl/pdns.local.master` into the binary (installer + tests); unit-test that the embedded SQL creates `domains`, `records`, `supermasters`, `domainmetadata` with `ispconfig_id` on domains/records. Commit.
-- [ ] 1.2 Add GORM models for PowerDNS tables `domains` and `records` (and stubs if needed for metadata) with explicit `gorm:"column:..."`, table names matching `powerdns.sql`; unit-test round-trip against a MariaDB `powerdns` database. Commit.
-- [ ] 1.3 Add `[dns] dns_backend` (`bind`|`powerdns`, default bind) and `powerdns_axfr_conf` to the dns getconf section; optional PowerDNS DSN override in `config.toml`; tests for defaults and parsing. Commit.
-- [ ] 1.4 Implement PowerDNS DB open helper (same-host MariaDB credentials + database `powerdns`, or override DSN); fail clearly when backend is powerdns and DB is unreachable. Commit.
+- [x] 1.1 Embed `base/ispconfig3_install/install/sql/powerdns.sql` and `install/tpl/pdns.local.master` into the binary (installer + tests); unit-test that the embedded SQL creates `domains`, `records`, `supermasters`, `domainmetadata` with `ispconfig_id` on domains/records. Commit.
+- [x] 1.2 Add GORM models for PowerDNS tables `domains` and `records` (and stubs if needed for metadata) with explicit `gorm:"column:..."`, table names matching `powerdns.sql`; unit-test round-trip against a MariaDB `powerdns` database. Commit.
+- [x] 1.3 Add `[dns] dns_backend` (`bind`|`powerdns`, default bind) and `powerdns_axfr_conf` to the dns getconf section; optional PowerDNS DSN override in `config.toml`; tests for defaults and parsing. Commit.
+- [x] 1.4 Implement PowerDNS DB open helper (same-host MariaDB credentials + database `powerdns`, or override DSN); fail clearly when backend is powerdns and DB is unreachable. Commit.
 
 ## 2. PowerDNS plugin — zone/record/slave SQL sync
 
-- [ ] 2.1 Scaffold `internal/powerdns` Plugin: subscribe to the nine dns events, gate on server_id, inject PowerDNS DB + CommandRunner + logger; unit tests with fake registry. Commit.
-- [ ] 2.2 Implement pure mappers: origin strip, ns/hostmaster SOA content, RR name absolute/relative, content rules (CNAME/MX/NS/ALIAS/PTR/SRV, HINFO quote transform, default raw data), prio←aux; table-driven tests vs PHP fixtures. Commit.
-- [ ] 2.3 Implement `soa_insert` / `soa_update` / `soa_delete` handlers (active/inactive transitions, re-import active `dns_rr` on activate, MASTER domain + SOA record lifecycle). Commit.
-- [ ] 2.4 Implement `rr_insert` / `rr_update` / `rr_delete` (skip missing parent domain, skip duplicate ispconfig_id, never delete SOA via RR path). Commit.
-- [ ] 2.5 Implement `slave_insert` / `slave_update` / `slave_delete` (SLAVE domains, purge `ispconfig_id=0` cache records on update). Commit.
-- [ ] 2.6 Event-to-SQL integration tests against MariaDB: datalog-like payloads produce expected `powerdns.domains` / `powerdns.records` rows for master, RR, and slave scenarios. Commit.
+- [x] 2.1 Scaffold `internal/powerdns` Plugin: subscribe to the nine dns events, gate on server_id, inject PowerDNS DB + CommandRunner + logger; unit tests with fake registry. Commit.
+- [x] 2.2 Implement pure mappers: origin strip, ns/hostmaster SOA content, RR name absolute/relative, content rules (CNAME/MX/NS/ALIAS/PTR/SRV, HINFO quote transform, default raw data), prio←aux; table-driven tests vs PHP fixtures. Commit.
+- [x] 2.3 Implement `soa_insert` / `soa_update` / `soa_delete` handlers (active/inactive transitions, re-import active `dns_rr` on activate, MASTER domain + SOA record lifecycle). Commit.
+- [x] 2.4 Implement `rr_insert` / `rr_update` / `rr_delete` (skip missing parent domain, skip duplicate ispconfig_id, never delete SOA via RR path). Commit.
+- [x] 2.5 Implement `slave_insert` / `slave_update` / `slave_delete` (SLAVE domains, purge `ispconfig_id=0` cache records on update). Commit.
+- [x] 2.6 Event-to-SQL integration tests against MariaDB: datalog-like payloads produce expected `powerdns.domains` / `powerdns.records` rows for master, RR, and slave scenarios. Commit.
 
 ## 3. Control commands, service, and backend selection
 
-- [ ] 3.1 Implement `pdns_control` / `pdnsutil|pdnssec` discovery and wrappers: rediscover, notify, retrieve, rectify-zone, version probe; stubbed CommandRunner tests. Commit.
-- [ ] 3.2 Wire rediscover/notify after active SOA insert/update; retrieve after active slave insert/update; rectify after active SOA/RR mutations; missing binary is non-fatal. Commit.
-- [ ] 3.3 Register `powerdns` service; unit resolution `powerdns` else `pdns`; on restart rewrite `allow-axfr-ips` from active `dns_soa.xfer` ∪ `dns_slave.xfer` (always include 127.0.0.1) to `powerdns_axfr_conf`; tests for unique IP merge and localhost default. Commit.
-- [ ] 3.4 Queue delayed `powerdns` restart from SOA/slave handlers (not pure RR); integration test dedup at end of run. Commit.
-- [ ] 3.5 Daemon bootstrap: when `server.dns_server=1` and `dns_backend=powerdns`, load PowerDNS plugin + service only; when bind/default, load Bind only; tests or daemon wiring table. Commit.
+- [x] 3.1 Implement `pdns_control` / `pdnsutil|pdnssec` discovery and wrappers: rediscover, notify, retrieve, rectify-zone, version probe; stubbed CommandRunner tests. Commit.
+- [x] 3.2 Wire rediscover/notify after active SOA insert/update; retrieve after active slave insert/update; rectify after active SOA/RR mutations; missing binary is non-fatal. Commit.
+- [x] 3.3 Register `powerdns` service; unit resolution `powerdns` else `pdns`; on restart rewrite `allow-axfr-ips` from active `dns_soa.xfer` ∪ `dns_slave.xfer` (always include 127.0.0.1) to `powerdns_axfr_conf`; tests for unique IP merge and localhost default. Commit.
+- [x] 3.4 Queue delayed `powerdns` restart from SOA/slave handlers (not pure RR); integration test dedup at end of run. Commit.
+- [x] 3.5 Daemon bootstrap: when `server.dns_server=1` and `dns_backend=powerdns`, load PowerDNS plugin + service only; when bind/default, load Bind only; tests or daemon wiring table. Commit.
 
 ## 4. DNSSEC (pdnsutil)
 
-- [ ] 4.1 Port DNSSEC version gate (major 3/4) and `format_dnssec_pubkeys` parser for `show-zone` lines (Active: 1 / Active ( ); KSK/CSK/DS); unit tests with canned output. Commit.
-- [ ] 4.2 Implement create path: add-zone-key KSK/ZSK rsasha256, set-nsec3, show-zone → write `dns_soa.dnssec_info`, set `dnssec_initialized=Y`; stubbed exec tests. Commit.
-- [ ] 4.3 Implement disable and origin-change delete paths; update `dnssec_initialized`/`dnssec_info` per PHP; wire `handle_dnssec` into SOA update. Commit.
-- [ ] 4.4 Ensure Bind `dns_resign` job is not registered when backend is powerdns; test bootstrap matrix. Commit.
+- [x] 4.1 Port DNSSEC version gate (major 3/4) and `format_dnssec_pubkeys` parser for `show-zone` lines (Active: 1 / Active ( ); KSK/CSK/DS); unit tests with canned output. Commit. (`VersionSupported` + `pdnsUtilTool` in `internal/powerdns/control.go`, `FormatDNSSECPubkeys` in `internal/powerdns/dnssec.go`, covered by `TestVersionSupported` and `TestFormatDNSSECPubkeys*`.)
+- [x] 4.2 Implement create path: add-zone-key KSK/ZSK rsasha256, set-nsec3, show-zone → write `dns_soa.dnssec_info`, set `dnssec_initialized=Y`; stubbed exec tests. Commit. (`dnssecCreate` in `internal/powerdns/dnssec.go`, covered by `TestHandleDNSSECCreate`.)
+- [x] 4.3 Implement disable and origin-change delete paths; update `dnssec_initialized`/`dnssec_info` per PHP; wire `handle_dnssec` into SOA update. Commit. (`dnssecDisable`/`dnssecDelete`/`doHandleDNSSEC` in `internal/powerdns/dnssec.go`, called from both `soa_insert` and `soa_update` handlers in `internal/powerdns/handlers.go`; covered by `TestHandleDNSSECDisable`/`TestHandleDNSSECOriginChange`.)
+- [x] 4.4 Ensure Bind `dns_resign` job is not registered when backend is powerdns; test bootstrap matrix. Commit. (Already satisfied by the 3.5 bootstrap wiring: `dnsWiringFor` in `cmd/daemon.go` is mutually exclusive, `dnsPlugin` stays nil on the PowerDNS path, and `dnsPlugin.RegisterResign` is only called when `dnsPlugin != nil`; covered by `TestDNSWiringMatrix` in `cmd/daemon_test.go`. No code changes needed.)
 
 ## 5. Installer CLI extension
 
-- [ ] 5.1 Add `--dns-backend` / answers-file / interactive prompt (default bind); write `[dns] dns_backend` into server.config; tests for answer resolution. Commit.
-- [ ] 5.2 Distro package profiles: when powerdns, install `pdns-server` + `pdns-backend-mysql` (Debian 11–13, Ubuntu 22.04–24.04); bind path unchanged; package-list unit tests. Commit.
-- [ ] 5.3 Implement configure_powerdns step: CREATE DATABASE, GRANT, apply embedded powerdns.sql, render pdns.local.master → `/etc/powerdns/pdns.d/pdns.local` mode 0600, enable/restart pdns; connectivity validation; dry-run/unit tests with fakes. Commit.
-- [ ] 5.4 Optional Vagrant/toggle or documented smoke: install with powerdns backend, assert pdns active; link from install docs. Commit.
+- [x] 5.1 Add `--dns-backend` / answers-file / interactive prompt (default bind); write `[dns] dns_backend` into server.config; tests for answer resolution. Commit. (`internal/installer/answers.go` field + prompt, `setServerDNSBackend`/`setDNSBackendKey` in `internal/installer/powerdnsstep.go`; `TestAnswersDNSBackend`, `TestSetDNSBackendKey`, `TestResolveAnswersPromptLayer`.)
+- [x] 5.2 Distro package profiles: when powerdns, install `pdns-server` + `pdns-backend-mysql` (Debian 11–13, Ubuntu 22.04–24.04); bind path unchanged; package-list unit tests. Commit. (`PowerDNSService`/`BindPackage`/`powerDNSPackages` in `internal/installer/distro.go`, `State.packageSet`/`State.DNSService` in `internal/installer/powerdnsstep.go`; `TestPackageSetSwapsBindForPowerDNS`, `TestPackagesStepInstallsPowerDNS`.)
+- [x] 5.3 Implement configure_powerdns step: CREATE DATABASE, GRANT, apply embedded powerdns.sql, render pdns.local.master → `/etc/powerdns/pdns.d/pdns.local` mode 0600, enable/restart pdns; connectivity validation; dry-run/unit tests with fakes. Commit. (`powerDNSStep` in `internal/installer/powerdnsstep.go`, wired into `InstallSteps()`; connectivity validated by `powerdns.Open`/`database.Open` failing the step; `TestPowerDNSStepSkippedOnBind`, `TestRenderPdnsLocal`, `TestBindBaseSkippedOnPowerDNS`.)
+- [x] 5.4 Optional Vagrant/toggle or documented smoke: install with powerdns backend, assert pdns active; link from install docs. Commit. (No VirtualBox host available in this environment to develop/verify a pdns-aware Vagrant toggle + smoke-test branch, so it is deferred rather than landed untested — documented as a step-by-step manual VM procedure instead, see "Manual VM validation" in `docs/powerdns-module.md`, cross-linked from `docs/install.md`.)
 
 ## 6. Shared surface verification (no new API/UI features)
 
-- [ ] 6.1 Confirm existing DNS REST API + Vue panel need no code changes for PowerDNS; if any read-only backend indicator is required for ops, keep it out of scope unless a one-line server-info field already exists — document backend is server-config only. Commit only if a tiny doc-facing fix is needed; otherwise skip commit.
-- [ ] 6.2 agent-browser smoke against a PowerDNS-backed daemon (docker or local): login, create zone via wizard, add A/MX/TXT, toggle DNSSEC wanted, verify panel still works (SQL side asserted in Go tests). Screenshots to `docs/prints/`. Commit.
+- [x] 6.1 Confirm existing DNS REST API + Vue panel need no code changes for PowerDNS; if any read-only backend indicator is required for ops, keep it out of scope unless a one-line server-info field already exists — document backend is server-config only. Commit only if a tiny doc-facing fix is needed; otherwise skip commit. (Verified: `internal/api/dns*.go` and `frontend/src/views/dns/*.vue` never read `dns_backend` — the only `Bind(` hits are Echo's request binder, unrelated. No code or doc fix needed; no commit.)
+- [x] 6.2 agent-browser smoke against a PowerDNS-backed daemon (docker or local): login, create zone via wizard, add A/MX/TXT, toggle DNSSEC wanted, verify panel still works (SQL side asserted in Go tests). Screenshots to `docs/prints/`. Commit. (`e2e/panel-dns-powerdns.sh` + self-contained bootstrap `scripts/e2e-dns-powerdns.sh` / `make e2e-dns-powerdns`; ran green end-to-end: login, zones list, wizard create with DNSSEC checkbox ticked, template A/NS/MX/TXT records present, manual A record added. The daemon is not started by this script — it follows the existing `e2e/panel-*.sh` convention of panel-only smoke; the daemon-side SQL sync is the Go integration test from 7.1.)
 
 ## 7. Integration tests and docs
 
-- [ ] 7.1 End-to-end integration: API zone+record create → sys_datalog → daemon with PowerDNS plugin → expected rows in `powerdns.domains`/`records` + stubbed notify/rectify; dig smoke optional with real pdns container. Commit.
-- [ ] 7.2 Write `docs/powerdns-module.md` (or extend `docs/dns-module.md`): backend selection, dual-DB layout, AXFR global ACL, DNSSEC differences vs Bind, migration notes, installer flags. Commit.
-- [ ] 7.3 Update `docs/ROADMAP.md` / `docs/install.md` references for optional PowerDNS path; cross-link from dns-module docs. Commit.
+- [x] 7.1 End-to-end integration: API zone+record create → sys_datalog → daemon with PowerDNS plugin → expected rows in `powerdns.domains`/`records` + stubbed notify/rectify; dig smoke optional with real pdns container. Commit. (`internal/powerdns/e2e_integration_test.go`, `TestDatalogToPowerDNSPipeline`; real `dig` against a pdns container deferred as optional/nice-to-have per design D10.)
+- [x] 7.2 Write `docs/powerdns-module.md` (or extend `docs/dns-module.md`): backend selection, dual-DB layout, AXFR global ACL, DNSSEC differences vs Bind, migration notes, installer flags. Commit.
+- [x] 7.3 Update `docs/ROADMAP.md` / `docs/install.md` references for optional PowerDNS path; cross-link from dns-module docs. Commit.
