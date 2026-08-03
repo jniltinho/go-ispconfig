@@ -66,7 +66,7 @@ func ddlColumns(t *testing.T) map[string]map[string]ddlColumn {
 var allModels = []any{
 	SysUser{}, SysGroup{}, SysDatalog{}, SysRemoteAction{}, SysConfig{},
 	SysIni{}, SysLog{}, SysSession{}, Server{}, ServerIP{}, ServerPHP{},
-	Client{}, WebDomain{}, WebFolder{}, WebFolderUser{},
+	Client{}, WebDomain{}, WebFolder{}, WebFolderUser{}, FTPUser{}, ShellUser{},
 	DNSSoa{}, DNSRr{}, DNSSlave{}, DNSTemplate{},
 	ClientTemplate{}, ClientTemplateAssigned{}, ClientMessageTemplate{}, Country{},
 	MailDomain{}, MailUser{}, MailForwarding{}, MailTransport{}, MailAccess{},
@@ -150,6 +150,8 @@ func TestModelTypesMatchDDL(t *testing.T) {
 		"client":            Client{},
 		"web_database":      WebDatabase{},
 		"web_database_user": WebDatabaseUser{},
+		"ftp_user":          FTPUser{},
+		"shell_user":        ShellUser{},
 	}
 
 	cache := &sync.Map{}
