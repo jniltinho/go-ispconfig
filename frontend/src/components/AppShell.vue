@@ -73,7 +73,7 @@ async function logout() {
       :aria-label="t('nav.loading')"
     />
     <header class="border-b border-border bg-surface">
-      <div class="flex items-center gap-6 px-5">
+      <div class="mx-auto flex max-w-[1260px] items-center gap-6 px-5">
         <button
           type="button"
           data-test="sidebar-toggle"
@@ -137,7 +137,9 @@ async function logout() {
       </div>
     </header>
 
-    <div class="flex flex-1">
+    <!-- Legacy #main-wrapper: page centered at max 1260px (ispconfig.css),
+         so content never stretches edge-to-edge on wide screens. -->
+    <div class="mx-auto flex w-full max-w-[1260px] flex-1">
       <!-- Backdrop for the off-canvas drawer -->
       <div
         v-if="ui.sidebarOpen"
