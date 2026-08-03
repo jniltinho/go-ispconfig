@@ -10,7 +10,7 @@
 ## 2. Cron module (daemon events)
 
 - [x] 2.1 Implement `internal/cron` Module: announce `cron_insert` / `cron_update` / `cron_delete`, register table hook for `cron`, map datalog actions `i`/`u`/`d` to events; gate on `server.web_server=1` + config.toml enablement; unit tests with fake registries. Commit.
-- [ ] 2.2 Wire the module into the daemon bootstrap next to web/dns modules; test that non-web servers register no cron hooks. Commit.
+- [x] 2.2 Wire the module into the daemon bootstrap next to web/dns modules; test that non-web servers register no cron hooks. Commit.
 
 ## 3. Client-job runner and plugin (scheduler execution)
 

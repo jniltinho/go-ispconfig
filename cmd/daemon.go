@@ -21,6 +21,7 @@ import (
 	"go-ispconfig/internal/clientdb"
 	"go-ispconfig/internal/clients"
 	"go-ispconfig/internal/config"
+	"go-ispconfig/internal/cron"
 	"go-ispconfig/internal/database"
 	"go-ispconfig/internal/dns"
 	"go-ispconfig/internal/engine"
@@ -111,6 +112,12 @@ var daemonCmd = &cobra.Command{
 		if srv.DBServer == 1 && !cfg.Daemon.DisableDatabaseModule {
 			modules = append(modules, clientdb.NewModule())
 			plugins = append(plugins, clientdb.NewPlugin(db, runner, cfg.Database.ClientDBConf, srv.ServerID, logger))
+		}
+		// Cron module: only on web servers with the module enabled in
+		// config.toml (cron-module-events / design D1: server.web_server = 1
+		// and !disable_cron_module). Client-job plugin lands in task 3.7.
+		if cron.Enabled(srv.WebServer, cfg.Daemon.DisableCronModule) {
+			modules = append(modules, cron.NewModule())
 		}
 		if err := reg.Load(modules, plugins); err != nil {
 			return err
