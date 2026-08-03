@@ -362,7 +362,7 @@ func dnsWizardCreate(d *Deps) echo.HandlerFunc {
 			return &ValidationError{Fields: map[string][]string{"domain": {"origin_error_unique"}}}
 		}
 
-		err = dnsTxn(ctx, d.DB, func(tx *gorm.DB) error {
+		err = datalogTxn(ctx, d.DB, func(tx *gorm.DB) error {
 			if err := tx.Create(soa).Error; err != nil {
 				return err
 			}
