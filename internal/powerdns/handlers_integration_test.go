@@ -220,3 +220,38 @@ func TestControlCommandWiring(t *testing.T) {
 	require.NoError(t, pMissing.handleSOAInsert(ctx, engine.Data{New: soaNew(32, "nobin.com.", "Y")}))
 	assert.Empty(t, rEmpty.log)
 }
+
+// TestDelayedRestartDedup covers task 3.4: SOA and slave mutations in one run
+// collapse into a single powerdns restart; pure RR mutations queue nothing.
+func TestDelayedRestartDedup(t *testing.T) {
+	pdns := setupPdnsDB(t)
+	ctx := context.Background()
+
+	exec := &recordingExecutor{}
+	services := engine.NewServices(exec, nil)
+	RegisterServices(services)
+	p := NewPlugin(nil, pdns, services, &recordingRunner{}, 1, nil)
+	p.SetToolsForTest("", "", "")
+
+	// Several restart-queueing events in one daemon run.
+	require.NoError(t, p.handleSOAInsert(ctx, engine.Data{New: soaNew(40, "dedup-a.com.", "Y")}))
+	require.NoError(t, p.handleSOAInsert(ctx, engine.Data{New: soaNew(41, "dedup-b.com.", "Y")}))
+	require.NoError(t, p.handleSlaveInsert(ctx, engine.Data{New: map[string]any{
+		"id": float64(42), "server_id": float64(1), "origin": "dedup-slave.com.",
+		"ns": "1.2.3.4", "active": "Y",
+	}}))
+
+	services.ProcessDelayedActions(ctx)
+	require.Len(t, exec.calls, 1)
+	assert.Equal(t, [2]string{ServiceName, engine.ActionRestart}, exec.calls[0])
+
+	// Pure RR mutation: no restart queued.
+	exec.calls = nil
+	require.NoError(t, p.handleRRInsert(ctx, engine.Data{New: map[string]any{
+		"id": float64(4001), "server_id": float64(1), "zone": float64(40),
+		"name": "www", "type": "A", "data": "1.2.3.4", "aux": float64(0),
+		"ttl": float64(3600), "active": "Y", "origin": "dedup-a.com.",
+	}}))
+	services.ProcessDelayedActions(ctx)
+	assert.Empty(t, exec.calls)
+}
