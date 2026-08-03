@@ -17,8 +17,8 @@ const router = useRouter()
 const store = useSitesStore()
 
 const columns: Column[] = [
-  { key: 'active', label: t('sites.col.active') },
-  { key: 'username', label: t('sites.col.username') },
+  { key: 'active', label: 'sites.col.active' },
+  { key: 'username', label: 'sites.col.username' },
 ]
 
 const rows = ref<Row[]>([])

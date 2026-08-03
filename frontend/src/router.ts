@@ -57,9 +57,9 @@ export const router = createRouter({
           props: {
             apiBase: '/api/mail/domains', idField: 'domain_id', formBase: '/mail/domains',
             columns: [
-              { key: 'active', label: 'Active' },
-              { key: '_server_name', label: 'Server' },
-              { key: 'domain', label: 'Domain' },
+              { key: 'active', label: 'mail.col.active' },
+              { key: '_server_name', label: 'mail.col.server' },
+              { key: 'domain', label: 'mail.col.domain' },
             ],
             titleKey: 'mail.domains_title', addKey: 'mail.add_domain',
           },
@@ -78,9 +78,9 @@ export const router = createRouter({
           props: {
             apiBase: '/api/mail/mailboxes', idField: 'mailuser_id', formBase: '/mail/mailboxes',
             columns: [
-              { key: 'email', label: 'Email' },
-              { key: 'name', label: 'Name' },
-              { key: 'quota', label: 'Quota' },
+              { key: 'email', label: 'mail.col.email' },
+              { key: 'name', label: 'mail.col.name' },
+              { key: 'quota', label: 'mail.col.quota' },
             ],
             titleKey: 'mail.mailboxes_title', addKey: 'mail.add_mailbox',
           },
@@ -103,7 +103,7 @@ export const router = createRouter({
           component: MailList,
           props: {
             apiBase: '/api/mail/aliases', idField: 'forwarding_id', formBase: '/mail/aliases',
-            columns: [{ key: 'source', label: 'Source' }, { key: 'destination', label: 'Destination' }],
+            columns: [{ key: 'source', label: 'mail.col.source' }, { key: 'destination', label: 'mail.col.destination' }],
             titleKey: 'mail.aliases_title', addKey: 'mail.add_alias',
           },
         },
@@ -125,7 +125,7 @@ export const router = createRouter({
           component: MailList,
           props: {
             apiBase: '/api/mail/forwards', idField: 'forwarding_id', formBase: '/mail/forwards',
-            columns: [{ key: 'source', label: 'Source' }, { key: 'destination', label: 'Destination' }],
+            columns: [{ key: 'source', label: 'mail.col.source' }, { key: 'destination', label: 'mail.col.destination' }],
             titleKey: 'mail.forwards_title', addKey: 'mail.add_forward',
           },
         },
@@ -147,7 +147,7 @@ export const router = createRouter({
           component: MailList,
           props: {
             apiBase: '/api/mail/catchalls', idField: 'forwarding_id', formBase: '/mail/catchalls',
-            columns: [{ key: 'source', label: 'Domain' }, { key: 'destination', label: 'Destination' }],
+            columns: [{ key: 'source', label: 'mail.col.domain' }, { key: 'destination', label: 'mail.col.destination' }],
             titleKey: 'mail.catchalls_title', addKey: 'mail.add_catchall',
           },
         },
@@ -169,7 +169,7 @@ export const router = createRouter({
           component: MailList,
           props: {
             apiBase: '/api/mail/alias-domains', idField: 'forwarding_id', formBase: '/mail/alias-domains',
-            columns: [{ key: 'source', label: 'Source domain' }, { key: 'destination', label: 'Target domain' }],
+            columns: [{ key: 'source', label: 'Source domain' }, { key: 'destination', label: 'mail.col.target_domain' }],
             titleKey: 'mail.alias_domains_title', addKey: 'mail.add_alias_domain',
           },
         },
@@ -191,7 +191,7 @@ export const router = createRouter({
           component: MailList,
           props: {
             apiBase: '/api/mail/transports', idField: 'transport_id', formBase: '/mail/transports',
-            columns: [{ key: 'domain', label: 'Domain' }, { key: 'transport', label: 'Transport' }, { key: 'sort_order', label: 'Order' }],
+            columns: [{ key: 'domain', label: 'mail.col.domain' }, { key: 'transport', label: 'Transport' }, { key: 'sort_order', label: 'mail.col.order' }],
             titleKey: 'mail.transports_title', addKey: 'mail.add_transport',
           },
         },
@@ -213,7 +213,7 @@ export const router = createRouter({
           component: MailList,
           props: {
             apiBase: '/api/mail/spamfilter/policies', idField: 'id', formBase: '/mail/spamfilter/policies',
-            columns: [{ key: 'policy_name', label: 'Name' }, { key: 'rspamd_greylisting', label: 'Greylisting' }],
+            columns: [{ key: 'policy_name', label: 'mail.col.name' }, { key: 'rspamd_greylisting', label: 'mail.col.greylisting' }],
             titleKey: 'mail.policies_title', addKey: 'mail.add_policy',
           },
         },
@@ -235,7 +235,7 @@ export const router = createRouter({
           component: MailList,
           props: {
             apiBase: '/api/mail/spamfilter/users', idField: 'id', formBase: '/mail/spamfilter/users',
-            columns: [{ key: 'email', label: 'Email' }, { key: 'priority', label: 'Priority' }],
+            columns: [{ key: 'email', label: 'mail.col.email' }, { key: 'priority', label: 'mail.col.priority' }],
             titleKey: 'mail.spamusers_title', addKey: 'mail.add_spamuser',
           },
         },
@@ -257,7 +257,7 @@ export const router = createRouter({
           component: MailList,
           props: {
             apiBase: '/api/mail/spamfilter/wblists', idField: 'wblist_id', formBase: '/mail/spamfilter/wblists',
-            columns: [{ key: 'wb', label: 'List' }, { key: 'email', label: 'Email' }],
+            columns: [{ key: 'wb', label: 'List' }, { key: 'email', label: 'mail.col.email' }],
             titleKey: 'mail.wblists_title', addKey: 'mail.add_wblist',
           },
         },
@@ -279,7 +279,7 @@ export const router = createRouter({
           component: MailList,
           props: {
             apiBase: '/api/mail/access', idField: 'access_id', formBase: '/mail/access',
-            columns: [{ key: 'source', label: 'Source' }, { key: 'type', label: 'Type' }, { key: 'access', label: 'Access' }],
+            columns: [{ key: 'source', label: 'mail.col.source' }, { key: 'type', label: 'Type' }, { key: 'access', label: 'mail.col.access' }],
             titleKey: 'mail.access_title', addKey: 'mail.add_access',
           },
         },

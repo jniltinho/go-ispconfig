@@ -18,11 +18,11 @@ const store = useSitesStore()
 
 // Filters are not supported by the runs endpoint: header inputs stay off.
 const columns: Column[] = [
-  { key: 'start', label: t('sites.cron.col.start'), filterable: false },
-  { key: 'status', label: t('sites.cron.col.status'), filterable: false },
-  { key: 'exit', label: t('sites.cron.col.exit'), filterable: false },
-  { key: 'duration', label: t('sites.cron.col.duration'), filterable: false },
-  { key: 'output', label: t('sites.cron.col.output'), filterable: false },
+  { key: 'start', label: 'sites.cron.col.start', filterable: false },
+  { key: 'status', label: 'sites.cron.col.status', filterable: false },
+  { key: 'exit', label: 'sites.cron.col.exit', filterable: false },
+  { key: 'duration', label: 'sites.cron.col.duration', filterable: false },
+  { key: 'output', label: 'sites.cron.col.output', filterable: false },
 ]
 
 const rows = ref<Row[]>([])

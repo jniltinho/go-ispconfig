@@ -15,10 +15,10 @@ const router = useRouter()
 const store = useSitesStore()
 
 const columns: Column[] = [
-  { key: 'username', label: t('sites.col.username') },
-  { key: '_parent_domain', label: t('sites.col.website') },
-  { key: 'active', label: t('sites.col.active') },
-  { key: '_server_name', label: t('sites.col.server') },
+  { key: 'username', label: 'sites.col.username' },
+  { key: '_parent_domain', label: 'sites.col.website' },
+  { key: 'active', label: 'sites.col.active' },
+  { key: '_server_name', label: 'sites.col.server' },
 ]
 
 const rows = ref<Row[]>([])

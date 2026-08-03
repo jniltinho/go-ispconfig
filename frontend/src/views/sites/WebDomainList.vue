@@ -15,11 +15,11 @@ const router = useRouter()
 const store = useSitesStore()
 
 const columns: Column[] = [
-  { key: 'active', label: t('sites.col.active') },
+  { key: 'active', label: 'sites.col.active' },
   // Decorated server hostname; filter alias _server_name on the list API.
-  { key: '_server_name', label: t('sites.col.server') },
-  { key: 'domain', label: t('sites.col.domain') },
-  { key: 'type', label: t('sites.col.type') },
+  { key: '_server_name', label: 'sites.col.server' },
+  { key: 'domain', label: 'sites.col.domain' },
+  { key: 'type', label: 'sites.col.type' },
 ]
 
 onMounted(() => store.loadDomains(1))

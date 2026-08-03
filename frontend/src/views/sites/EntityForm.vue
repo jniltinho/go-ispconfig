@@ -206,7 +206,7 @@ onMounted(async () => {
 })
 
 async function save(values: Record<string, unknown>) {
-  if (!serverMeta.value) return
+  if (!serverMeta.value || saving.value) return
   errors.value = {}
   const clientErrors = props.validate?.(values) ?? {}
   if (Object.keys(clientErrors).length) {
@@ -265,6 +265,7 @@ async function save(values: Record<string, unknown>) {
       :metadata="metadata"
       :model-value="initial"
       :errors="errors"
+      :saving="saving"
       @save="save"
       @cancel="router.push(backTo)"
     />

@@ -23,7 +23,7 @@
 ## 4. Cross-cutting polish (Claude Fable 5 review gate)
 
 - [x] 4.1 DataTable consistency (filter inputs on decorated columns, pagination labels, empty states).
-- [ ] 4.2 EntityForm/TabbedForm consistency (readonly fields, checkbox active, error keys i18n).
+- [x] 4.2 EntityForm/TabbedForm consistency (readonly fields, checkbox active, error keys i18n).
 - [ ] 4.3 Theme pass: radius 0, spacing, contrast, light/dark if applicable; Claude Fable 5 review write-up `.hermes/review-fable-ui.md`.
 - [ ] 4.4 Unified `make e2e-ui-qa` target; Telegram status with MEDIA screenshots of failures before/after.
 
