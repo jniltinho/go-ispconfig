@@ -159,7 +159,7 @@ func TestEngineE2E(t *testing.T) {
 	require.NoError(t, reg.Load([]engine.Module{webModule{}}, []engine.Plugin{plugin}))
 
 	sched := engine.NewScheduler(db, nil)
-	daemon, err := engine.NewDaemon(db, reg, services, nil)
+	daemon, err := engine.NewDaemon(db, reg, services, nil, 0)
 	require.NoError(t, err)
 	require.EqualValues(t, 1, daemon.ServerID())
 
@@ -357,19 +357,35 @@ func TestEngineE2E(t *testing.T) {
 		exec.Reset()
 	})
 
-	t.Run("startup guard refuses multi-server and mirror setups", func(t *testing.T) {
-		require.NoError(t, db.Exec("UPDATE server SET mirror_server_id = 2 WHERE server_id = 1").Error)
-		_, err := engine.GuardServer(db)
-		require.ErrorContains(t, err, "mirror")
-		require.NoError(t, db.Exec("UPDATE server SET mirror_server_id = 0 WHERE server_id = 1").Error)
+	t.Run("server identity resolves across a multi-server registry", func(t *testing.T) {
+		// Single active row: resolved without any configured server_id.
+		srv, err := engine.ResolveServer(db, 0)
+		require.NoError(t, err)
+		require.EqualValues(t, 1, srv.ServerID)
 
 		require.NoError(t, db.Exec(
 			"INSERT INTO server (sys_userid, sys_groupid, sys_perm_user, sys_perm_group, sys_perm_other, server_name, config, active) VALUES (1,1,'riud','riud','r','server2.test','',1)").Error)
-		_, err = engine.GuardServer(db)
-		require.ErrorContains(t, err, "multi-server")
-		require.NoError(t, db.Exec("DELETE FROM server WHERE server_name = 'server2.test'").Error)
+		var second model.Server
+		require.NoError(t, db.Where("server_name = 'server2.test'").First(&second).Error)
 
-		_, err = engine.GuardServer(db)
+		// Two active rows and no hostname match: ambiguous, must refuse.
+		_, err = engine.ResolveServer(db, 0)
+		require.ErrorContains(t, err, "server_id")
+
+		// Explicit server_id picks the second node.
+		srv, err = engine.ResolveServer(db, second.ServerID)
+		require.NoError(t, err)
+		require.Equal(t, "server2.test", srv.ServerName)
+
+		// An inactive or unknown node never starts.
+		require.NoError(t, db.Exec("UPDATE server SET active = 0 WHERE server_id = ?", second.ServerID).Error)
+		_, err = engine.ResolveServer(db, second.ServerID)
+		require.ErrorContains(t, err, "not active")
+		_, err = engine.ResolveServer(db, 9999)
+		require.Error(t, err)
+
+		require.NoError(t, db.Exec("DELETE FROM server WHERE server_name = 'server2.test'").Error)
+		_, err = engine.ResolveServer(db, 0)
 		require.NoError(t, err)
 	})
 }

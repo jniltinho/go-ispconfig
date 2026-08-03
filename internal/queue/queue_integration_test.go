@@ -124,7 +124,7 @@ func TestQueueIntegration(t *testing.T) {
 	admin := &repository.Identity{UserID: 1, Username: "admin", Typ: "admin", Groups: []uint32{1}}
 	repo, err := repository.New[model.WebDomain](db)
 	require.NoError(t, err)
-	daemon, err := engine.NewDaemon(db, engine.NewRegistry(nil), nil, nil)
+	daemon, err := engine.NewDaemon(db, engine.NewRegistry(nil), nil, nil, 0)
 	require.NoError(t, err)
 	t.Cleanup(func() { datalog.SetReadyNotifier(nil) })
 

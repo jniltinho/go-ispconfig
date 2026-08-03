@@ -459,6 +459,9 @@ func cryptBodyPassword(body map[string]any, field string) error {
 // checked against the caller's read scope (cross-client protection), with
 // vhostsubdomain/vhostalias inheriting the parent's server.
 func webDomainPrepare(c *echo.Context, d *Deps, id *repository.Identity, body map[string]any) error {
+	if err := requireTargetServer("web_server")(c, d, body); err != nil {
+		return err
+	}
 	if v, ok := body["domain"].(string); ok {
 		v = strings.ToLower(strings.TrimSpace(v))
 		if ascii, err := idna.Lookup.ToASCII(v); err == nil {

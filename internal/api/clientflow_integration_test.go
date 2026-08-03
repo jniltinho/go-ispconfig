@@ -54,7 +54,7 @@ func TestClientEndToEndFlow(t *testing.T) {
 	reg := engine.NewRegistry(nil)
 	plugin := &eventPlugin{subscribe: []string{"client_insert", "client_delete"}}
 	require.NoError(t, reg.Load([]engine.Module{clients.NewModule()}, []engine.Plugin{plugin}))
-	daemon, err := engine.NewDaemon(db, reg, engine.NewServices(nopExec{}, nil), nil)
+	daemon, err := engine.NewDaemon(db, reg, engine.NewServices(nopExec{}, nil), nil, 0)
 	require.NoError(t, err)
 
 	// Drain the seed backlog so assertions see only this test's events.

@@ -51,15 +51,14 @@ type Daemon struct {
 	busy     sync.Mutex
 }
 
-// NewDaemon validates the server table (startup guard) and builds a Daemon
-// bound to the single active server row. Scheduled jobs run as asynq
-// periodic tasks through the queue worker (design D12), not inside the
-// daemon cycle.
-func NewDaemon(db *gorm.DB, reg *Registry, services *Services, log *slog.Logger) (*Daemon, error) {
+// NewDaemon resolves this node's server row (serverID 0 = auto-detect) and
+// builds a Daemon bound to it. Scheduled jobs run as asynq periodic tasks
+// through the queue worker (design D12), not inside the daemon cycle.
+func NewDaemon(db *gorm.DB, reg *Registry, services *Services, log *slog.Logger, serverID uint32) (*Daemon, error) {
 	if log == nil {
 		log = slog.Default()
 	}
-	srv, err := GuardServer(db)
+	srv, err := ResolveServer(db, serverID)
 	if err != nil {
 		return nil, err
 	}
@@ -75,11 +74,39 @@ func NewDaemon(db *gorm.DB, reg *Registry, services *Services, log *slog.Logger)
 // ServerID returns the server row id this daemon processes datalog for.
 func (d *Daemon) ServerID() uint32 { return d.serverID }
 
-// GuardServer loads the server table and enforces the single-server guard
-// (design D2): exactly one active server row with mirror_server_id 0.
-// Multi-server and mirror setups belong to PHP ISPConfig; refusing to start
-// prevents corrupting a migrated multi-server database.
-func GuardServer(db *gorm.DB) (*model.Server, error) {
+// ResolveServer identifies which server row this node serves, the identity
+// the datalog cursor and every module gate are keyed on (spec
+// server-registry / server-deploy). Resolution order, mirroring
+// server/server.php's use of the installed conf['server_id']:
+//
+//  1. serverID > 0 (config.toml server_id) — the explicit, multi-server answer;
+//  2. the active row whose server_name equals the OS hostname;
+//  3. the single active row, when there is exactly one.
+//
+// With several active rows and no match, starting would make this node
+// apply another server's datalog, so it refuses instead.
+func ResolveServer(db *gorm.DB, serverID uint32) (*model.Server, error) {
+	var srv model.Server
+	if serverID > 0 {
+		if err := db.Where("server_id = ?", serverID).First(&srv).Error; err != nil {
+			return nil, fmt.Errorf("engine: server_id %d configured but not found: %w", serverID, err)
+		}
+		if srv.Active != 1 {
+			return nil, fmt.Errorf("engine: server %d (%s) is not active", srv.ServerID, srv.ServerName)
+		}
+		return &srv, nil
+	}
+
+	if hostname, _ := os.Hostname(); hostname != "" {
+		err := db.Where("active = 1 AND server_name = ?", hostname).First(&srv).Error
+		if err == nil {
+			return &srv, nil
+		}
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("engine: loading server table: %w", err)
+		}
+	}
+
 	var servers []model.Server
 	if err := db.Where("active = 1").Find(&servers).Error; err != nil {
 		return nil, fmt.Errorf("engine: loading server table: %w", err)
@@ -88,10 +115,7 @@ func GuardServer(db *gorm.DB) (*model.Server, error) {
 	case len(servers) == 0:
 		return nil, errors.New("engine: no active server row found; run migrate first")
 	case len(servers) > 1:
-		return nil, fmt.Errorf("engine: %d active server rows found; multi-server setups are not supported by go-ispconfig, refusing to start", len(servers))
-	case servers[0].MirrorServerID != 0:
-		return nil, fmt.Errorf("engine: server %d has mirror_server_id %d; mirror setups are not supported by go-ispconfig, refusing to start",
-			servers[0].ServerID, servers[0].MirrorServerID)
+		return nil, fmt.Errorf("engine: %d active server rows and none matches this hostname; set server_id in config.toml", len(servers))
 	}
 	return &servers[0], nil
 }

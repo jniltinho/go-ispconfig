@@ -190,7 +190,10 @@ func serversLookupHandler(d *Deps) echo.HandlerFunc {
 		var rows []model.Server
 		err := d.DB.WithContext(c.Request().Context()).
 			Select("server_id", "server_name").
-			Where("active = ?", 1).
+			// Mirrors are configured from their source server, so they are
+			// never a valid target (spec server-registry: pickers exclude
+			// mirrors and inactive servers).
+			Scopes(activeTargetServers).
 			Order("server_id").
 			Find(&rows).Error
 		if err != nil {

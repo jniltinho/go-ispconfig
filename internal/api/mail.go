@@ -163,6 +163,9 @@ func checkDKIMSelector(_ *validator.Context, value string) string {
 // pair when DKIM is enabled without one (port of the mail_domain_edit
 // create_dkim + tform filters).
 func mailDomainPrepare(c *echo.Context, d *Deps, _ *repository.Identity, body map[string]any) error {
+	if err := requireTargetServer("mail_server")(c, d, body); err != nil {
+		return err
+	}
 	if dom, ok := body["domain"].(string); ok && dom != "" {
 		dom = strings.ToLower(strings.TrimSuffix(dom, "."))
 		if ascii, err := idna.Lookup.ToASCII(dom); err == nil {
@@ -216,9 +219,6 @@ func mailDomainPrepare(c *echo.Context, d *Deps, _ *repository.Identity, body ma
 // dkimStrength reads dkim_strength from the domain's server mail config
 // (default 2048).
 func dkimStrength(_ *echo.Context, d *Deps, serverID uint32) int {
-	if serverID == 0 {
-		serverID = 1
-	}
 	cfg := getconf.DefaultMailConfig()
 	if sc, err := getconf.GetServerConfig(d.DB, serverID); err == nil {
 		cfg = sc.Mail

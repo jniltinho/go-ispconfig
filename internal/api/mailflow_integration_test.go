@@ -49,7 +49,9 @@ func TestMailEndToEndFlow(t *testing.T) {
 		"maildir_format=maildir\npop3_imap_daemon=dovecot\ncontent_filter=rspamd\n"+
 		"dkim_path=%s\nmailuser_name=vmail\nmailuser_group=vmail\nmailuser_uid=5000\nmailuser_gid=5000\n",
 		home, home, dkimDir)
-	require.NoError(t, db.Exec("UPDATE server SET config = ? WHERE server_id = 1", cfgINI).Error)
+	// mail_domain now requires a target server carrying mail_server = 1
+	// (spec server-registry: shared target-server validation).
+	require.NoError(t, db.Exec("UPDATE server SET config = ?, mail_server = 1 WHERE server_id = 1", cfgINI).Error)
 
 	// --- create rows via the API (writes datalog) ---
 	status, data := call(t, srv, http.MethodPost, "/api/mail/domains", cookie, csrf,
@@ -84,7 +86,7 @@ func TestMailEndToEndFlow(t *testing.T) {
 		rspamd,
 	}
 	require.NoError(t, reg.Load([]engine.Module{mail.NewModule()}, plugins))
-	daemon, err := engine.NewDaemon(db, reg, services, nil)
+	daemon, err := engine.NewDaemon(db, reg, services, nil, 0)
 	require.NoError(t, err)
 	require.NoError(t, daemon.RunCycle(ctx))
 
