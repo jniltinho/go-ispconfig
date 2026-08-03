@@ -9,13 +9,13 @@
 ## 2. Collection jobs (daemon)
 
 - [x] 2.1 Add dependency `github.com/shirou/gopsutil/v4` and package `internal/monitor` with shared write helper: insert `monitor_data` as JSON + `delOldRecords` prune (240s, scoped by `server_id`+`type`); tests with sqlite/MariaDB. Commit.
-- [ ] 2.2 Implement collectors for `cpu_info`, `mem_usage`, `server_load`, `os_info`, `kernel_info`, `ispc_info` (gopsutil/host) with PHP-compatible JSON keys and `no_state` (or load thresholds for `server_load`); unit tests with injectable host stubs where practical. Commit.
-- [ ] 2.3 Implement `disk_usage` collector: partitions via gopsutil, skip iso9660/cramfs/udf/tmpfs/devtmpfs/udev, apply 75/80/90/95% + free-size thresholds; tests for each severity band. Commit.
-- [ ] 2.4 Implement `services` collector porting `monitorServices`: probe web :80, ftp :21, smtp :25, pop3 :110, imap :143, bind :53/udp, MariaDB connect; gate on `server.web_server`/`file_server`/`mail_server`/`dns_server`/`db_server`; values 1/0/-1; state ok/error only; tests with fake listeners. Commit.
-- [ ] 2.5 Implement `sys_usage` minute job: rolling load%/mem%/net series max 15 points inside JSON payload; tests for cap and interval math. Commit.
-- [ ] 2.6 Implement log-tail collectors `log_ispconfig`, `log_letsencrypt`, `log_messages` (daemon-only file read, max lines parity with PHP) and `sys_log` state rollup from open `sys_log.loglevel` rows; tests with temp log files. Commit.
-- [ ] 2.7 Optionally implement `system_update` hourly job (apt summary or `no_state` when unsupported); if deferred, document omission and skip registration. Commit.
-- [ ] 2.8 Register all monitor jobs on `engine.Scheduler` with stable names (`monitor_*`) and cron specs (`*/5 * * * *`, `* * * * *` for sys_usage, hourly for system_update); persist `{name}_spec` into `sys_config` group `scheduler` at registration/run; wire in daemon bootstrap; integration test one job end-to-end writes `monitor_data` + status mirror. Commit.
+- [x] 2.2 Implement collectors for `cpu_info`, `mem_usage`, `server_load`, `os_info`, `kernel_info`, `ispc_info` (gopsutil/host) with PHP-compatible JSON keys and `no_state` (or load thresholds for `server_load`); unit tests with injectable host stubs where practical. Commit.
+- [x] 2.3 Implement `disk_usage` collector: partitions via gopsutil, skip iso9660/cramfs/udf/tmpfs/devtmpfs/udev, apply 75/80/90/95% + free-size thresholds; tests for each severity band. Commit.
+- [x] 2.4 Implement `services` collector porting `monitorServices`: probe web :80, ftp :21, smtp :25, pop3 :110, imap :143, bind :53/udp, MariaDB connect; gate on `server.web_server`/`file_server`/`mail_server`/`dns_server`/`db_server`; values 1/0/-1; state ok/error only; tests with fake listeners. Commit.
+- [x] 2.5 Implement `sys_usage` minute job: rolling load%/mem%/net series max 15 points inside JSON payload; tests for cap and interval math. Commit.
+- [x] 2.6 Implement log-tail collectors `log_ispconfig`, `log_letsencrypt`, `log_messages` (daemon-only file read, max lines parity with PHP) and `sys_log` state rollup from open `sys_log.loglevel` rows; tests with temp log files. Commit.
+- [x] 2.7 Optionally implement `system_update` hourly job (apt summary or `no_state` when unsupported); if deferred, document omission and skip registration. Commit.
+- [x] 2.8 Register all monitor jobs on `engine.Scheduler` with stable names (`monitor_*`) and cron specs (`*/5 * * * *`, `* * * * *` for sys_usage, hourly for system_update); persist `{name}_spec` into `sys_config` group `scheduler` at registration/run; wire in daemon bootstrap; integration test one job end-to-end writes `monitor_data` + status mirror. Commit.
 
 ## 3. State aggregation and repositories
 
