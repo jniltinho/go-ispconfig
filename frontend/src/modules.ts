@@ -84,12 +84,19 @@ export const modules: ModuleDef[] = [
   {
     id: 'help',
     path: '/help',
-    sections: [{ labelKey: 'sidebar.help.about', path: '/help' }],
+    sections: [
+      { labelKey: 'sidebar.help.about', path: '/help' },
+      { labelKey: 'sidebar.help.support', path: '/help/support' },
+      { labelKey: 'sidebar.help.faq', path: '/help/faq' },
+    ],
   },
   {
     id: 'tools',
     path: '/tools',
-    sections: [{ labelKey: 'sidebar.tools.settings', path: '/tools' }],
+    sections: [
+      { labelKey: 'sidebar.tools.settings', path: '/tools' },
+      { labelKey: 'sidebar.tools.resync', path: '/tools/resync', adminOnly: true },
+    ],
   },
   {
     id: 'system',
