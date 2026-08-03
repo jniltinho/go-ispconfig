@@ -1,6 +1,9 @@
 <script setup lang="ts">
-// Dashboard as ISPConfig3 dashlets: one card per enabled module
-// (dashlet background, large module icon, title, full-width button).
+// Dashboard as ISPConfig3 dashlets, in the legacy dashboard.php column
+// order: modules, metrics, quota, mailquota, databasequota (left column)
+// then limits (right column). Every dashlet is a DashletCard box.
+// invoices/customer/products/shop are legacy billing/shop plugin dashlets
+// with no Go API behind them, so they are deliberately left out.
 import { onMounted, ref } from 'vue'
 import { CircleHelp } from 'lucide-vue-next'
 import { moduleIcons } from '../icons'
@@ -9,6 +12,7 @@ import { useI18n } from '../i18n'
 import { api } from '../api'
 import { useAuthStore } from '../stores/auth'
 import { stateClass, type ServerState } from './monitor/state'
+import DashletCard from '../components/DashletCard.vue'
 import MetricChart from '../components/MetricChart.vue'
 import QuotaBlock, { type QuotaRow } from '../components/QuotaBlock.vue'
 import LimitBlock, { type LimitRow } from '../components/LimitBlock.vue'
@@ -127,11 +131,11 @@ onMounted(async () => {
 
     <ul
       v-if="worstState || pendingJobs !== null || failedJobs !== null"
-      class="mb-4 grid grid-cols-2 gap-4 md:grid-cols-4"
+      class="mb-3 grid grid-cols-2 gap-3 md:grid-cols-4"
     >
       <li
         v-if="worstState"
-        class="border border-border bg-dashlet p-4"
+        class="border border-border bg-dashlet p-3"
         data-test="dashlet-monitor-state"
       >
         <p class="text-xs font-bold uppercase text-text-muted">{{ t('dashboard.monitor_state') }}</p>
@@ -144,7 +148,7 @@ onMounted(async () => {
       </li>
       <li
         v-if="pendingJobs !== null"
-        class="border border-border bg-dashlet p-4"
+        class="border border-border bg-dashlet p-3"
         data-test="dashlet-monitor-jobqueue"
       >
         <p class="text-xs font-bold uppercase text-text-muted">
@@ -154,7 +158,7 @@ onMounted(async () => {
       </li>
       <li
         v-if="failedJobs !== null"
-        class="border border-border bg-dashlet p-4"
+        class="border border-border bg-dashlet p-3"
         data-test="dashlet-monitor-failed-jobs"
       >
         <p class="text-xs font-bold uppercase text-text-muted">
@@ -164,86 +168,80 @@ onMounted(async () => {
       </li>
     </ul>
 
-    <!-- Legacy leftcol dashlet order: modules, metrics, then the quotas. -->
-    <h2 class="page-title">{{ t('dashboard.available_modules') }}</h2>
+    <!-- Legacy dashlet order (dashboard.php $default_leftcol_dashlets then
+         $default_rightcol_dashlets, restricted to the dashlets that ship in
+         dashboard/dashlets/): modules, metrics, quota, mailquota,
+         databasequota, then limits from the right column. -->
+    <DashletCard :title="t('dashboard.available_modules')" class="mb-3">
+      <ul class="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+        <li
+          v-for="mod in dashlets"
+          :key="mod.id"
+          class="flex flex-col gap-2 border border-border bg-surface p-2"
+          :data-test="`dashlet-${mod.id}`"
+        >
+          <!-- Legacy dashlet head: icon left, title right on one row. -->
+          <div class="flex items-center gap-2">
+            <component
+              :is="moduleIcons[mod.id] ?? CircleHelp"
+              :size="28"
+              :stroke-width="1.25"
+              class="shrink-0 text-text"
+            />
+            <span class="flex-1 text-center text-sm font-bold">{{ t(`module.${mod.id}`) }}</span>
+          </div>
+          <RouterLink :to="mod.path" class="btn btn-default mt-auto w-full no-underline">
+            {{ t('dashboard.open_module', { module: t(`module.${mod.id}`) }) }}
+          </RouterLink>
+        </li>
+      </ul>
+    </DashletCard>
 
-    <ul class="mb-4 grid grid-cols-2 gap-4 md:grid-cols-4">
-      <li
-        v-for="mod in dashlets"
-        :key="mod.id"
-        class="flex flex-col gap-3 border border-border bg-dashlet p-4"
-        :data-test="`dashlet-${mod.id}`"
-      >
-        <!-- Legacy dashlet head: icon left, title right on one row. -->
-        <div class="flex items-center gap-3">
-          <component
-            :is="moduleIcons[mod.id] ?? CircleHelp"
-            :size="38"
-            :stroke-width="1.25"
-            class="shrink-0 text-text"
-          />
-          <span class="flex-1 text-center text-base font-bold">{{ t(`module.${mod.id}`) }}</span>
-        </div>
-        <RouterLink :to="mod.path" class="btn btn-default w-full no-underline">
-          {{ t('dashboard.open_module', { module: t(`module.${mod.id}`) }) }}
-        </RouterLink>
-      </li>
-    </ul>
-
-    <template v-if="metrics.length">
-      <h2 class="page-title">{{ t('dashboard.metrics') }}</h2>
-      <div
-        v-for="m in metrics"
-        :key="m.serverId"
-        class="mb-4 border border-border bg-dashlet p-4"
-        :data-test="`dashlet-metrics-${m.serverId}`"
-      >
-        <p v-if="metrics.length > 1" class="mb-2 text-xs font-bold uppercase text-text-muted">
-          {{ t('monitor.server_id') }} {{ m.serverId }}
-        </p>
-        <div class="grid gap-3 md:grid-cols-2">
-          <MetricChart
-            :label="t('dashboard.metrics.load')"
-            :values="m.usage.load ?? []"
-            :times="m.usage.time"
-          />
-          <MetricChart
-            :label="t('dashboard.metrics.memory')"
-            :values="m.usage.mem ?? []"
-            :times="m.usage.time"
-          />
-          <MetricChart
-            :label="t('dashboard.metrics.net_in')"
-            :values="(m.usage.net ?? []).map((p) => p.rx)"
-            :times="m.usage.time"
-          />
-          <MetricChart
-            :label="t('dashboard.metrics.net_out')"
-            :values="(m.usage.net ?? []).map((p) => p.tx)"
-            :times="m.usage.time"
-          />
-        </div>
-      </div>
-    </template>
-
-    <template v-if="hdQuota.length || mailQuota.length || dbQuota.length">
-      <h2 class="page-title">{{ t('dashboard.quota') }}</h2>
-      <div class="mb-4 grid gap-4 md:grid-cols-3">
-        <QuotaBlock
-          v-if="hdQuota.length"
-          :title="t('dashboard.quota.harddisk')"
-          :rows="hdQuota"
+    <DashletCard
+      v-for="m in metrics"
+      :key="m.serverId"
+      :title="
+        metrics.length > 1
+          ? `${t('dashboard.metrics')} — ${t('monitor.server_id')} ${m.serverId}`
+          : t('dashboard.metrics')
+      "
+      class="mb-3"
+      :data-test="`dashlet-metrics-${m.serverId}`"
+    >
+      <div class="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+        <MetricChart
+          :label="t('dashboard.metrics.load')"
+          :values="m.usage.load ?? []"
+          :times="m.usage.time"
         />
-        <QuotaBlock v-if="mailQuota.length" :title="t('dashboard.quota.mailbox')" :rows="mailQuota" />
-        <QuotaBlock v-if="dbQuota.length" :title="t('dashboard.quota.database')" :rows="dbQuota" />
+        <MetricChart
+          :label="t('dashboard.metrics.memory')"
+          :values="m.usage.mem ?? []"
+          :times="m.usage.time"
+        />
+        <MetricChart
+          :label="t('dashboard.metrics.net_in')"
+          :values="(m.usage.net ?? []).map((p) => p.rx)"
+          :times="m.usage.time"
+        />
+        <MetricChart
+          :label="t('dashboard.metrics.net_out')"
+          :values="(m.usage.net ?? []).map((p) => p.tx)"
+          :times="m.usage.time"
+        />
       </div>
-    </template>
+    </DashletCard>
 
-    <template v-if="limitsUnlimited || limits.length">
-      <h2 class="page-title">{{ t('limits.title') }}</h2>
-      <div class="mb-4">
-        <LimitBlock :rows="limits" :unlimited="limitsUnlimited" />
-      </div>
-    </template>
+    <!-- quota, mailquota, databasequota (left column) then limits (right). -->
+    <div class="mb-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+      <QuotaBlock v-if="hdQuota.length" :title="t('dashboard.quota.harddisk')" :rows="hdQuota" />
+      <QuotaBlock v-if="mailQuota.length" :title="t('dashboard.quota.mailbox')" :rows="mailQuota" />
+      <QuotaBlock v-if="dbQuota.length" :title="t('dashboard.quota.database')" :rows="dbQuota" />
+      <LimitBlock
+        v-if="limitsUnlimited || limits.length"
+        :rows="limits"
+        :unlimited="limitsUnlimited"
+      />
+    </div>
   </div>
 </template>

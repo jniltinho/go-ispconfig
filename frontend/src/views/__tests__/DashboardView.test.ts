@@ -22,4 +22,15 @@ describe('DashboardView', () => {
     }
     expect(wrapper.find('[data-test="dashlet-dashboard"]').exists()).toBe(false)
   })
+
+  // Every dashlet sits in a DashletCard whose title bar is a real heading,
+  // so the red strip stays pure decoration (legacy .table-wrapper caption).
+  it('wraps dashlets in cards with a heading title bar', () => {
+    const wrapper = mount(DashboardView, {
+      global: { stubs: { RouterLink: RouterLinkStub } },
+    })
+    const head = wrapper.find('section > h2')
+    expect(head.exists()).toBe(true)
+    expect(head.classes()).toContain('bg-brand')
+  })
 })
