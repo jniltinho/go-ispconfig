@@ -4,6 +4,7 @@ package powerdns
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -186,4 +187,36 @@ func TestEventToSQLMasterRRSlave(t *testing.T) {
 	}))
 	require.NoError(t, pdns.Model(&Domain{}).Where("ispconfig_id = ?", 20).Count(&n).Error)
 	assert.Equal(t, int64(0), n)
+}
+
+// TestControlCommandWiring covers task 3.2: rediscover/notify/rectify fire
+// after an active SOA insert, retrieve after an active slave insert; a
+// missing binary stays non-fatal on the same paths.
+func TestControlCommandWiring(t *testing.T) {
+	pdns := setupPdnsDB(t)
+	ctx := context.Background()
+
+	r := &pathRunner{bins: map[string]string{"pdns_control": "4.8.0", "pdnsutil": "ok"}}
+	p := NewPlugin(nil, pdns, nil, r, 1, nil)
+	p.SetToolsForTest("pdns_control", "pdnsutil", "4.8.0")
+
+	require.NoError(t, p.handleSOAInsert(ctx, engine.Data{New: soaNew(30, "wired.com.", "Y")}))
+	joined := strings.Join(r.log, "\n")
+	assert.Contains(t, joined, "pdns_control rediscover")
+	assert.Contains(t, joined, "pdns_control notify wired.com")
+	assert.Contains(t, joined, "pdnsutil rectify-zone wired.com")
+
+	r.log = nil
+	require.NoError(t, p.handleSlaveInsert(ctx, engine.Data{New: map[string]any{
+		"id": float64(31), "server_id": float64(1), "origin": "wired-slave.com.",
+		"ns": "1.2.3.4", "active": "Y",
+	}}))
+	assert.Contains(t, strings.Join(r.log, "\n"), "pdns_control retrieve wired-slave.com")
+
+	// Missing binaries: same events succeed without any command.
+	rEmpty := &pathRunner{bins: map[string]string{}}
+	pMissing := NewPlugin(nil, pdns, nil, rEmpty, 1, nil)
+	pMissing.SetToolsForTest("", "", "")
+	require.NoError(t, pMissing.handleSOAInsert(ctx, engine.Data{New: soaNew(32, "nobin.com.", "Y")}))
+	assert.Empty(t, rEmpty.log)
 }
