@@ -368,6 +368,17 @@ func (r *RspamdPlugin) writeUserSettings(ctx context.Context, id settingsIdentit
 	}
 }
 
+// scoreOr parses a getconf score string, falling back to def when it is
+// empty or not a number — a typo in server.config must not render an
+// actions.conf Rspamd refuses to load.
+func scoreOr(v string, def float64) string {
+	f, err := strconv.ParseFloat(strings.TrimSpace(v), 64)
+	if err != nil {
+		return formatFloat(def)
+	}
+	return formatFloat(f)
+}
+
 // formatFloat renders a float like PHP floatval interpolation (6 → "6",
 // 6.5 → "6.5").
 func formatFloat(v float64) string { return strconv.FormatFloat(v, 'f', -1, 64) }
@@ -409,6 +420,10 @@ func validEmail(email string) bool {
 // server IPs on server / server_ip events (rspamd_plugin::server_update).
 var serverLocalD = []string{
 	"dkim_signing.conf", "options.inc", "redis.conf", "classifier-bayes.conf",
+	// actions.conf carries the global score thresholds the panel edits
+	// through [mail] getconf; without it Rspamd falls back to its own
+	// built-in scores and the panel's global policy is a no-op.
+	"actions.conf",
 }
 
 // serverUpdate regenerates the server-level Rspamd snippets and queues
@@ -450,6 +465,9 @@ func (r *RspamdPlugin) serverUpdate(ctx context.Context, _ string, _ engine.Data
 		tpl.SetVar("rspamd_redis_password", cfg.RspamdRedisPasswd)
 		tpl.SetVar("rspamd_redis_bayes_servers", cfg.RspamdRedisBayesServers)
 		tpl.SetVar("rspamd_redis_bayes_password", cfg.RspamdRedisBayesPasswd)
+		tpl.SetVar("rspamd_spam_tag_level", scoreOr(cfg.RspamdSpamTagLevel, 6))
+		tpl.SetVar("rspamd_spam_kill_level", scoreOr(cfg.RspamdSpamKillLevel, 15))
+		tpl.SetVar("rspamd_greylisting_level", scoreOr(cfg.RspamdGreylistingLevel, 4))
 		if len(addrs) > 0 {
 			tpl.SetLoop("local_addrs", addrs)
 		}

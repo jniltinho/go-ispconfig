@@ -174,6 +174,11 @@ type MailConfig struct {
 	RspamdRedisPasswd        string `ini:"rspamd_redis_passwd"`
 	RspamdRedisBayesServers  string `ini:"rspamd_redis_bayes_servers"`
 	RspamdRedisBayesPasswd   string `ini:"rspamd_redis_bayes_passwd"`
+	// Global Rspamd action thresholds rendered into
+	// local.d/actions.conf; per-identity settings files override them.
+	RspamdSpamTagLevel     string `ini:"rspamd_spam_tag_level"`
+	RspamdSpamKillLevel    string `ini:"rspamd_spam_kill_level"`
+	RspamdGreylistingLevel string `ini:"rspamd_greylisting_level"`
 	POP3IMAPDaemon           string `ini:"pop3_imap_daemon"`
 	MailFilterSyntax         string `ini:"mail_filter_syntax"`
 	MailuserUID              string `ini:"mailuser_uid"`
@@ -215,6 +220,9 @@ func DefaultMailConfig() MailConfig {
 		MailboxVirtualUidgidMaps: "n",
 		RspamdRedisServers:       "127.0.0.1",
 		RspamdRedisBayesServers:  "127.0.0.1",
+		RspamdSpamTagLevel:       "6",
+		RspamdSpamKillLevel:      "15",
+		RspamdGreylistingLevel:   "4",
 		MailboxSizeLimit:         "0",
 		MessageSizeLimit:         "0",
 		MailboxSoftDelete:        "0",

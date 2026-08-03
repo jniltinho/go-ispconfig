@@ -79,6 +79,8 @@ type State struct {
 	PureFTPdConfigDir string
 	// PureFTPdDefaults is the Debian pure-ftpd-common defaults file.
 	PureFTPdDefaults string
+	// RspamdConfigDir is the Rspamd config root the baseline is written to.
+	RspamdConfigDir string
 
 	// Set by the mariadb step, consumed by later steps.
 	DB         *gorm.DB
@@ -116,6 +118,7 @@ func NewState(profile *Profile, answers *Answers) *State {
 		PowerDNSConfPath:  "/etc/powerdns/pdns.d/pdns.local",
 		PureFTPdConfigDir: "/etc/pure-ftpd",
 		PureFTPdDefaults:  "/etc/default/pure-ftpd-common",
+		RspamdConfigDir:   RspamdConfigDir,
 	}
 }
 
