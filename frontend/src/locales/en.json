@@ -64,6 +64,7 @@
   "sites.col.username": "Username",
   "sites.col.database_name": "Database Name",
   "sites.col.database_user": "Database User",
+  "sites.col.client": "Client",
   "sites.col.remote_access": "Remote Access",
   "sites.state.pending": "Pending",
   "sites.state.error": "Error",

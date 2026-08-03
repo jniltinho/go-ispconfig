@@ -837,7 +837,8 @@ var databaseUserSecretColumns = []string{
 }
 
 // sitesDatabaseUserDecorate combines the datalog state decoration with
-// hash redaction.
+// hash redaction and the legacy-panel Client column (contact + username
+// resolved via sys_group → client, PHP database_user.list.php parity).
 func sitesDatabaseUserDecorate() func(ctx context.Context, db *gorm.DB, items []map[string]any) error {
 	state := datalogStateDecorator("web_database_user", "database_user_id")
 	return func(ctx context.Context, db *gorm.DB, items []map[string]any) error {
@@ -846,8 +847,51 @@ func sitesDatabaseUserDecorate() func(ctx context.Context, db *gorm.DB, items []
 				delete(item, col)
 			}
 		}
-		return state(ctx, db, items)
+		if err := state(ctx, db, items); err != nil {
+			return err
+		}
+		clients := clientLabelByGroupID(ctx, db, collectIDs(items, "sys_groupid"))
+		for _, item := range items {
+			item["_client"] = clients[idString(item["sys_groupid"])]
+		}
+		return nil
 	}
+}
+
+// clientLabelByGroupID resolves sys_groupid → "Contact Name (username)" like
+// the ISPConfig list datasource (company/firstname optional shortened here
+// to contact_name + username for the database-user list).
+func clientLabelByGroupID(ctx context.Context, db *gorm.DB, groupIDs []any) map[string]string {
+	out := map[string]string{}
+	if len(groupIDs) == 0 {
+		return out
+	}
+	var rows []struct {
+		GroupID     uint64 `gorm:"column:groupid"`
+		ContactName string `gorm:"column:contact_name"`
+		Username    string `gorm:"column:username"`
+	}
+	// sys_group.client_id → client; groupid 1 is admin (no client row).
+	err := db.WithContext(ctx).Raw(`
+		SELECT g.groupid AS groupid, c.contact_name AS contact_name, c.username AS username
+		FROM sys_group g
+		INNER JOIN client c ON c.client_id = g.client_id
+		WHERE g.groupid IN ?`, groupIDs).Scan(&rows).Error
+	if err != nil {
+		return out
+	}
+	for _, r := range rows {
+		label := r.ContactName
+		if r.Username != "" {
+			if label != "" {
+				label = label + " (" + r.Username + ")"
+			} else {
+				label = r.Username
+			}
+		}
+		out[strconv.FormatUint(r.GroupID, 10)] = label
+	}
+	return out
 }
 
 // --- entity definitions (design D13/D14) ---
@@ -931,6 +975,18 @@ func sitesDatabaseUserEntity() *Entity {
 		},
 		BeforeDelete: sitesDatabaseUserBeforeDelete,
 		Decorate:     sitesDatabaseUserDecorate(),
+		// Client column filter: match contact_name or username via the
+		// owning sys_group (legacy database_user list Client search box).
+		ListFilters: map[string]ListFilterFunc{
+			"_client": func(q *gorm.DB, value string) *gorm.DB {
+				like := "%" + value + "%"
+				return q.Where(`sys_groupid IN (
+					SELECT g.groupid FROM sys_group g
+					INNER JOIN client c ON c.client_id = g.client_id
+					WHERE c.contact_name LIKE ? OR c.username LIKE ? OR c.company_name LIKE ?
+				)`, like, like, like)
+			},
+		},
 		Tabs: []Tab{
 			{
 				Name: "database_user", Label: "database_user_tab_txt",
