@@ -174,7 +174,9 @@ var (
 
 // validateWizardInputs checks the wizard values required by the template's
 // fields CSV (port of the dns_wizard.inc.php checks; IPV6 is optional
-// there, DKIM needs the mail module and is ignored for now).
+// there, and DKIM takes no user input: the legacy wizard fills the record
+// from the mail domain's key, which the mail module's DKIM plugin owns —
+// the wizard itself validates nothing for it).
 func validateWizardInputs(fields string, req *DNSWizardRequest) map[string][]string {
 	errs := map[string][]string{}
 	for _, f := range strings.Split(fields, ",") {

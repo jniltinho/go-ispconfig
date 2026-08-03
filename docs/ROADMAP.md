@@ -1,32 +1,34 @@
 # go-ispconfig — Roadmap
 
-Every module has an OpenSpec change under `openspec/changes/`. Phase 1 changes are
-fully specified (proposal + design + specs + tasks); future modules carry a
-proposal now and get design/specs/tasks when scheduled.
+Every module is specified first: consolidated capabilities live in
+`openspec/specs/`, and the change that produced each one is archived under
+`openspec/changes/archive/`. Future modules carry a proposal now and get
+design/specs/tasks when scheduled.
 
-## Phase 1 — Foundation + initial modules (now)
+## Implemented (changes archived)
 
 | Change | Scope |
 |---|---|
-| `port-ispconfig3-to-go` | Foundation: CLI, identical DB schema, sys_datalog engine, daemon with internal scheduler (no system cron), auth/riud permissions, REST API + Swagger, .master template engine, Vue panel skeleton |
-| `add-web-nginx-module` | Sites: nginx vhosts, PHP-FPM pools, SSL/Let's Encrypt — **implemented** ([docs/nginx-module.md](nginx-module.md)) |
-| `add-dns-bind-module` | DNS: Bind zones, records, templates, DNSSEC — **implemented** ([docs/dns-module.md](dns-module.md)) |
-| `add-installer-cli` | `go-ispconfig install` for Debian 11–13 / Ubuntu 22.04–24.04 + Vagrant test rig |
-| `add-panel-ui-theme` | ISPConfig-derived theme, modernized, square corners, dark mode |
-| `add-legacy-migration` | Import wizard/CLI from a running PHP ISPConfig3 via remote API |
-| `add-ftp-shell-module` | FTP users (PureFTPd) and shell users incl. jailkit — **implemented** ([docs/ftp-shell-module.md](ftp-shell-module.md)); installer `configure_pureftpd` / `configure_jailkit` remain a Modified Capability of `add-installer-cli` |
+| `port-ispconfig3-to-go` | Foundation: CLI, identical DB schema, sys_datalog engine, daemon with internal scheduler (no system cron), auth/riud permissions, REST API + Swagger, .master template engine, Vue panel |
+| `add-web-nginx-module` | Sites: nginx vhosts, PHP-FPM pools, SSL/Let's Encrypt ([docs/nginx-module.md](nginx-module.md)) |
+| `add-dns-bind-module` | DNS: Bind zones, records, templates, DNSSEC ([docs/dns-module.md](dns-module.md)) |
+| `add-dns-powerdns-module` | PowerDNS as alternative DNS backend — same UI/API, gmysql zone sync, picked at install time ([docs/powerdns-module.md](powerdns-module.md)) |
+| `add-mail-module` | Postfix/Dovecot/Rspamd: mail domains, mailboxes, forwarding, DKIM, spamfilter ([docs/mail-module.md](mail-module.md)) |
+| `add-database-module` | Client MySQL databases and users ([docs/database-module.md](database-module.md)) |
+| `add-ftp-shell-module` | FTP users (PureFTPd, virtual auth) and shell users incl. jailkit ([docs/ftp-shell-module.md](ftp-shell-module.md)); the installer provisions PureFTPd since the `pure-ftpd` step — `configure_jailkit` and FTPS remain Modified Capabilities of `add-installer-cli` |
+| `add-cron-module` | Site cron jobs executed by the daemon scheduler ([docs/cron-module.md](cron-module.md)) |
+| `add-firewall-module` | Per-server UFW rule sets ([docs/firewall-module.md](firewall-module.md)) |
+| `add-client-module` | Client/reseller management, limits, templates, messaging ([docs/client-module.md](client-module.md)) |
+| `add-monitor-module` | Server/service/quota monitoring, `monitor_data` history, dashboard dashlets ([docs/monitor-module.md](monitor-module.md)) |
+| `add-installer-cli` | `go-ispconfig install` for Debian 11–13 / Ubuntu 22.04–24.04 + Vagrant test rig ([docs/install.md](install.md)) |
+| `add-legacy-migration` | Import wizard/CLI from a running PHP ISPConfig3 via remote API ([docs/legacy-migration.md](legacy-migration.md)) |
+| `add-legacy-test-lab` | Standing PHP ISPConfig3 lab VMs used as the parity baseline |
+| `add-panel-ui-theme`, `ui-forms-tables-qa`, `ui-mail-login-aaa` | Panel theme and UI parity sweeps (Vue 3 + Tailwind v4, dark mode, dashlets) |
 
-## Phase 2 — Future modules (proposals ready, implementation later)
+## Future modules (proposal when scheduled)
 
 | Change | Scope (ISPConfig3 origin) |
 |---|---|
-| `add-mail-module` | Postfix/Dovecot/Rspamd: mail domains, mailboxes, forwarding, spamfilter (`mail_module`, `mail_plugin`, `rspamd_plugin`) |
-| `add-client-module` | Client/reseller management, limits, templates, messaging (`client_module`, interface client module) |
-| `add-database-module` | Client MySQL databases and users (`database_module`, `mysql_clientdb_plugin`) |
-| `add-ftp-shell-module` | FTP users (PureFTPd) and shell users incl. jailkit (`ftpuser_base`, `shelluser_*` plugins) |
-| `add-firewall-module` | UFW/nftables management (`firewall_plugin`) |
-| `add-monitor-module` | Server monitoring, logs, datalog history UI (`monitor_core_module`) — **implemented** ([docs/monitor-module.md](monitor-module.md)) |
-| `add-dns-powerdns-module` | PowerDNS as alternative DNS backend — same DNS UI/API, SQL zone sync (`powerdns_plugin`, `powerdns.sql`) — **implemented** ([docs/powerdns-module.md](powerdns-module.md)) |
 | `add-xmpp-module` | XMPP domains/users (`xmpp_module`, `xmpp_plugin`) — future only, proposal when scheduled |
 | `add-vm-module` | OpenVZ/VM management (`vm_module`, `openvz_plugin`) — future only, proposal when scheduled |
 | `add-web-apache-module` | Apache2 as alternative web backend (`apache2_plugin`) — future only, proposal when scheduled; a real Apache2+PHP-FPM reference server exists for validation (see AGENTS.local.md) |

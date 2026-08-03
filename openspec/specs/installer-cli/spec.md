@@ -38,11 +38,22 @@ Before changing the system the installer SHALL verify: running as root, supporte
 - **THEN** the installer aborts without modifying the system and references the legacy-migration path
 
 ### Requirement: Package installation step
-The installer SHALL install, via apt in noninteractive mode, the profile's package set: nginx, bind9, mariadb-server always; the profile's php-fpm package only when the php-fpm answer is enabled. The step SHALL be idempotent (already-installed packages are a no-op) and SHALL wait for a held dpkg lock up to a timeout before failing.
+The installer SHALL install, via apt in noninteractive mode, the profile's package set: nginx, bind9, mariadb-server always; `pure-ftpd-mysql` when the web module is enabled; the profile's php-fpm package only when the php-fpm answer is enabled. The step SHALL be idempotent (already-installed packages are a no-op) and SHALL wait for a held dpkg lock up to a timeout before failing.
 
 #### Scenario: Re-run with packages present
 - **WHEN** `install` runs a second time on a host where all packages are already installed
 - **THEN** the packages step succeeds without reinstalling anything
+
+### Requirement: PureFTPd MySQL configuration
+When the web module is enabled the installer SHALL configure PureFTPd for MySQL authentication against `ftp_user` (port of `configure_pureftpd`): `/etc/pure-ftpd/db/mysql.conf` rendered from the embedded `pureftpd_mysql.conf.master` with the panel DB credentials and this host's `server_id` (mode 0600), the `conf/ChrootEveryone`, `conf/BrokenClientsCompatibility`, `conf/DisplayDotFiles` and `conf/DontResolve` flags set to `yes`, and `/etc/default/pure-ftpd-common` switched to `STANDALONE_OR_INETD=standalone` with `VIRTUALCHROOT=true`. The step SHALL enable the `pure-ftpd-mysql` unit and restart it only when a file changed.
+
+#### Scenario: FTP account created in the panel can log in
+- **WHEN** an `ftp_user` row is created through the API on an installed host
+- **THEN** an FTP client authenticates with that username/password and is chrooted into the account's `dir`
+
+#### Scenario: Skipped without the web module
+- **WHEN** `install` runs with the web module disabled
+- **THEN** the pure-ftpd step is skipped and no FTP package is installed
 
 ### Requirement: Database configuration with embedded ISPConfig3 DDL
 The installer SHALL connect to MariaDB as root via unix socket (or `--db-root-password` when socket auth is unavailable), create the `dbispconfig` database and an `ispconfig` user with a generated random password, and create the schema through the same code path as `go-ispconfig migrate`, i.e. the embedded original `install/sql/ispconfig3.sql` DDL. If the database already contains the ISPConfig schema the DDL SHALL be skipped.
