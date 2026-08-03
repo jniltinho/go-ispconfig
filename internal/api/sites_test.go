@@ -238,3 +238,29 @@ func TestCryptBodyPassword(t *testing.T) {
 	require.NoError(t, cryptBodyPassword(body, "password"))
 	require.NotContains(t, body, "password")
 }
+
+// TestExpandOpenBasedir covers the php_open_basedir placeholder expansion
+// ported from web_vhost_domain_edit onAfterInsert: a vhost expands
+// [website_path]/[website_domain] plainly, a vhostsubdomain first rewrites
+// the "/web" suffix of both to its own web folder.
+func TestExpandOpenBasedir(t *testing.T) {
+	const tmpl = "[website_path]/web:[website_path]/tmp:/var/www/[website_domain]/web:/tmp"
+
+	t.Run("empty template stays empty", func(t *testing.T) {
+		require.Empty(t, expandOpenBasedir("", "/var/www/clients/client1/web5", "a.test", ""))
+	})
+
+	t.Run("vhost expands both placeholders", func(t *testing.T) {
+		require.Equal(t,
+			"/var/www/clients/client1/web5/web:/var/www/clients/client1/web5/tmp:"+
+				"/var/www/a.test/web:/tmp",
+			expandOpenBasedir(tmpl, "/var/www/clients/client1/web5", "a.test", ""))
+	})
+
+	t.Run("subdomain rewrites the web suffix to its own folder", func(t *testing.T) {
+		require.Equal(t,
+			"/var/www/clients/client1/web5/sub:/var/www/clients/client1/web5/tmp:"+
+				"/var/www/sub.a.test/sub:/tmp",
+			expandOpenBasedir(tmpl, "/var/www/clients/client1/web5", "sub.a.test", "sub"))
+	})
+}

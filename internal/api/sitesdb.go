@@ -879,6 +879,7 @@ func sitesDatabaseUserDecorate() func(ctx context.Context, db *gorm.DB, items []
 				label = "Admin"
 			}
 			item["_client"] = label
+			item["client_group_id"] = item["sys_groupid"]
 		}
 		return nil
 	}
@@ -1018,6 +1019,13 @@ func sitesDatabaseUserEntity() *Entity {
 				Name: "database_user", Label: "database_user_tab_txt",
 				Fields: []Field{
 					selectField("server_id", "server_id_txt", "INTEGER", nil, nil),
+					// Same virtual owner field the websites form uses
+					// (database_user_edit.php shows a client select for
+					// admins): without it every admin-created user lands in
+					// the admin group and can never be bound to a client's
+					// database (database_client_differs_error).
+					{Name: "client_group_id", Label: "client_txt", Datatype: "INTEGER",
+						Formtype: "SELECT", Default: "0", AdminOnly: true, Virtual: true},
 					{Name: "database_user", Label: "database_user_txt", Datatype: "VARCHAR",
 						Formtype: "TEXT", Validators: databaseUserRules()},
 					text("database_user_prefix", "database_user_prefix_txt"),
