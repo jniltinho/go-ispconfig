@@ -160,11 +160,22 @@ async function logout() {
         class="w-[215px] shrink-0 self-start border border-info-border bg-surface max-lg:fixed max-lg:inset-y-0 max-lg:left-0 max-lg:z-40 max-lg:self-auto max-lg:transition-transform max-lg:duration-150"
         :class="ui.sidebarOpen ? '' : 'max-lg:invisible max-lg:-translate-x-full'"
       >
-        <div class="m-px bg-info px-2.5 text-sm font-bold leading-10 text-info-text">
+        <!-- Modules without 2nd-level groups keep a single module-name bar;
+             grouped ones open one bar per group instead, like legacy. -->
+        <div
+          v-if="!visibleSections.some((s) => s.group)"
+          class="m-px bg-info px-2.5 text-sm font-bold leading-10 text-info-text"
+        >
           {{ t(`module.${activeModule.id}`) }}
         </div>
         <ul>
           <li v-for="section in visibleSections" :key="section.labelKey">
+            <div
+              v-if="section.group"
+              class="m-px bg-info px-2.5 text-sm font-bold leading-10 text-info-text"
+            >
+              {{ t(section.group) }}
+            </div>
             <RouterLink
               :to="section.path"
               class="block border-t border-info-border border-l-2 border-l-transparent px-2.5 py-2.5 text-xs text-text no-underline transition-colors duration-150 hover:text-link [&.router-link-active]:border-l-brand [&.router-link-active]:bg-bg [&.router-link-active]:font-semibold"
