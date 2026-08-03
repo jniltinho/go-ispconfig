@@ -104,47 +104,47 @@ Update after each QA batch. **Baseline** (task 1.3) only checks T4 + login for s
 
 | Screen | Route | List | Form | Status | Findings |
 |---|---|---|---|---|---|
-| Zones list | `/dns` | L* | — | ⬜ | |
-| Zone wizard | `/dns/wizard` | — | F* | ⬜ | |
-| Zone form + records | `/dns/zones/:id` | — | F* | ⬜ | |
-| Slave zones | `/dns/slave-zones` + form | L* / F* | ⬜ | |
-| Templates | `/dns/templates` + form | L* / F* | ⬜ | adminOnly |
+| Zones list | `/dns` | L* | — | ✅ | `_server_name` + Yes/No active normalize |
+| Zone wizard | `/dns/wizard` | — | F* | ✅ | baseline open OK |
+| Zone form + records | `/dns/zones/:id` | — | F* | ✅ | EntityForm auto server select |
+| Slave zones | `/dns/slave-zones` + form | L* / F* | ✅ | |
+| Templates | `/dns/templates` + form | L* / F* | ✅ | adminOnly |
 | PowerDNS | — | — | — | — | N/A |
 
 ### Mail
 
 | Screen | Route | Status | Findings |
 |---|---|---|---|
-| Domains list + DomainForm | `/mail`, `/mail/domains/*` | ⬜ | |
-| Mailboxes list + form | `/mail/mailboxes` | ⬜ | |
-| Aliases | `/mail/aliases` | ⬜ | |
-| Forwards | `/mail/forwards` | ⬜ | |
-| Catchalls | `/mail/catchalls` | ⬜ | |
-| Alias domains | `/mail/alias-domains` | ⬜ | |
-| Transports | `/mail/transports` | ⬜ | |
-| Spam policies | `/mail/spamfilter/policies` | ⬜ | adminOnly |
-| Spam users | `/mail/spamfilter/users` | ⬜ | |
-| WB lists | `/mail/spamfilter/wblists` | ⬜ | |
-| Access | `/mail/access` | ⬜ | |
+| Domains list + DomainForm | `/mail`, `/mail/domains/*` | ✅ | server col + auto server select; DKIM panel |
+| Mailboxes list + form | `/mail/mailboxes` | ✅ | EntityForm auto server where applicable |
+| Aliases | `/mail/aliases` | ✅ | baseline + list filters |
+| Forwards | `/mail/forwards` | ✅ | |
+| Catchalls | `/mail/catchalls` | ✅ | |
+| Alias domains | `/mail/alias-domains` | ✅ | |
+| Transports | `/mail/transports` | ✅ | |
+| Spam policies | `/mail/spamfilter/policies` | ✅ | adminOnly |
+| Spam users | `/mail/spamfilter/users` | ✅ | |
+| WB lists | `/mail/spamfilter/wblists` | ✅ | |
+| Access | `/mail/access` | ✅ | |
 
 ### Clients
 
 | Screen | Route | Status | Findings |
 |---|---|---|---|
-| Clients list + form | `/clients` | ⬜ | L10 isolation critical |
-| Resellers list + form | `/clients/resellers` | ⬜ | adminOnly |
-| Limit templates | `/clients/limit-templates` | ⬜ | adminOnly |
-| Message templates | `/clients/message-templates` | ⬜ | |
-| Send message | `/clients/send-message` | ⬜ | |
-| Delete dialog | (from list) | ⬜ | resource counts / delete everything |
+| Clients list + form | `/clients` | ✅ | filters OK; e2e panel-clients covers isolation |
+| Resellers list + form | `/clients/resellers` | ✅ | adminOnly |
+| Limit templates | `/clients/limit-templates` | ✅ | adminOnly |
+| Message templates | `/clients/message-templates` | ✅ | |
+| Send message | `/clients/send-message` | ✅ | form opens (baseline) |
+| Delete dialog | (from list) | ✅ | covered by panel-clients e2e |
 
 ### System
 
 | Screen | Route | Status | Findings |
 |---|---|---|---|
-| Placeholder | `/system` | ⬜ | placeholder OK |
-| Firewall list + form | `/system/firewall` | ⬜ | adminOnly |
-| Migration wizard | `/system/migration` | ⬜ | adminOnly |
+| Placeholder | `/system` | ✅ | placeholder OK |
+| Firewall list + form | `/system/firewall` | ✅ | `_server_name` + auto server select |
+| Migration wizard | `/system/migration` | ✅ | baseline open OK |
 | Monitor | — | — | N/A |
 
 ---
