@@ -173,14 +173,44 @@ func DefaultMailConfig() MailConfig {
 	}
 }
 
+// JailkitConfig is the typed [jailkit] section of server.config, consumed
+// by the jailkit plugin of add-ftp-shell-module. Key names and defaults
+// follow server.ini.master; jailkit_chroot_home keeps the [username]
+// placeholder the plugin substitutes per shell user.
+type JailkitConfig struct {
+	ChrootHome               string `ini:"jailkit_chroot_home"`
+	ChrootAppSections        string `ini:"jailkit_chroot_app_sections"`
+	ChrootAppPrograms        string `ini:"jailkit_chroot_app_programs"`
+	ChrootCronPrograms       string `ini:"jailkit_chroot_cron_programs"`
+	ChrootAuthorizedKeysTmpl string `ini:"jailkit_chroot_authorized_keys_template"`
+	Hardlinks                string `ini:"jailkit_hardlinks"`
+}
+
+// DefaultJailkitConfig returns the server.ini.master defaults of the
+// [jailkit] section. GetServerConfig applies them before decoding, so a
+// server whose config predates the section (or only overrides some keys)
+// still builds usable jails.
+func DefaultJailkitConfig() JailkitConfig {
+	return JailkitConfig{
+		ChrootHome: "/home/[username]",
+		ChrootAppSections: "coreutils basicshell editors extendedshell netutils " +
+			"ssh sftp scp jk_lsh mysql-client git",
+		ChrootAppPrograms:        "lesspipe pico unzip zip patch which",
+		ChrootCronPrograms:       "/usr/bin/php /usr/lib/php/ /usr/share/php/ /usr/share/zoneinfo/ /usr/bin/perl /usr/share/perl/",
+		ChrootAuthorizedKeysTmpl: "/root/.ssh/authorized_keys",
+		Hardlinks:                "allow",
+	}
+}
+
 // ServerConfig is the parsed server.config of one server: the typed
-// [web], [dns] and [mail] sections plus the raw section map for keys not
-// (yet) typed.
+// [web], [dns], [mail] and [jailkit] sections plus the raw section map for
+// keys not (yet) typed.
 type ServerConfig struct {
-	Web  WebConfig
-	DNS  DNSConfig
-	Mail MailConfig
-	Raw  Sections
+	Web     WebConfig
+	DNS     DNSConfig
+	Mail    MailConfig
+	Jailkit JailkitConfig
+	Raw     Sections
 }
 
 // ErrNotFound is returned when a requested server, sys_ini row or sys_config
@@ -200,10 +230,11 @@ func GetServerConfig(db *gorm.DB, serverID uint32) (*ServerConfig, error) {
 		return nil, fmt.Errorf("loading server %d config: %w", serverID, err)
 	}
 	raw := ParseINI(StripSlashes(server.Config))
-	cfg := &ServerConfig{Raw: raw, Mail: DefaultMailConfig()}
+	cfg := &ServerConfig{Raw: raw, Mail: DefaultMailConfig(), Jailkit: DefaultJailkitConfig()}
 	decodeSection(raw["web"], &cfg.Web)
 	decodeSection(raw["dns"], &cfg.DNS)
 	decodeSection(raw["mail"], &cfg.Mail)
+	decodeSection(raw["jailkit"], &cfg.Jailkit)
 	return cfg, nil
 }
 
