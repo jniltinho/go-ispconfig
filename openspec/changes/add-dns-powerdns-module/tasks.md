@@ -18,7 +18,7 @@
 
 ## 3. Control commands, service, and backend selection
 
-- [ ] 3.1 Implement `pdns_control` / `pdnsutil|pdnssec` discovery and wrappers: rediscover, notify, retrieve, rectify-zone, version probe; stubbed CommandRunner tests. Commit.
+- [x] 3.1 Implement `pdns_control` / `pdnsutil|pdnssec` discovery and wrappers: rediscover, notify, retrieve, rectify-zone, version probe; stubbed CommandRunner tests. Commit.
 - [ ] 3.2 Wire rediscover/notify after active SOA insert/update; retrieve after active slave insert/update; rectify after active SOA/RR mutations; missing binary is non-fatal. Commit.
 - [ ] 3.3 Register `powerdns` service; unit resolution `powerdns` else `pdns`; on restart rewrite `allow-axfr-ips` from active `dns_soa.xfer` ∪ `dns_slave.xfer` (always include 127.0.0.1) to `powerdns_axfr_conf`; tests for unique IP merge and localhost default. Commit.
 - [ ] 3.4 Queue delayed `powerdns` restart from SOA/slave handlers (not pure RR); integration test dedup at end of run. Commit.
