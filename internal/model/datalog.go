@@ -63,5 +63,5 @@ func (WebDatabase) DBHistory() bool { return true }
 func (WebDatabaseUser) DBHistory() bool { return true }
 
 // DBHistory reports that cron mutations are datalogged, so the daemon
-// client-job runner can add/replace/remove schedules from sys_datalog.
+// DBHistory reports whether Cron changes are written to sys_datalog.
 func (Cron) DBHistory() bool { return true }
