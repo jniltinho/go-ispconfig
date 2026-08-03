@@ -13,12 +13,17 @@ import (
 	"github.com/labstack/echo/v5"
 
 	"go-ispconfig/internal/auth"
+	"go-ispconfig/internal/clients"
 	"go-ispconfig/internal/model"
 	"go-ispconfig/internal/monitor"
 )
 
 // registerMonitorRoutes mounts /api/monitor/* on the authenticated group.
 func registerMonitorRoutes(g *echo.Group, d *Deps) {
+	// Account limits are a dashboard dashlet, not a monitoring view: every
+	// logged-in user sees their own, so it stays outside the module guard.
+	g.GET("/monitor/limits", monitorLimitsHandler(d))
+
 	mg := g.Group("/monitor", requireMonitorModule)
 	mg.GET("/state", monitorStateHandler(d))
 	mg.GET("/data", monitorDataListHandler(d))
@@ -169,6 +174,40 @@ func monitorDataListHandler(d *Deps) echo.HandlerFunc {
 			out = append(out, monitorItem(r))
 		}
 		return c.JSON(http.StatusOK, out)
+	}
+}
+
+// AccountLimits is the GET /api/monitor/limits response.
+type AccountLimits struct {
+	// Unlimited is true for admins and panel users without a client row;
+	// Limits is then empty.
+	Unlimited bool `json:"unlimited"`
+	// Limits are the caller's limit_* columns with their current usage,
+	// in the order limits.php prints them.
+	Limits []clients.LimitUsage `json:"limits"`
+}
+
+// monitorLimitsHandler implements GET /api/monitor/limits.
+//
+//	@Summary		Account limits
+//	@Description	The logged-in client's limit_* columns next to their current usage (port of dashboard/dashlets/limits.php). Rows with a limit of 0 are omitted; -1 means unlimited. Quota rows (limit_mailquota, limit_web_quota, limit_database_quota) report megabytes instead of counts. Admins get {"unlimited": true}.
+//	@Tags			monitor
+//	@Produce		json
+//	@Success		200	{object}	AccountLimits
+//	@Failure		401	{object}	ErrorResponse
+//	@Router			/monitor/limits [get]
+//	@Security		CookieAuth
+//	@Security		BearerAuth
+func monitorLimitsHandler(d *Deps) echo.HandlerFunc {
+	return func(c *echo.Context) error {
+		rows, err := clients.Usage(c.Request().Context(), d.DB, identity(c))
+		if err != nil {
+			return err
+		}
+		if rows == nil {
+			return c.JSON(http.StatusOK, AccountLimits{Unlimited: true, Limits: []clients.LimitUsage{}})
+		}
+		return c.JSON(http.StatusOK, AccountLimits{Limits: rows})
 	}
 }
 
