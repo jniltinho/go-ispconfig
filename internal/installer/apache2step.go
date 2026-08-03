@@ -84,18 +84,39 @@ func (apache2Step) Run(ctx context.Context, st *State) error {
 	if err := os.MkdirAll(filepath.Dir(acmeConf), 0o755); err != nil {
 		return err
 	}
-	changed, restore, err := writeFileBackup(acmeConf, []byte(apacheAcmeConf(st.AcmeWebroot)), 0o644)
+	var restores []func() error
+	_, restore, err := writeFileBackup(acmeConf, []byte(apacheAcmeConf(st.AcmeWebroot)), 0o644)
 	if err != nil {
 		return err
+	}
+	if restore != nil {
+		restores = append(restores, restore)
 	}
 	if _, err := st.Exec.Run(ctx, nil, "a2enconf", "-q", "go-ispconfig-acme"); err != nil {
 		return fmt.Errorf("enabling the acme conf: %w", err)
 	}
 
+	// Debian's apache2.conf only includes sites-enabled/*.conf, but the
+	// daemon writes <domain>.vhost (ISPConfig naming), so without this
+	// include every rendered site is silently ignored and the default vhost
+	// answers instead. conf-enabled is processed just before sites-enabled,
+	// which keeps the distro file untouched.
+	sitesConf := filepath.Join(p.ApacheConfigDir, "conf-available", "go-ispconfig-sites.conf")
+	_, restoreSites, err := writeFileBackup(sitesConf, []byte(apacheSitesInclude(p.ApacheVhostEnabledDir)), 0o644)
+	if err != nil {
+		return err
+	}
+	if restoreSites != nil {
+		restores = append(restores, restoreSites)
+	}
+	if _, err := st.Exec.Run(ctx, nil, "a2enconf", "-q", "go-ispconfig-sites"); err != nil {
+		return fmt.Errorf("enabling the sites conf: %w", err)
+	}
+
 	if _, err := st.Exec.Run(ctx, nil, "apache2ctl", "-t"); err != nil {
-		if changed {
-			if rerr := restore(); rerr != nil {
-				return fmt.Errorf("apache2ctl -t failed (%v) and restoring %s failed too: %w", err, acmeConf, rerr)
+		for _, undo := range restores {
+			if rerr := undo(); rerr != nil {
+				return fmt.Errorf("apache2ctl -t failed (%v) and restoring the previous config failed too: %w", err, rerr)
 			}
 		}
 		return fmt.Errorf("apache2ctl -t rejected the configuration (previous config restored): %w", err)
@@ -152,4 +173,12 @@ Alias /.well-known/acme-challenge %[1]s/.well-known/acme-challenge
 	Require all granted
 </Directory>
 `, strings.TrimSuffix(webroot, "/"))
+}
+
+// apacheSitesInclude pulls the daemon-rendered <domain>.vhost files into the
+// server config: Debian's apache2.conf globs sites-enabled/*.conf only.
+func apacheSitesInclude(enabledDir string) string {
+	return fmt.Sprintf(`# Managed by go-ispconfig — do not edit.
+IncludeOptional %s/*.vhost
+`, strings.TrimSuffix(enabledDir, "/"))
 }
