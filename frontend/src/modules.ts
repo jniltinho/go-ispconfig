@@ -79,6 +79,16 @@ export const modules: ModuleDef[] = [
     ],
   },
   {
+    id: 'help',
+    path: '/help',
+    sections: [{ labelKey: 'sidebar.help.about', path: '/help' }],
+  },
+  {
+    id: 'tools',
+    path: '/tools',
+    sections: [{ labelKey: 'sidebar.tools.settings', path: '/tools' }],
+  },
+  {
     id: 'system',
     path: '/system',
     sections: [

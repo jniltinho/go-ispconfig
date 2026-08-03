@@ -7,9 +7,12 @@ import { moduleIcons } from '../icons'
 import { modules } from '../modules'
 import { useI18n } from '../i18n'
 import { api } from '../api'
+import { useAuthStore } from '../stores/auth'
 import { stateClass, type ServerState } from './monitor/state'
+import MetricChart from '../components/MetricChart.vue'
 
 const { t } = useI18n()
+const auth = useAuthStore()
 
 // Every module except the dashboard itself becomes a dashlet.
 const dashlets = modules.filter((mod) => mod.id !== 'dashboard')
@@ -21,7 +24,29 @@ const worstState = ref('')
 const pendingJobs = ref<number | null>(null)
 const failedJobs = ref<number | null>(null)
 
+/** SysUsage is the decoded sys_usage payload: rolling series, oldest first. */
+interface SysUsage {
+  load?: number[]
+  mem?: number[]
+  time?: string[]
+  net?: { rx: number; tx: number }[]
+}
+
+/** One System metrics block per monitored server (legacy dashlet_metrics). */
+const metrics = ref<{ serverId: number; usage: SysUsage }[]>([])
+
 onMounted(async () => {
+  try {
+    const rows =
+      (await api.get<{ server_id: number; data?: SysUsage }[] | null>(
+        '/api/monitor/data?type=sys_usage',
+      )) ?? []
+    metrics.value = rows
+      .filter((r) => r.data?.load?.length)
+      .map((r) => ({ serverId: r.server_id, usage: r.data as SysUsage }))
+  } catch {
+    // No monitor module (403) or no samples yet — section stays hidden.
+  }
   try {
     const states = (await api.get<ServerState[] | null>('/api/monitor/state')) ?? []
     if (states.length > 0) {
@@ -52,11 +77,11 @@ onMounted(async () => {
 
 <template>
   <div>
-    <h1 class="page-title">{{ t('module.dashboard') }}</h1>
+    <h1 class="page-title">{{ t('dashboard.welcome', { username: auth.username }) }}</h1>
 
     <ul
       v-if="worstState || pendingJobs !== null || failedJobs !== null"
-      class="mb-4 grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4"
+      class="mb-4 grid grid-cols-2 gap-4 md:grid-cols-4"
     >
       <li
         v-if="worstState"
@@ -93,7 +118,45 @@ onMounted(async () => {
       </li>
     </ul>
 
-    <ul class="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
+    <template v-if="metrics.length">
+      <h2 class="page-title">{{ t('dashboard.metrics') }}</h2>
+      <div
+        v-for="m in metrics"
+        :key="m.serverId"
+        class="mb-4 border border-border bg-dashlet p-4"
+        :data-test="`dashlet-metrics-${m.serverId}`"
+      >
+        <p v-if="metrics.length > 1" class="mb-2 text-xs font-bold uppercase text-text-muted">
+          {{ t('monitor.server_id') }} {{ m.serverId }}
+        </p>
+        <div class="grid gap-3 md:grid-cols-2">
+          <MetricChart
+            :label="t('dashboard.metrics.load')"
+            :values="m.usage.load ?? []"
+            :times="m.usage.time"
+          />
+          <MetricChart
+            :label="t('dashboard.metrics.memory')"
+            :values="m.usage.mem ?? []"
+            :times="m.usage.time"
+          />
+          <MetricChart
+            :label="t('dashboard.metrics.net_in')"
+            :values="(m.usage.net ?? []).map((p) => p.rx)"
+            :times="m.usage.time"
+          />
+          <MetricChart
+            :label="t('dashboard.metrics.net_out')"
+            :values="(m.usage.net ?? []).map((p) => p.tx)"
+            :times="m.usage.time"
+          />
+        </div>
+      </div>
+    </template>
+
+    <h2 class="page-title">{{ t('dashboard.available_modules') }}</h2>
+
+    <ul class="grid grid-cols-2 gap-4 md:grid-cols-4">
       <li
         v-for="mod in dashlets"
         :key="mod.id"
@@ -108,7 +171,7 @@ onMounted(async () => {
             :stroke-width="1.25"
             class="shrink-0 text-text"
           />
-          <span class="ml-auto text-base font-bold">{{ t(`module.${mod.id}`) }}</span>
+          <span class="flex-1 text-center text-base font-bold">{{ t(`module.${mod.id}`) }}</span>
         </div>
         <RouterLink :to="mod.path" class="btn btn-default w-full no-underline">
           {{ t('dashboard.open_module', { module: t(`module.${mod.id}`) }) }}

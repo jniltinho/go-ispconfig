@@ -21,6 +21,8 @@
   "module.tools": "Tools",
   "module.help": "Help",
   "sidebar.dashboard.overview": "Overview",
+  "sidebar.help.about": "About ISPConfig",
+  "sidebar.tools.settings": "Interface settings",
   "sidebar.sites.websites": "Websites",
   "sidebar.sites.folders": "Protected Folders",
   "sidebar.sites.databases": "Databases",
@@ -430,6 +432,8 @@
   "login.password_lost": "Password lost?",
   "login.password_lost_hint": "Ask your administrator to generate a one-time password-reset token for your account.",
   "dashboard.open_module": "Open {module}",
+  "dashboard.welcome": "Welcome {username}",
+  "dashboard.available_modules": "Available Modules",
   "table.empty_hint_filtered": "No matches — try clearing the column filters.",
   "sidebar.client.clients": "Clients",
   "sidebar.client.resellers": "Resellers",
@@ -1003,5 +1007,11 @@
   "monitor.col.next_run": "Next run",
   "dashboard.monitor_state": "Server state",
   "dashboard.monitor_jobqueue": "Pending jobs",
-  "dashboard.monitor_failed_jobs": "Failed scheduler jobs"
+  "dashboard.monitor_failed_jobs": "Failed scheduler jobs",
+  "dashboard.metrics": "System metrics",
+  "dashboard.metrics.load": "System Load %",
+  "dashboard.metrics.memory": "Memory Usage %",
+  "dashboard.metrics.net_in": "Network In/kB",
+  "dashboard.metrics.net_out": "Network Out/kB",
+  "monitor.server_id": "Server"
 }

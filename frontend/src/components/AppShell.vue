@@ -23,10 +23,12 @@ const activeModule = computed(
 )
 
 // Module visibility follows the session's sys_user.modules CSV (spec
-// client-ui): admins see everything, dashboard is always shown.
+// client-ui): admins see everything; dashboard, help and tools are always
+// shown, matching the legacy panel where every user gets those three.
+const alwaysVisible = ['dashboard', 'help', 'tools']
 const visibleModules = computed(() =>
   modules.filter(
-    (m) => m.id === 'dashboard' || auth.typ === 'admin' || auth.modules.includes(m.id),
+    (m) => alwaysVisible.includes(m.id) || auth.typ === 'admin' || auth.modules.includes(m.id),
   ),
 )
 

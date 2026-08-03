@@ -107,8 +107,9 @@ function goTo(page: number) {
           </th>
         </tr>
         <!-- Inline filter row (signature ISPConfig trait); the trailing
-             cell always hosts the filter action button. -->
-        <tr>
+             cell always hosts the filter action button. Legacy puts it on a
+             light band below the dark head, not on the dark head itself. -->
+        <tr class="bg-bg text-text">
           <th v-for="col in columns" :key="col.key" class="px-2 py-1.5">
             <input
               v-if="col.filterable !== false"
