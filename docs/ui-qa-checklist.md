@@ -170,7 +170,7 @@ Update after each QA batch. **Baseline** (task 1.3) only checks T4 + login for s
 |---|---|---|---|
 | Inventory | Grok | task 1.1 | ✅ |
 | This checklist | Grok | task 1.2 | ✅ |
-| Baseline smoke | Grok | task 1.3 | ⬜ |
+| Baseline smoke | Grok | task 1.3 | ✅ 151 checks on lab `.10` (2026-08-02) |
 | Module batches 2.x–3.x | Grok | code fixes | ⬜ |
 | Cross-cutting 4.1–4.2 | Grok | DataTable/EntityForm | ⬜ |
 | Theme polish 4.3 | Claude Fable 5 | `.hermes/review-fable-ui.md` | ⬜ |

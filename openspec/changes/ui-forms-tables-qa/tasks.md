@@ -4,7 +4,7 @@
 
 - [x] 1.1 Inventory all list/form routes in `frontend/src` + router; map to API paths and module. Commit as `docs/ui-qa-inventory.md`.
 - [x] 1.2 Write acceptance checklist template (filters, sort, empty, validation, 403, i18n, theme radius 0, no CDN assets). Commit.
-- [ ] 1.3 Baseline agent-browser smoke against lab `.10` (login + each sidebar module opens). Screenshots `docs/prints/ui-qa-baseline-*`. Commit script only.
+- [x] 1.3 Baseline agent-browser smoke against lab `.10` (login + each sidebar module opens). Screenshots `docs/prints/ui-qa-baseline-*`. Commit script only.
 
 ## 2. Sites / databases / cron / ftp-shell
 
