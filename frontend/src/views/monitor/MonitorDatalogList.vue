@@ -77,7 +77,7 @@ function open(row: Row) {
 
 <template>
   <div>
-    <h1 class="mb-3 text-lg font-bold">{{ t(titleKey) }}</h1>
+    <h1 class="page-title">{{ t(titleKey) }}</h1>
 
     <UiAlert v-if="error" variant="danger" class="mb-3" :messages="[t(error)]" />
 

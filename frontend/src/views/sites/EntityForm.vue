@@ -221,6 +221,12 @@ onMounted(async () => {
     serverMeta.value = meta
     title.value = t(meta.title)
     initial.value = toFormValues(meta, { ...record, ...(props.id ? {} : (props.fixed ?? {})) })
+    // A <select> shows its first option when nothing is selected; mirror that
+    // in the values so fields that depend on it (server IPs on the create
+    // form) resolve against the server the user actually sees.
+    for (const [name, opts] of Object.entries(resolvedOverrides.value)) {
+      if (initial.value[name] === undefined && opts.length) initial.value[name] = opts[0].value
+    }
     liveValues.value = { ...initial.value }
     metadata.value = toFormMetadata(meta, liveValues.value)
   } catch (e) {
@@ -264,7 +270,7 @@ async function save(values: Record<string, unknown>) {
 
 <template>
   <div class="w-full">
-    <h1 v-if="!embedded" class="mb-3 text-lg font-bold">{{ title }}</h1>
+    <h1 v-if="!embedded" class="page-title">{{ title }}</h1>
 
     <p
       v-if="datalogState === 'pending'"

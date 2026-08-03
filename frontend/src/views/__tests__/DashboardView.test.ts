@@ -1,11 +1,15 @@
 // Dashboard dashlets: one card per non-dashboard module with icon, title
 // and a full-width RouterLink button.
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { mount, RouterLinkStub } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
 import DashboardView from '../DashboardView.vue'
 import { modules } from '../../modules'
 
 describe('DashboardView', () => {
+  // The welcome heading reads the session username from the auth store.
+  beforeEach(() => setActivePinia(createPinia()))
+
   it('renders a dashlet per module with a link into it', () => {
     const wrapper = mount(DashboardView, {
       global: { stubs: { RouterLink: RouterLinkStub } },

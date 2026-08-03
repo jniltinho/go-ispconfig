@@ -305,7 +305,7 @@ const inputClass =
 
 <template>
   <div>
-    <h1 class="mb-3 text-lg font-bold">{{ t('mailuser_edit_title') }}</h1>
+    <h1 class="page-title">{{ t('mailuser_edit_title') }}</h1>
 
     <p
       v-if="datalogState === 'pending'"

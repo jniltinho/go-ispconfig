@@ -528,6 +528,8 @@ export const router = createRouter({
             id: String(route.params.id),
           }),
         },
+        { path: 'help', name: 'help', component: ModulePlaceholder },
+        { path: 'tools', name: 'tools', component: ModulePlaceholder },
         { path: 'system', name: 'system', component: ModulePlaceholder },
         {
           path: 'system/server-ips',

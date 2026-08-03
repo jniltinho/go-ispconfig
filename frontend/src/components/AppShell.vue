@@ -23,10 +23,12 @@ const activeModule = computed(
 )
 
 // Module visibility follows the session's sys_user.modules CSV (spec
-// client-ui): admins see everything, dashboard is always shown.
+// client-ui): admins see everything; dashboard, help and tools are always
+// shown, matching the legacy panel where every user gets those three.
+const alwaysVisible = ['dashboard', 'help', 'tools']
 const visibleModules = computed(() =>
   modules.filter(
-    (m) => m.id === 'dashboard' || auth.typ === 'admin' || auth.modules.includes(m.id),
+    (m) => alwaysVisible.includes(m.id) || auth.typ === 'admin' || auth.modules.includes(m.id),
   ),
 )
 
@@ -72,9 +74,10 @@ async function logout() {
       aria-valuemax="100"
       :aria-label="t('nav.loading')"
     />
-    <!-- Legacy header: brand row (logo | search | red logout) over a full
-         width row of boxed module tabs (ispconfig.css #topNav). -->
-    <header class="bg-surface">
+    <!-- Legacy header: brand row (logo | search | red logout) over a row of
+         boxed module tabs, both on the page background (ispconfig.css
+         #main-wrapper — no white header band). -->
+    <header>
       <div class="mx-auto flex max-w-[1260px] items-center gap-6 px-5 py-3">
         <button
           type="button"
@@ -87,8 +90,14 @@ async function logout() {
         >
           <Menu :size="18" />
         </button>
-        <RouterLink to="/dashboard" class="flex items-center gap-2 text-lg font-bold text-brand no-underline">
-          <img src="/logo.svg" alt="" width="28" height="28" class="shrink-0" />
+        <RouterLink to="/dashboard" class="flex items-center gap-3 text-xl font-bold text-brand no-underline">
+          <img
+            src="/gopher-128.png"
+            alt=""
+            width="64"
+            height="64"
+            class="size-16 shrink-0 rounded-sm"
+          />
           {{ t('app.title') }}
         </RouterLink>
 
@@ -126,28 +135,23 @@ async function logout() {
 
       <!-- Module tabs: equal-width boxes filling the wrapper, 32px icon over
            bold title; the active tab is white and red like the legacy panel. -->
-      <nav class="mx-auto flex max-w-[1260px] overflow-x-auto px-5">
+      <nav class="mx-auto mt-6 flex max-w-[1260px] overflow-x-auto px-5">
         <RouterLink
           v-for="mod in visibleModules"
           :key="mod.id"
           :to="mod.path"
-          class="-ml-px flex min-w-24 flex-1 flex-col items-center gap-1 border border-border bg-bg py-2.5 text-text no-underline transition-colors duration-150 first:ml-0 hover:text-brand"
-          :class="
-            activeModule.id === mod.id
-              ? 'border-b-surface! bg-surface text-brand'
-              : 'border-b-border'
-          "
+          class="-ml-px flex min-w-24 flex-1 flex-col items-center gap-1 border border-border bg-surface py-2.5 text-text no-underline transition-colors duration-150 first:ml-0 hover:text-brand"
+          :class="activeModule.id === mod.id ? 'border-b-2 border-b-brand text-brand!' : ''"
         >
           <component :is="moduleIcons[mod.id]" :size="32" :stroke-width="1.5" />
           <span class="text-xs font-bold">{{ t(`module.${mod.id}`) }}</span>
         </RouterLink>
       </nav>
-      <div class="border-b border-border" />
     </header>
 
     <!-- Legacy #main-wrapper: page centered at max 1260px (ispconfig.css),
          so content never stretches edge-to-edge on wide screens. -->
-    <div class="mx-auto flex w-full max-w-[1260px] flex-1">
+    <div class="mx-auto flex w-full max-w-[1260px] flex-1 gap-5 px-5 pt-6">
       <!-- Backdrop for the off-canvas drawer -->
       <div
         v-if="ui.sidebarOpen"
@@ -159,17 +163,28 @@ async function logout() {
       <aside
         id="module-sidebar"
         data-test="sidebar"
-        class="w-[215px] shrink-0 border-r border-border bg-surface max-lg:fixed max-lg:inset-y-0 max-lg:left-0 max-lg:z-40 max-lg:transition-transform max-lg:duration-150"
+        class="w-[215px] shrink-0 self-start border border-info-border bg-surface max-lg:fixed max-lg:inset-y-0 max-lg:left-0 max-lg:z-40 max-lg:self-auto max-lg:transition-transform max-lg:duration-150"
         :class="ui.sidebarOpen ? '' : 'max-lg:invisible max-lg:-translate-x-full'"
       >
-        <div class="border-b border-border bg-info px-4 py-2.5 text-sm font-bold text-info-text">
+        <!-- Modules without 2nd-level groups keep a single module-name bar;
+             grouped ones open one bar per group instead, like legacy. -->
+        <div
+          v-if="!visibleSections.some((s) => s.group)"
+          class="m-px bg-info px-2.5 text-sm font-bold leading-10 text-info-text"
+        >
           {{ t(`module.${activeModule.id}`) }}
         </div>
         <ul>
           <li v-for="section in visibleSections" :key="section.labelKey">
+            <div
+              v-if="section.group"
+              class="m-px bg-info px-2.5 text-sm font-bold leading-10 text-info-text"
+            >
+              {{ t(section.group) }}
+            </div>
             <RouterLink
               :to="section.path"
-              class="block border-l-2 border-transparent px-4 py-2.5 text-sm text-text no-underline transition-colors duration-150 hover:bg-info [&.router-link-active]:border-brand [&.router-link-active]:bg-bg [&.router-link-active]:font-semibold"
+              class="block border-t border-info-border border-l-2 border-l-transparent px-2.5 py-2.5 text-xs text-text no-underline transition-colors duration-150 hover:text-link [&.router-link-active]:border-l-brand [&.router-link-active]:bg-bg [&.router-link-active]:font-semibold"
             >
               {{ t(section.labelKey) }}
             </RouterLink>
@@ -180,7 +195,7 @@ async function logout() {
       <!-- Fluid content area with consistent gutters (no fixed 950px).
            Soft route loader overlays only <main> so topbar/sidebar stay
            clickable; aria-busy announces navigation to assistive tech. -->
-      <main class="relative min-w-0 flex-1 p-5" :aria-busy="ui.routeLoading">
+      <main class="relative min-w-0 flex-1 pb-8" :aria-busy="ui.routeLoading">
         <div
           v-if="ui.routeLoading"
           class="route-overlay"

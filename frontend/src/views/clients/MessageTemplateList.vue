@@ -67,7 +67,7 @@ async function remove(row: Row) {
 
 <template>
   <div>
-    <h1 class="text-lg font-bold">{{ t('client.message_templates_title') }}</h1>
+    <h1 class="page-title">{{ t('client.message_templates_title') }}</h1>
     <p class="mt-1 text-sm text-text/70">{{ t('client.placeholder_help') }}</p>
     <button
       type="button"

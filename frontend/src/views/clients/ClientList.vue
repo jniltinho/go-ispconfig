@@ -83,7 +83,7 @@ function onDeleted() {
 
 <template>
   <div>
-    <h1 class="text-lg font-bold">{{ t(titleKey) }}</h1>
+    <h1 class="page-title">{{ t(titleKey) }}</h1>
     <button
       type="button"
       data-test="add-client"

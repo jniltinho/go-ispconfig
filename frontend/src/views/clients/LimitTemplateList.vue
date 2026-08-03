@@ -67,7 +67,7 @@ async function remove(row: Row) {
 
 <template>
   <div>
-    <h1 class="text-lg font-bold">{{ t('client.limit_templates_title') }}</h1>
+    <h1 class="page-title">{{ t('client.limit_templates_title') }}</h1>
     <button
       type="button"
       data-test="add-limit-template"

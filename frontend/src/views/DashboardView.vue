@@ -7,9 +7,13 @@ import { moduleIcons } from '../icons'
 import { modules } from '../modules'
 import { useI18n } from '../i18n'
 import { api } from '../api'
+import { useAuthStore } from '../stores/auth'
 import { stateClass, type ServerState } from './monitor/state'
+import MetricChart from '../components/MetricChart.vue'
+import QuotaBlock, { type QuotaRow } from '../components/QuotaBlock.vue'
 
 const { t } = useI18n()
+const auth = useAuthStore()
 
 // Every module except the dashboard itself becomes a dashlet.
 const dashlets = modules.filter((mod) => mod.id !== 'dashboard')
@@ -21,7 +25,61 @@ const worstState = ref('')
 const pendingJobs = ref<number | null>(null)
 const failedJobs = ref<number | null>(null)
 
+/** SysUsage is the decoded sys_usage payload: rolling series, oldest first. */
+interface SysUsage {
+  load?: number[]
+  mem?: number[]
+  time?: string[]
+  net?: { rx: number; tx: number }[]
+}
+
+/** One System metrics block per monitored server (legacy dashlet_metrics). */
+const metrics = ref<{ serverId: number; usage: SysUsage }[]>([])
+
+// Quota dashlets (legacy quota/mailquota/databasequota). All three read the
+// matching monitor_data type; each stays hidden when nothing was collected.
+const hdQuota = ref<QuotaRow[]>([])
+const mailQuota = ref<QuotaRow[]>([])
+const dbQuota = ref<QuotaRow[]>([])
+
+/** quotaRows reads one monitor_data type and maps it to the block shape. */
+async function quotaRows<T>(type: string, map: (row: T) => QuotaRow): Promise<QuotaRow[]> {
+  try {
+    const res = await api.get<{ data?: T[] }>(`/api/monitor/data/${type}`)
+    return (res.data ?? []).map(map)
+  } catch {
+    // No monitor module (403) or no sample yet — block stays hidden.
+    return []
+  }
+}
+
 onMounted(async () => {
+  // harddisk_quota is reported in KB, the other two already in bytes.
+  hdQuota.value = await quotaRows<{ domain: string; used: number; soft: number }>(
+    'harddisk_quota',
+    (r) => ({ name: r.domain, used: r.used * 1024, total: r.soft * 1024 }),
+  )
+  mailQuota.value = await quotaRows<{ email: string; used: number; quota: number }>(
+    'email_quota',
+    (r) => ({ name: r.email, used: r.used, total: r.quota }),
+  )
+  dbQuota.value = await quotaRows<{ database_name: string; size: number; quota: number }>(
+    'database_size',
+    (r) => ({ name: r.database_name, used: r.size, total: r.quota }),
+  )
+  try {
+    const rows =
+      (await api.get<{ server_id: number; data?: SysUsage }[] | null>(
+        '/api/monitor/data?type=sys_usage',
+      )) ?? []
+    metrics.value = rows
+      // A server with a sys_usage row but no samples still gets a block; the
+      // charts render their own "no data" state.
+      .filter((r) => r.data)
+      .map((r) => ({ serverId: r.server_id, usage: r.data as SysUsage }))
+  } catch {
+    // No monitor module (403) or no samples yet — section stays hidden.
+  }
   try {
     const states = (await api.get<ServerState[] | null>('/api/monitor/state')) ?? []
     if (states.length > 0) {
@@ -52,11 +110,11 @@ onMounted(async () => {
 
 <template>
   <div>
-    <h1 class="mb-4 text-lg font-bold">{{ t('module.dashboard') }}</h1>
+    <h1 class="page-title">{{ t('dashboard.welcome', { username: auth.username }) }}</h1>
 
     <ul
       v-if="worstState || pendingJobs !== null || failedJobs !== null"
-      class="mb-4 grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4"
+      class="mb-4 grid grid-cols-2 gap-4 md:grid-cols-4"
     >
       <li
         v-if="worstState"
@@ -93,20 +151,74 @@ onMounted(async () => {
       </li>
     </ul>
 
-    <ul class="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
+    <template v-if="metrics.length">
+      <h2 class="page-title">{{ t('dashboard.metrics') }}</h2>
+      <div
+        v-for="m in metrics"
+        :key="m.serverId"
+        class="mb-4 border border-border bg-dashlet p-4"
+        :data-test="`dashlet-metrics-${m.serverId}`"
+      >
+        <p v-if="metrics.length > 1" class="mb-2 text-xs font-bold uppercase text-text-muted">
+          {{ t('monitor.server_id') }} {{ m.serverId }}
+        </p>
+        <div class="grid gap-3 md:grid-cols-2">
+          <MetricChart
+            :label="t('dashboard.metrics.load')"
+            :values="m.usage.load ?? []"
+            :times="m.usage.time"
+          />
+          <MetricChart
+            :label="t('dashboard.metrics.memory')"
+            :values="m.usage.mem ?? []"
+            :times="m.usage.time"
+          />
+          <MetricChart
+            :label="t('dashboard.metrics.net_in')"
+            :values="(m.usage.net ?? []).map((p) => p.rx)"
+            :times="m.usage.time"
+          />
+          <MetricChart
+            :label="t('dashboard.metrics.net_out')"
+            :values="(m.usage.net ?? []).map((p) => p.tx)"
+            :times="m.usage.time"
+          />
+        </div>
+      </div>
+    </template>
+
+    <template v-if="hdQuota.length || mailQuota.length || dbQuota.length">
+      <h2 class="page-title">{{ t('dashboard.quota') }}</h2>
+      <div class="mb-4 grid gap-4 md:grid-cols-3">
+        <QuotaBlock
+          v-if="hdQuota.length"
+          :title="t('dashboard.quota.harddisk')"
+          :rows="hdQuota"
+        />
+        <QuotaBlock v-if="mailQuota.length" :title="t('dashboard.quota.mailbox')" :rows="mailQuota" />
+        <QuotaBlock v-if="dbQuota.length" :title="t('dashboard.quota.database')" :rows="dbQuota" />
+      </div>
+    </template>
+
+    <h2 class="page-title">{{ t('dashboard.available_modules') }}</h2>
+
+    <ul class="grid grid-cols-2 gap-4 md:grid-cols-4">
       <li
         v-for="mod in dashlets"
         :key="mod.id"
-        class="flex flex-col items-center gap-3 border border-border bg-dashlet p-5 shadow-sm"
+        class="flex flex-col gap-3 border border-border bg-dashlet p-4"
         :data-test="`dashlet-${mod.id}`"
       >
-        <component
-          :is="moduleIcons[mod.id] ?? CircleHelp"
-          :size="50"
-          :stroke-width="1.25"
-          class="text-text"
-        />
-        <span class="text-base font-bold">{{ t(`module.${mod.id}`) }}</span>
+        <!-- Legacy dashlet head: icon left, title right on one row. -->
+        <div class="flex items-center gap-3">
+          <component
+            :is="moduleIcons[mod.id] ?? CircleHelp"
+            :size="38"
+            :stroke-width="1.25"
+            class="shrink-0 text-text"
+          />
+          <span class="flex-1 text-center text-base font-bold">{{ t(`module.${mod.id}`) }}</span>
+        </div>
         <RouterLink :to="mod.path" class="btn btn-default w-full no-underline">
           {{ t('dashboard.open_module', { module: t(`module.${mod.id}`) }) }}
         </RouterLink>

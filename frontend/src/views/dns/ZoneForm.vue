@@ -47,7 +47,7 @@ onMounted(loadZone)
 
 <template>
   <div>
-    <h1 class="mb-3 text-lg font-bold">{{ t('dns_soa_edit_title') }} {{ origin }}</h1>
+    <h1 class="page-title">{{ t('dns_soa_edit_title') }} {{ origin }}</h1>
 
     <p
       v-if="datalogState === 'pending'"

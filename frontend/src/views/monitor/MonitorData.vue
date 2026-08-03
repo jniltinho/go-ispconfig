@@ -86,7 +86,7 @@ function pairs(item: MonitorDataItem): [string, unknown][] {
 
 <template>
   <div>
-    <h1 class="mb-3 text-lg font-bold">{{ t(`monitor.type.${type}`) }}</h1>
+    <h1 class="page-title">{{ t(`monitor.type.${type}`) }}</h1>
 
     <UiAlert v-if="error" variant="danger" class="mb-3" :messages="[t(error)]" />
 

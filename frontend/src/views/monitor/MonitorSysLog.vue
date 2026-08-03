@@ -84,7 +84,7 @@ async function clear(body: Record<string, number>) {
 
 <template>
   <div>
-    <h1 class="text-lg font-bold">{{ t('monitor.syslog_title') }}</h1>
+    <h1 class="page-title">{{ t('monitor.syslog_title') }}</h1>
 
     <UiAlert v-if="error" variant="danger" class="my-3" :messages="[t(error)]" />
 

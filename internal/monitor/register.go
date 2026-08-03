@@ -12,9 +12,10 @@ import (
 
 // Cron specs matching ISPConfig monitor cron.d schedules.
 const (
-	SpecEvery5Min = "*/5 * * * *"
-	SpecEveryMin  = "* * * * *"
-	SpecHourly    = "0 * * * *"
+	SpecEvery5Min  = "*/5 * * * *"
+	SpecEvery15Min = "*/15 * * * *"
+	SpecEveryMin   = "* * * * *"
+	SpecHourly     = "0 * * * *"
 )
 
 // RegisterOptions configures monitor job registration.
@@ -118,6 +119,9 @@ func RegisterJobs(sched *engine.Scheduler, db *gorm.DB, opts RegisterOptions) er
 		}},
 		{"monitor_sys_usage", SpecEveryMin, func(ctx context.Context) error {
 			return RunSysUsageCollector(ctx, db, serverID)
+		}},
+		{"monitor_quota", SpecEvery15Min, func(ctx context.Context) error {
+			return RunQuotaCollectors(ctx, db, serverID)
 		}},
 		{"monitor_sys_log", SpecEvery5Min, func(ctx context.Context) error {
 			data, state, err := CollectSysLogState(ctx, db, serverID)

@@ -150,6 +150,17 @@
 /* Solid flat button system (D5): three variants, no gradients, no 2px
    bottom border, <=150ms transitions. Sizing utilities may extend. */
 @layer components {
+  /* Legacy .page-header: large light page title with a hairline under it
+     (ispconfig.css `.page-header { margin: 20px 0 }`). */
+  .page-title {
+    margin: 0 0 20px;
+    padding-bottom: 10px;
+    font-size: 30px;
+    font-weight: 400;
+    line-height: 1.2;
+    border-bottom: 1px solid var(--color-border);
+  }
+
   .btn {
     display: inline-flex;
     align-items: center;
