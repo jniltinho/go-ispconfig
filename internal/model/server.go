@@ -76,3 +76,21 @@ type ServerPHP struct {
 
 // TableName maps ServerPHP to the ISPConfig table server_php.
 func (ServerPHP) TableName() string { return "server_php" }
+
+// ServerIPMap maps a source IP to a destination IP so vhosts behind NAT
+// render the public address (table server_ip_map).
+type ServerIPMap struct {
+	ServerIPMapID uint32 `gorm:"column:server_ip_map_id;primaryKey;autoIncrement"`
+	SysUserID     uint32 `gorm:"column:sys_userid"`
+	SysGroupID    uint32 `gorm:"column:sys_groupid"`
+	SysPermUser   string `gorm:"column:sys_perm_user"`
+	SysPermGroup  string `gorm:"column:sys_perm_group"`
+	SysPermOther  string `gorm:"column:sys_perm_other"`
+	ServerID      uint32 `gorm:"column:server_id"`
+	SourceIP      string `gorm:"column:source_ip"`
+	DestinationIP string `gorm:"column:destination_ip"`
+	Active        string `gorm:"column:active"`
+}
+
+// TableName maps ServerIPMap to the ISPConfig table server_ip_map.
+func (ServerIPMap) TableName() string { return "server_ip_map" }

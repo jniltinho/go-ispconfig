@@ -166,3 +166,126 @@ type MailGet struct {
 
 // TableName implements the GORM naming override.
 func (MailGet) TableName() string { return "mail_get" }
+
+// MailBackup is one mailbox backup archive tracked on a server
+// (table mail_backup).
+type MailBackup struct {
+	BackupID       uint32 `gorm:"column:backup_id;primaryKey;autoIncrement"`
+	ServerID       uint32 `gorm:"column:server_id"`
+	ParentDomainID uint32 `gorm:"column:parent_domain_id"`
+	MailuserID     uint32 `gorm:"column:mailuser_id"`
+	BackupMode     string `gorm:"column:backup_mode"`
+	Tstamp         uint32 `gorm:"column:tstamp"`
+	Filename       string `gorm:"column:filename"`
+	Filesize       string `gorm:"column:filesize"`
+}
+
+// TableName maps MailBackup to the ISPConfig table mail_backup.
+func (MailBackup) TableName() string { return "mail_backup" }
+
+// MailContentFilter is a Postfix header/body check pattern and its action
+// (table mail_content_filter).
+type MailContentFilter struct {
+	ContentFilterID uint32 `gorm:"column:content_filter_id;primaryKey;autoIncrement"`
+	SysUserID       uint32 `gorm:"column:sys_userid"`
+	SysGroupID      uint32 `gorm:"column:sys_groupid"`
+	SysPermUser     string `gorm:"column:sys_perm_user"`
+	SysPermGroup    string `gorm:"column:sys_perm_group"`
+	SysPermOther    string `gorm:"column:sys_perm_other"`
+	ServerID        int32  `gorm:"column:server_id"`
+	Type            string `gorm:"column:type"`
+	Pattern         string `gorm:"column:pattern"`
+	Data            string `gorm:"column:data"`
+	Action          string `gorm:"column:action"`
+	Active          string `gorm:"column:active"`
+}
+
+// TableName maps MailContentFilter to the ISPConfig table mail_content_filter.
+func (MailContentFilter) TableName() string { return "mail_content_filter" }
+
+// MailMailinglist is a mailman mailing list (table mail_mailinglist).
+type MailMailinglist struct {
+	MailinglistID uint32 `gorm:"column:mailinglist_id;primaryKey;autoIncrement"`
+	SysUserID     uint32 `gorm:"column:sys_userid"`
+	SysGroupID    uint32 `gorm:"column:sys_groupid"`
+	SysPermUser   string `gorm:"column:sys_perm_user"`
+	SysPermGroup  string `gorm:"column:sys_perm_group"`
+	SysPermOther  string `gorm:"column:sys_perm_other"`
+	ServerID      uint32 `gorm:"column:server_id"`
+	Domain        string `gorm:"column:domain"`
+	Listname      string `gorm:"column:listname"`
+	Email         string `gorm:"column:email"`
+	Password      string `gorm:"column:password"`
+}
+
+// TableName maps MailMailinglist to the ISPConfig table mail_mailinglist.
+func (MailMailinglist) TableName() string { return "mail_mailinglist" }
+
+// MailRelayDomain is a domain this server relays mail for
+// (table mail_relay_domain).
+type MailRelayDomain struct {
+	RelayDomainID int64  `gorm:"column:relay_domain_id;primaryKey;autoIncrement"`
+	SysUserID     int32  `gorm:"column:sys_userid"`
+	SysGroupID    int32  `gorm:"column:sys_groupid"`
+	SysPermUser   string `gorm:"column:sys_perm_user"`
+	SysPermGroup  string `gorm:"column:sys_perm_group"`
+	SysPermOther  string `gorm:"column:sys_perm_other"`
+	ServerID      int32  `gorm:"column:server_id"`
+	Domain        string `gorm:"column:domain"`
+	Access        string `gorm:"column:access"`
+	Active        string `gorm:"column:active"`
+}
+
+// TableName maps MailRelayDomain to the ISPConfig table mail_relay_domain.
+func (MailRelayDomain) TableName() string { return "mail_relay_domain" }
+
+// MailRelayRecipient is a recipient address allowed or rejected by the
+// relay recipient map (table mail_relay_recipient).
+type MailRelayRecipient struct {
+	RelayRecipientID int64  `gorm:"column:relay_recipient_id;primaryKey;autoIncrement"`
+	SysUserID        int32  `gorm:"column:sys_userid"`
+	SysGroupID       int32  `gorm:"column:sys_groupid"`
+	SysPermUser      string `gorm:"column:sys_perm_user"`
+	SysPermGroup     string `gorm:"column:sys_perm_group"`
+	SysPermOther     string `gorm:"column:sys_perm_other"`
+	ServerID         int32  `gorm:"column:server_id"`
+	Source           string `gorm:"column:source"`
+	Access           string `gorm:"column:access"`
+	Active           string `gorm:"column:active"`
+}
+
+// TableName maps MailRelayRecipient to the ISPConfig table mail_relay_recipient.
+func (MailRelayRecipient) TableName() string { return "mail_relay_recipient" }
+
+// MailTraffic is the monthly traffic counter of a mailbox
+// (table mail_traffic).
+type MailTraffic struct {
+	TrafficID  uint32 `gorm:"column:traffic_id;primaryKey;autoIncrement"`
+	MailuserID uint32 `gorm:"column:mailuser_id"`
+	Month      string `gorm:"column:month"`
+	Traffic    uint64 `gorm:"column:traffic"`
+}
+
+// TableName maps MailTraffic to the ISPConfig table mail_traffic.
+func (MailTraffic) TableName() string { return "mail_traffic" }
+
+// MailUserFilter is a per-mailbox Sieve rule (table mail_user_filter).
+type MailUserFilter struct {
+	FilterID     uint32 `gorm:"column:filter_id;primaryKey;autoIncrement"`
+	SysUserID    uint32 `gorm:"column:sys_userid"`
+	SysGroupID   uint32 `gorm:"column:sys_groupid"`
+	SysPermUser  string `gorm:"column:sys_perm_user"`
+	SysPermGroup string `gorm:"column:sys_perm_group"`
+	SysPermOther string `gorm:"column:sys_perm_other"`
+	MailuserID   uint32 `gorm:"column:mailuser_id"`
+	Rulename     string `gorm:"column:rulename"`
+	Source       string `gorm:"column:source"`
+	Searchterm   string `gorm:"column:searchterm"`
+	Op           string `gorm:"column:op"`
+	Action       string `gorm:"column:action"`
+	Target       string `gorm:"column:target"`
+	Active       string `gorm:"column:active"`
+}
+
+// TableName maps MailUserFilter to the ISPConfig table mail_user_filter.
+func (MailUserFilter) TableName() string { return "mail_user_filter" }

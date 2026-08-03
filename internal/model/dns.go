@@ -102,3 +102,23 @@ type DNSTemplate struct {
 
 // TableName maps DNSTemplate to the ISPConfig table dns_template.
 func (DNSTemplate) TableName() string { return "dns_template" }
+
+// DNSSSLCA is a CAA record template naming the certificate authority
+// allowed to issue for a zone (table dns_ssl_ca).
+type DNSSSLCA struct {
+	ID           uint32 `gorm:"column:id;primaryKey;autoIncrement"`
+	SysUserID    uint32 `gorm:"column:sys_userid"`
+	SysGroupID   uint32 `gorm:"column:sys_groupid"`
+	SysPermUser  string `gorm:"column:sys_perm_user"`
+	SysPermGroup string `gorm:"column:sys_perm_group"`
+	SysPermOther string `gorm:"column:sys_perm_other"`
+	Active       string `gorm:"column:active"`
+	CAName       string `gorm:"column:ca_name"`
+	CAIssue      string `gorm:"column:ca_issue"`
+	CAWildcard   string `gorm:"column:ca_wildcard"`
+	CAIodef      string `gorm:"column:ca_iodef"`
+	CACritical   int8   `gorm:"column:ca_critical"`
+}
+
+// TableName maps DNSSSLCA to the ISPConfig table dns_ssl_ca.
+func (DNSSSLCA) TableName() string { return "dns_ssl_ca" }

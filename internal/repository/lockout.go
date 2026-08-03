@@ -35,7 +35,7 @@ func TooManyLoginAttempts(db *gorm.DB, remoteAddr string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	return row.Times > maxLoginAttempts, nil
+	return row.Times != nil && *row.Times > maxLoginAttempts, nil
 }
 
 // RecordFailedLogin counts a failed login for the remote address. The

@@ -130,7 +130,7 @@ func (SysLog) TableName() string { return "sys_log" }
 // address, exactly as PHP ISPConfig stores it.
 type AttemptsLogin struct {
 	IP        string    `gorm:"column:ip"`
-	Times     int32     `gorm:"column:times"`
+	Times     *int32    `gorm:"column:times"`
 	LoginTime time.Time `gorm:"column:login_time"`
 }
 
@@ -148,3 +148,87 @@ type SysSession struct {
 
 // TableName maps SysSession to the ISPConfig table sys_session.
 func (SysSession) TableName() string { return "sys_session" }
+
+// SysCron is the run bookkeeping of one panel cron job (table sys_cron).
+type SysCron struct {
+	Name    string     `gorm:"column:name"`
+	LastRun *time.Time `gorm:"column:last_run"`
+	NextRun *time.Time `gorm:"column:next_run"`
+	Running uint8      `gorm:"column:running"`
+}
+
+// TableName maps SysCron to the ISPConfig table sys_cron.
+func (SysCron) TableName() string { return "sys_cron" }
+
+// SysDBSync is a database mirroring job between two ISPConfig databases
+// (table sys_dbsync).
+type SysDBSync struct {
+	ID                  uint32 `gorm:"column:id;primaryKey;autoIncrement"`
+	Jobname             string `gorm:"column:jobname"`
+	SyncIntervalMinutes uint32 `gorm:"column:sync_interval_minutes"`
+	DBType              string `gorm:"column:db_type"`
+	DBHost              string `gorm:"column:db_host"`
+	DBName              string `gorm:"column:db_name"`
+	DBUsername          string `gorm:"column:db_username"`
+	DBPassword          string `gorm:"column:db_password"`
+	DBTables            string `gorm:"column:db_tables"`
+	EmptyDatalog        uint32 `gorm:"column:empty_datalog"`
+	SyncDatalogExternal uint32 `gorm:"column:sync_datalog_external"`
+	Active              int8   `gorm:"column:active"`
+	LastDatalogID       uint32 `gorm:"column:last_datalog_id"`
+}
+
+// TableName maps SysDBSync to the ISPConfig table sys_dbsync.
+func (SysDBSync) TableName() string { return "sys_dbsync" }
+
+// SysFileSync is a wput based file mirroring job (table sys_filesync).
+type SysFileSync struct {
+	ID                  uint32 `gorm:"column:id;primaryKey;autoIncrement"`
+	Jobname             string `gorm:"column:jobname"`
+	SyncIntervalMinutes uint32 `gorm:"column:sync_interval_minutes"`
+	FTPHost             string `gorm:"column:ftp_host"`
+	FTPPath             string `gorm:"column:ftp_path"`
+	FTPUsername         string `gorm:"column:ftp_username"`
+	FTPPassword         string `gorm:"column:ftp_password"`
+	LocalPath           string `gorm:"column:local_path"`
+	WputOptions         string `gorm:"column:wput_options"`
+	Active              int8   `gorm:"column:active"`
+}
+
+// TableName maps SysFileSync to the ISPConfig table sys_filesync.
+func (SysFileSync) TableName() string { return "sys_filesync" }
+
+// SysMessage is a panel notification shown to a user (table sys_message).
+type SysMessage struct {
+	MessageID    uint32     `gorm:"column:message_id;primaryKey;autoIncrement"`
+	SysUserID    uint32     `gorm:"column:sys_userid"`
+	SysGroupID   uint32     `gorm:"column:sys_groupid"`
+	SysPermUser  string     `gorm:"column:sys_perm_user"`
+	SysPermGroup string     `gorm:"column:sys_perm_group"`
+	SysPermOther string     `gorm:"column:sys_perm_other"`
+	MessageState string     `gorm:"column:message_state"`
+	MessageDate  *time.Time `gorm:"column:message_date"`
+	MessageAck   string     `gorm:"column:message_ack"`
+	Relation     string     `gorm:"column:relation"`
+	Message      string     `gorm:"column:message"`
+}
+
+// TableName maps SysMessage to the ISPConfig table sys_message.
+func (SysMessage) TableName() string { return "sys_message" }
+
+// SysTheme overrides the template and logo of a user or group
+// (table sys_theme).
+type SysTheme struct {
+	SysUserID    uint32 `gorm:"column:sys_userid"`
+	SysGroupID   uint32 `gorm:"column:sys_groupid"`
+	SysPermUser  string `gorm:"column:sys_perm_user"`
+	SysPermGroup string `gorm:"column:sys_perm_group"`
+	SysPermOther string `gorm:"column:sys_perm_other"`
+	VarID        uint32 `gorm:"column:var_id;primaryKey;autoIncrement"`
+	TplName      string `gorm:"column:tpl_name"`
+	Username     string `gorm:"column:username"`
+	LogoURL      string `gorm:"column:logo_url"`
+}
+
+// TableName maps SysTheme to the ISPConfig table sys_theme.
+func (SysTheme) TableName() string { return "sys_theme" }
