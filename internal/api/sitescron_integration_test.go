@@ -216,7 +216,7 @@ func TestSitesCronValidationFailures(t *testing.T) {
 				"parent_domain_id": domainID,
 				"command":          "https://cron-val.example.com/forced",
 				"run_min":          "0", "run_hour": "*", "run_mday": "*", "run_month": "*", "run_wday": "*",
-				"type": "full", // client-supplied type ignored
+				"type":   "full", // client-supplied type ignored
 				"active": "y",
 			})
 		require.Equal(t, http.StatusCreated, status, "%s", data)
@@ -231,7 +231,7 @@ func TestSitesCronValidationFailures(t *testing.T) {
 				"parent_domain_id": domainID,
 				"command":          "/usr/bin/php /web/cron.php",
 				"run_min":          "0", "run_hour": "1", "run_mday": "*", "run_month": "*", "run_wday": "*",
-				"type": "url", // overwritten
+				"type":   "url", // overwritten
 				"active": "y",
 			})
 		require.Equal(t, http.StatusCreated, status, "%s", data)
