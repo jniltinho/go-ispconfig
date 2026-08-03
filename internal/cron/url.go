@@ -124,10 +124,9 @@ func (e *URLExecutor) Execute(ctx context.Context, command, domain string) RunRe
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	body, _ := io.ReadAll(io.LimitReader(resp.Body, maxURLBody+1))
-	if len(body) > maxURLBody {
-		body = body[len(body)-maxURLBody:]
-	}
+	// Only maxURLBody+1 bytes are read, so a "tail" slice would have returned
+	// the head minus its first byte. Keep the head.
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, maxURLBody))
 	res.Output = string(body)
 	res.End = time.Now()
 	res.ExitCode = resp.StatusCode

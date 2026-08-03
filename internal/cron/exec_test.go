@@ -38,10 +38,12 @@ func TestExpandCommandChrootedStripsDocroot(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "/web/cron.php", got)
 
-	// Placeholders resolve to in-jail /web path.
+	// No jail yet (design D "chrooted: same as full until jailkit lands"), so
+	// placeholders must resolve to the real docroot — an in-jail "/web" path
+	// would resolve against the host root and never exist.
 	got, err = ExpandCommand("{SITE_PHP} {DOCROOT_CLIENT}/x.php", model.CronTypeChrooted, site)
 	require.NoError(t, err)
-	assert.Equal(t, "/usr/bin/php /web/x.php", got)
+	assert.Equal(t, "/usr/bin/php /var/www/clients/client1/web1/web/x.php", got)
 }
 
 func TestExpandCommandRejectsInsecure(t *testing.T) {

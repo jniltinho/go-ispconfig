@@ -69,12 +69,12 @@ func ExpandCommand(command, jobType string, site SiteContext) (string, error) {
 		}
 	}
 
+	// PHP expands [web_root]/{DOCROOT_CLIENT} to the jail-relative "/web" for
+	// chrooted jobs because jk_chrootsh runs them inside the jail. Jailkit is
+	// a non-goal here (design D "chrooted: same as full until jailkit lands"),
+	// so a jail-relative path would resolve against the host root and every
+	// chrooted job would fail with ENOENT. Expand to the real docroot.
 	docrootClient := site.DocrootClient()
-	// PHP builds $web_docroot_client differently for chrooted: starts empty
-	// then only appends '/web', so [web_root]/{DOCROOT_CLIENT} become "/web".
-	if jobType == model.CronTypeChrooted {
-		docrootClient = "/web"
-	}
 
 	replacer := strings.NewReplacer(
 		"[web_root]", docrootClient,
@@ -206,9 +206,13 @@ func (p *ProcessRunner) Run(ctx context.Context, spec ExecSpec, site SiteContext
 		}
 	}
 
-	out, err := cmd.CombinedOutput()
+	// A tail writer instead of CombinedOutput: a chatty job would otherwise
+	// buffer its whole output in the daemon's memory before being trimmed.
+	out := &tailWriter{max: maxExecOutput}
+	cmd.Stdout, cmd.Stderr = out, out
+	err := cmd.Run()
 	res.End = time.Now()
-	res.Output = trimTail(string(out), maxExecOutput)
+	res.Output = out.String()
 	if err != nil {
 		if runCtx.Err() != nil {
 			res.Status = StatusTimeout
@@ -243,12 +247,26 @@ func errorAsExit(err error, target **exec.ExitError) bool {
 	return true
 }
 
-func trimTail(s string, max int) string {
-	if len(s) <= max {
-		return s
-	}
-	return s[len(s)-max:]
+// tailWriter retains only the last max bytes written, so the daemon's memory
+// stays bounded no matter how much a job prints.
+type tailWriter struct {
+	buf []byte
+	max int
 }
+
+func (w *tailWriter) Write(p []byte) (int, error) {
+	n := len(p)
+	if len(p) > w.max {
+		p = p[len(p)-w.max:]
+	}
+	w.buf = append(w.buf, p...)
+	if len(w.buf) > w.max {
+		w.buf = append(w.buf[:0], w.buf[len(w.buf)-w.max:]...)
+	}
+	return n, nil
+}
+
+func (w *tailWriter) String() string { return string(w.buf) }
 
 func joinOutput(out, extra string) string {
 	if out == "" {
