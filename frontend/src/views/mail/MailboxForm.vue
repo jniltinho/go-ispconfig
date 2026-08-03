@@ -48,9 +48,18 @@ const form = reactive({
   custom_mailfilter: '',
   purge_trash_days: '0',
   purge_junk_days: '0',
+  backup_interval: 'none',
+  backup_copies: '1',
 })
 
-const tabs = ['mailuser', 'autoresponder', 'filters'] as const
+const tabs = ['mailuser', 'autoresponder', 'filter_records', 'mailfilter', 'backup'] as const
+const tabLabelKey: Record<(typeof tabs)[number], string> = {
+  mailuser: 'mailbox_txt',
+  autoresponder: 'autoresponder_txt',
+  filter_records: 'mail_filter_txt',
+  mailfilter: 'custom_rules_txt',
+  backup: 'backup_tab_txt',
+}
 const activeTab = ref<string>('mailuser')
 const domains = ref<string[]>([])
 const policies = ref<{ value: string; label: string }[]>([])
@@ -152,6 +161,8 @@ onMounted(async () => {
     form.custom_mailfilter = String(rec.custom_mailfilter ?? '')
     form.purge_trash_days = String(rec.purge_trash_days ?? '0')
     form.purge_junk_days = String(rec.purge_junk_days ?? '0')
+    form.backup_interval = String(rec.backup_interval ?? 'none')
+    form.backup_copies = String(rec.backup_copies ?? '1')
     if (policiesAvailable.value) {
       const su = await api.get<{ items: { id: number; email: string; policy_id: number }[] }>(
         `/api/mail/spamfilter/users?email=${encodeURIComponent(email)}&limit=100`,
@@ -231,6 +242,8 @@ async function save() {
     custom_mailfilter: form.custom_mailfilter,
     purge_trash_days: Number(form.purge_trash_days || '0'),
     purge_junk_days: Number(form.purge_junk_days || '0'),
+    backup_interval: form.backup_interval,
+    backup_copies: Number(form.backup_copies || '1'),
   }
   if (form.password) payload.password = form.password
   if (isAdmin.value) payload.imap_prefix = form.imap_prefix
@@ -303,8 +316,8 @@ const inputClass =
     <UiAlert v-if="loadError" variant="danger" class="mb-3" :messages="[t(loadError)]" />
 
     <form class="border border-border bg-surface" @submit.prevent="save">
-      <!-- Flat tabs (TabbedForm styling) -->
-      <div role="tablist" class="flex border-b border-border bg-bg">
+      <!-- Flat tabs (TabbedForm styling) — legacy order: Mailbox | Autoresponder | Mail Filter | Custom Rules | Backup -->
+      <div role="tablist" class="flex flex-wrap border-b border-border bg-bg">
         <button
           v-for="tab in tabs"
           :key="tab"
@@ -312,15 +325,15 @@ const inputClass =
           role="tab"
           :aria-selected="activeTab === tab"
           :aria-controls="`tabpanel-${tab}`"
-          class="-mb-px border-r border-border px-5 py-2.5 text-sm font-bold transition-colors duration-150"
+          class="border-b-2 px-4 py-2 text-sm font-semibold"
           :class="
             activeTab === tab
-              ? 'border-b border-b-surface bg-surface text-text'
-              : 'border-b border-b-border text-text-muted hover:bg-info'
+              ? 'border-link text-link'
+              : 'border-transparent text-muted hover:text-fg'
           "
           @click="activeTab = tab"
         >
-          {{ t(tab === 'mailuser' ? 'mailbox_txt' : tab === 'autoresponder' ? 'autoresponder_txt' : 'filters_txt') }}
+          {{ t(tabLabelKey[tab]) }}
         </button>
       </div>
 
@@ -591,8 +604,8 @@ const inputClass =
         </div>
       </div>
 
-      <!-- Filters tab -->
-      <div v-show="activeTab === 'filters'" id="tabpanel-filters" role="tabpanel" class="space-y-4 px-3 py-6">
+      <!-- Mail Filter tab (legacy filter_records) -->
+      <div v-show="activeTab === 'filter_records'" id="tabpanel-filter_records" role="tabpanel" class="space-y-4 px-3 py-6">
         <div class="flex items-start gap-4">
           <label for="field-move_junk" class="w-48 shrink-0 pt-1.5 text-right text-sm font-semibold after:content-[':']">
             {{ t('move_junk_txt') }}
@@ -612,14 +625,6 @@ const inputClass =
           <div class="flex-1"><input id="field-forward_in_lda" v-model="form.forward_in_lda" type="checkbox" class="mt-2" /></div>
         </div>
         <div class="flex items-start gap-4">
-          <label for="field-custom_mailfilter" class="w-48 shrink-0 pt-1.5 text-right text-sm font-semibold after:content-[':']">
-            {{ t('custom_mailfilter_txt') }}
-          </label>
-          <div class="flex-1">
-            <textarea id="field-custom_mailfilter" v-model="form.custom_mailfilter" rows="6" :class="inputClass" class="max-w-md" />
-          </div>
-        </div>
-        <div class="flex items-start gap-4">
           <label for="field-purge_trash_days" class="w-48 shrink-0 pt-1.5 text-right text-sm font-semibold after:content-[':']">
             {{ t('purge_trash_days_txt') }}
           </label>
@@ -633,6 +638,47 @@ const inputClass =
           </label>
           <div class="flex-1">
             <input id="field-purge_junk_days" v-model="form.purge_junk_days" type="text" inputmode="numeric" :class="inputClass" class="max-w-md" />
+          </div>
+        </div>
+        <p class="pl-52 text-xs text-muted">{{ t('mail.filter_rules_list_hint') }}</p>
+      </div>
+
+      <!-- Custom Rules tab (legacy mailfilter) -->
+      <div v-show="activeTab === 'mailfilter'" id="tabpanel-mailfilter" role="tabpanel" class="space-y-4 px-3 py-6">
+        <div class="flex items-start gap-4">
+          <label for="field-custom_mailfilter" class="w-48 shrink-0 pt-1.5 text-right text-sm font-semibold after:content-[':']">
+            {{ t('custom_mailfilter_txt') }}
+          </label>
+          <div class="flex-1">
+            <textarea id="field-custom_mailfilter" v-model="form.custom_mailfilter" rows="12" :class="inputClass" class="max-w-xl font-mono text-xs" />
+            <p class="mt-1 text-xs text-muted">{{ t('mail.custom_rules_hint') }}</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Backup tab -->
+      <div v-show="activeTab === 'backup'" id="tabpanel-backup" role="tabpanel" class="space-y-4 px-3 py-6">
+        <div class="flex items-start gap-4">
+          <label for="field-backup_interval" class="w-48 shrink-0 pt-1.5 text-right text-sm font-semibold after:content-[':']">
+            {{ t('backup_interval_txt') }}
+          </label>
+          <div class="flex-1">
+            <select id="field-backup_interval" v-model="form.backup_interval" :class="inputClass" class="max-w-md">
+              <option value="none">{{ t('no_backup_txt') }}</option>
+              <option value="daily">{{ t('daily_backup_txt') }}</option>
+              <option value="weekly">{{ t('weekly_backup_txt') }}</option>
+              <option value="monthly">{{ t('monthly_backup_txt') }}</option>
+            </select>
+          </div>
+        </div>
+        <div class="flex items-start gap-4">
+          <label for="field-backup_copies" class="w-48 shrink-0 pt-1.5 text-right text-sm font-semibold after:content-[':']">
+            {{ t('backup_copies_txt') }}
+          </label>
+          <div class="flex-1">
+            <select id="field-backup_copies" v-model="form.backup_copies" :class="inputClass" class="max-w-md">
+              <option v-for="n in ['1','2','3','4','5','6','7','8','9','10','15','20','30']" :key="n" :value="n">{{ n }}</option>
+            </select>
           </div>
         </div>
       </div>

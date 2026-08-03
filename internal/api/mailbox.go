@@ -72,8 +72,10 @@ func mailboxEntity(d *Deps) *Entity {
 				},
 			},
 			{
-				Name:  "filters",
-				Label: "filters_txt",
+				// PHP tab title "Mail Filter" (filter_records) — junk/move + purge;
+				// nested mail_user_filter rule list is a follow-up (no REST yet).
+				Name:  "filter_records",
+				Label: "mail_filter_txt",
 				Fields: []Field{
 					selectField("move_junk", "move_junk_txt", "VARCHAR", "y", []Option{
 						{Value: "y", Label: "move_junk_before_txt"},
@@ -81,9 +83,36 @@ func mailboxEntity(d *Deps) *Entity {
 						{Value: "n", Label: "no_txt"},
 					}),
 					checkbox("forward_in_lda", "forward_in_lda_txt", "n"),
-					textarea("custom_mailfilter", "custom_mailfilter_txt"),
 					intField("purge_trash_days", "purge_trash_days_txt", "0"),
 					intField("purge_junk_days", "purge_junk_days_txt", "0"),
+				},
+			},
+			{
+				// PHP tab "Custom Rules" (mailfilter) — free-form sieve/filter text.
+				Name:  "mailfilter",
+				Label: "custom_rules_txt",
+				Fields: []Field{
+					textarea("custom_mailfilter", "custom_mailfilter_txt"),
+				},
+			},
+			{
+				// PHP tab "Backup" when backup is available.
+				Name:  "backup",
+				Label: "backup_tab_txt",
+				Fields: []Field{
+					selectField("backup_interval", "backup_interval_txt", "VARCHAR", "none", []Option{
+						{Value: "none", Label: "no_backup_txt"},
+						{Value: "daily", Label: "daily_backup_txt"},
+						{Value: "weekly", Label: "weekly_backup_txt"},
+						{Value: "monthly", Label: "monthly_backup_txt"},
+					}),
+					selectField("backup_copies", "backup_copies_txt", "INTEGER", "1", []Option{
+						{Value: "1", Label: "1"}, {Value: "2", Label: "2"}, {Value: "3", Label: "3"},
+						{Value: "4", Label: "4"}, {Value: "5", Label: "5"}, {Value: "6", Label: "6"},
+						{Value: "7", Label: "7"}, {Value: "8", Label: "8"}, {Value: "9", Label: "9"},
+						{Value: "10", Label: "10"}, {Value: "15", Label: "15"}, {Value: "20", Label: "20"},
+						{Value: "30", Label: "30"},
+					}),
 				},
 			},
 		},

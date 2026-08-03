@@ -12,7 +12,9 @@
 - [x] 2.5 Router + i18n; drop EntityForm-only path for mailboxes create/edit. Commit.
 - [x] 2.6 E2E mail create/edit against domain select; screenshots `docs/prints/mailbox-form-*-aaa.png`. Commit.
 
+- [x] 2.7 Tabs parity: Mailbox | Autoresponder | Mail Filter | Custom Rules | Backup (+ backup fields in API metadata). Commit.
+
 ## 3. Review / ship
 - [x] 3.1 Claude Fable 5 write-up `.hermes/review-fable-mailbox-aaa.md`.
-- [x] 3.2 Grok final review + residual fixes.
+- [ ] 3.2 Grok final review + residual fixes.
 - [ ] 3.3 Redeploy lab `.10`; Telegram MEDIA; PR to main; archive change when green.

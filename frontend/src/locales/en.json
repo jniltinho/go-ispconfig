@@ -900,5 +900,9 @@
   "ssh_rsa_error_empty": "SSH public key is required in key-only mode.",
   "quota_size_error_empty": "Quota is required.",
   "quota_size_error_regex": "Quota must be -1 or a positive integer.",
-  "shell_error_regex": "Shell path is not allowed."
+  "shell_error_regex": "Shell path is not allowed.",
+  "mail_filter_txt": "Mail Filter",
+  "custom_rules_txt": "Custom Rules",
+  "mail.filter_rules_list_hint": "Per-mailbox filter rules list (mail_user_filter) will appear here when the REST surface is added; junk move and purge settings above match the legacy Mail Filter tab.",
+  "mail.custom_rules_hint": "Custom sieve / mail filter rules applied for this mailbox (legacy Custom Rules tab)."
 }
