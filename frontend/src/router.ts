@@ -32,6 +32,12 @@ import ZoneWizard from './views/dns/ZoneWizard.vue'
 import SlaveZoneList from './views/dns/SlaveZoneList.vue'
 import TemplateList from './views/dns/TemplateList.vue'
 import MigrationWizard from './views/system/MigrationWizard.vue'
+import MonitorState from './views/monitor/MonitorState.vue'
+import MonitorData from './views/monitor/MonitorData.vue'
+import MonitorSysLog from './views/monitor/MonitorSysLog.vue'
+import MonitorDatalogList from './views/monitor/MonitorDatalogList.vue'
+import MonitorDatalogDetail from './views/monitor/MonitorDatalogDetail.vue'
+import MonitorScheduler from './views/monitor/MonitorScheduler.vue'
 import ClientList from './views/clients/ClientList.vue'
 import ResellerList from './views/clients/ResellerList.vue'
 import ClientForm from './views/clients/ClientForm.vue'
@@ -588,6 +594,37 @@ export const router = createRouter({
           path: 'system/migration',
           name: 'system-migration',
           component: MigrationWizard,
+          meta: { adminOnly: true },
+        },
+        { path: 'monitor', name: 'monitor', component: MonitorState },
+        { path: 'monitor/data/:type', name: 'monitor-data', component: MonitorData },
+        { path: 'monitor/sys-log', name: 'monitor-sys-log', component: MonitorSysLog },
+        {
+          path: 'monitor/jobqueue',
+          name: 'monitor-jobqueue',
+          component: MonitorDatalogList,
+          props: { apiBase: '/api/monitor/jobqueue', titleKey: 'monitor.jobqueue_title' },
+        },
+        {
+          path: 'monitor/datalog',
+          name: 'monitor-datalog',
+          component: MonitorDatalogList,
+          props: {
+            apiBase: '/api/monitor/datalog',
+            titleKey: 'monitor.datalog_title',
+            detailBase: '/monitor/datalog',
+          },
+        },
+        {
+          path: 'monitor/datalog/:id(\\d+)',
+          name: 'monitor-datalog-detail',
+          component: MonitorDatalogDetail,
+          props: (route) => ({ id: String(route.params.id) }),
+        },
+        {
+          path: 'monitor/scheduler',
+          name: 'monitor-scheduler',
+          component: MonitorScheduler,
           meta: { adminOnly: true },
         },
       ],

@@ -114,12 +114,12 @@ func (SysIni) TableName() string { return "sys_ini" }
 
 // SysLog is a system log line written by the daemon (table sys_log).
 type SysLog struct {
-	SyslogID  uint32 `gorm:"column:syslog_id;primaryKey;autoIncrement"`
-	ServerID  uint32 `gorm:"column:server_id"`
-	DatalogID uint32 `gorm:"column:datalog_id"`
-	Loglevel  int8   `gorm:"column:loglevel"`
-	Tstamp    uint32 `gorm:"column:tstamp"`
-	Message   string `gorm:"column:message"`
+	SyslogID  uint32 `gorm:"column:syslog_id;primaryKey;autoIncrement" json:"syslog_id"`
+	ServerID  uint32 `gorm:"column:server_id" json:"server_id"`
+	DatalogID uint32 `gorm:"column:datalog_id" json:"datalog_id"`
+	Loglevel  int8   `gorm:"column:loglevel" json:"loglevel"`
+	Tstamp    uint32 `gorm:"column:tstamp" json:"tstamp"`
+	Message   string `gorm:"column:message" json:"message"`
 }
 
 // TableName maps SysLog to the ISPConfig table sys_log.
