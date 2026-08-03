@@ -2,10 +2,10 @@
 
 ## 1. Models and foundations wiring
 
-- [ ] 1.1 Add GORM models for `ftp_user` and `shell_user` with explicit `gorm:"column:..."` tags matching the ISPConfig3 schema (`ftp_user_id`…`user_config`; `shell_user_id`…`ssh_rsa`); unit-test round-trip against MariaDB. Commit.
-- [ ] 1.2 Embed the shell-user blacklist (port of `interface/lib/shelluser_blacklist`) as a Go data set for username validation; unit-test known denied names (`root`, `www-data`, `mysql`, …). Commit.
-- [ ] 1.3 Extend `internal/web` Module: register table hooks for `ftp_user` and `shell_user`, announce `ftp_user_insert|update|delete` and `shell_user_insert|update|delete`, map datalog `i`/`u`/`d` to events; update the module unit tests that currently assert unhooked `ftp_user` is ignored. Commit.
-- [ ] 1.4 Document/load the server getconf `[jailkit]` section defaults (`jailkit_chroot_home`, `jailkit_chroot_app_sections`, `jailkit_chroot_app_programs`, `jailkit_chroot_cron_programs`, `jailkit_hardlinks`, authorized-keys template) matching `server.ini.master`; unit-test defaults. Commit.
+- [x] 1.1 Add GORM models for `ftp_user` and `shell_user` with explicit `gorm:"column:..."` tags matching the ISPConfig3 schema (`ftp_user_id`…`user_config`; `shell_user_id`…`ssh_rsa`); unit-test round-trip against MariaDB. Commit.
+- [x] 1.2 Embed the shell-user blacklist (port of `interface/lib/shelluser_blacklist`) as a Go data set for username validation; unit-test known denied names (`root`, `www-data`, `mysql`, …). Commit.
+- [x] 1.3 Extend `internal/web` Module: register table hooks for `ftp_user` and `shell_user`, announce `ftp_user_insert|update|delete` and `shell_user_insert|update|delete`, map datalog `i`/`u`/`d` to events; update the module unit tests that currently assert unhooked `ftp_user` is ignored. Commit.
+- [x] 1.4 Document/load the server getconf `[jailkit]` section defaults (`jailkit_chroot_home`, `jailkit_chroot_app_sections`, `jailkit_chroot_app_programs`, `jailkit_chroot_cron_programs`, `jailkit_hardlinks`, authorized-keys template) matching `server.ini.master`; unit-test defaults. Commit.
 
 ## 2. FTP plugin (daemon)
 
