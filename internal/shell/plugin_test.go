@@ -94,6 +94,8 @@ func testPlugin(t *testing.T) (*Plugin, *fakeRunner, string) {
 		return &getconf.WebConfig{WebFolderProtection: "y"}, nil
 	}
 	p.AllowShellUser = func() (bool, error) { return true, nil }
+	// Never read the host's real /root/.ssh/authorized_keys in a test.
+	p.RootAuthorizedKeys = ""
 	p.LookupUID = func(name string) (int, bool) {
 		if name == "web1" {
 			return 5001, true
@@ -144,6 +146,7 @@ func TestInsertCreatesAccountAndHomeLayout(t *testing.T) {
 		"useradd -d " + homedir + " -g client1 -o -s /bin/bash -u 5001 web1user",
 		"chpasswd -e",
 		"chown root:root " + docroot,
+		"chown -R web1:client1 " + filepath.Join(homedir, ".ssh"),
 		"chown web1user:client1 " + filepath.Join(homedir, ".bash_history"),
 		"chown web1user:client1 " + filepath.Join(homedir, ".profile"),
 		"chown web1user:client1 " + filepath.Join(homedir, ".bashrc.d"),

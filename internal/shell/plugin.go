@@ -60,6 +60,12 @@ type Plugin struct {
 	// systemd unit; both are only needed by the delete path.
 	DirInUse          func(dir string) (bool, error)
 	LoadServerPHPUnit func(serverPHPID int64) (string, error)
+	// LoadSiteSSHKeys returns the ssh_rsa keys of every shell user of a
+	// website and LoadClientSSHKey the key of the owning client;
+	// RootAuthorizedKeys is the admin key seeded into a fresh file.
+	LoadSiteSSHKeys    func(parentDomainID int64) ([]string, error)
+	LoadClientSSHKey   func(parentDomainID int64) (string, error)
+	RootAuthorizedKeys string
 }
 
 // NewPlugin creates the shell plugin; log nil means slog.Default.
@@ -72,6 +78,8 @@ func NewPlugin(db *gorm.DB, runner engine.CommandRunner, log *slog.Logger) *Plug
 	p.AllowShellUser = p.allowShellUser
 	p.LookupUID, p.LookupGID = lookupUID, lookupGID
 	p.DirInUse, p.LoadServerPHPUnit = p.dirInUse, p.loadServerPHPUnit
+	p.LoadSiteSSHKeys, p.LoadClientSSHKey = p.loadSiteSSHKeys, p.loadClientSSHKey
+	p.RootAuthorizedKeys = rootAuthorizedKeys
 	return p
 }
 
@@ -180,6 +188,9 @@ func (p *Plugin) createUser(ctx context.Context, u system.Row, uid int) error {
 	// The login directory itself stays root-owned: it is the site tree, not
 	// the user's home.
 	if err := system.Chown(ctx, p.runner, u.Str("dir"), "root", "root", false); err != nil {
+		return err
+	}
+	if err := p.setupSSHRSA(ctx, u, nil); err != nil {
 		return err
 	}
 	if err := p.writeHomeLayout(ctx, homedir, username, pgroup); err != nil {

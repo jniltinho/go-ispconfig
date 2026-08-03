@@ -101,6 +101,9 @@ func (p *Plugin) modifyUser(ctx context.Context, u, old system.Row) error {
 	if err := p.setPassword(ctx, username, u.Str("password")); err != nil {
 		return err
 	}
+	if err := p.setupSSHRSA(ctx, u, old); err != nil {
+		return err
+	}
 	return p.writeHomeLayout(ctx, homedir, username, pgroup)
 }
 
