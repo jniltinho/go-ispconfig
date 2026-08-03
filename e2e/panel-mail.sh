@@ -86,15 +86,21 @@ $AB screenshot "$PRINTS/mail-e2e-domain.png" >/dev/null
 # ---------------------------------------------------------------- create mailbox
 $AB open "$PANEL_URL/mail/mailboxes/new" >/dev/null
 $AB wait --load networkidle >/dev/null
-wait_eval "mailbox form renders" "document.querySelector('#field-email') !== null" 'true'
+wait_eval "mailbox form renders" "document.querySelector('#field-email_local') !== null" 'true'
 PW_TYPE=$(evaljs "document.querySelector('#field-password').type")
 expect "password is a write-only input" "$PW_TYPE" 'password'
-set_field '#field-email' 'user1@e2e-mail.example'
+wait_eval "domain select offers the mail domain" \
+  "[...document.querySelectorAll('#field-email_domain option')].some(o => o.value === 'e2e-mail.example')" 'true'
+set_field '#field-email_local' 'user1'
+set_field '#field-email_domain' 'e2e-mail.example'
 set_field '#field-password' 'e2e-mbox-pw-1'
-set_field '#field-quota' '1048576'
+set_field '#field-repeat_password' 'e2e-mbox-pw-1'
+set_field '#field-quota' '1024'
 evaljs "document.querySelector('[data-test=form-save]').click(); 'save'" >/dev/null
 wait_eval "mailbox saved" "location.pathname" '/mail/mailboxes'
 wait_eval "mailbox listed" "document.body.innerText.includes('user1@e2e-mail.example')" 'true'
+MBOX_QUOTA=$(evaljs "fetch('/api/mail/mailboxes?email=user1&limit=10').then(r=>r.json()).then(j=>String(j.items[0].quota))")
+expect "quota 1024 MB stored as bytes" "$MBOX_QUOTA" '1073741824'
 $AB screenshot "$PRINTS/mail-e2e-mailbox.png" >/dev/null
 
 # ----------------------------------------------------------------- create alias

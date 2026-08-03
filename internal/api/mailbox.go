@@ -40,6 +40,7 @@ func mailboxEntity(d *Deps) *Entity {
 						validator.Rule{Type: "ISINT", AllowEmpty: true, ErrKey: "quota_error_isint"}),
 					text("cc", "cc_txt"),
 					text("sender_cc", "sender_cc_txt"),
+					{Name: "imap_prefix", Label: "imap_prefix_txt", Datatype: "VARCHAR", Formtype: "TEXT", AdminOnly: true},
 					checkbox("postfix", "postfix_txt", "y"),
 					checkbox("access", "access_txt", "y"),
 					checkbox("greylisting", "greylisting_txt", "n"),

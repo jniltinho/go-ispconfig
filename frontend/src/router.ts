@@ -25,6 +25,7 @@ import EntityForm from './views/sites/EntityForm.vue'
 import WebDomainForm from './views/sites/WebDomainForm.vue'
 import MailList from './views/mail/MailList.vue'
 import DomainForm from './views/mail/DomainForm.vue'
+import MailboxForm from './views/mail/MailboxForm.vue'
 import ZoneList from './views/dns/ZoneList.vue'
 import ZoneForm from './views/dns/ZoneForm.vue'
 import ZoneWizard from './views/dns/ZoneWizard.vue'
@@ -85,17 +86,12 @@ export const router = createRouter({
             titleKey: 'mail.mailboxes_title', addKey: 'mail.add_mailbox',
           },
         },
-        {
-          path: 'mail/mailboxes/new',
-          name: 'mail-mailbox-new',
-          component: EntityForm,
-          props: { entity: 'mailboxes', apiBase: '/api/mail/mailboxes', backTo: '/mail/mailboxes' },
-        },
+        { path: 'mail/mailboxes/new', name: 'mail-mailbox-new', component: MailboxForm },
         {
           path: 'mail/mailboxes/:id(\\d+)',
           name: 'mail-mailbox-edit',
-          component: EntityForm,
-          props: (route) => ({ entity: 'mailboxes', apiBase: '/api/mail/mailboxes', backTo: '/mail/mailboxes', id: String(route.params.id) }),
+          component: MailboxForm,
+          props: (route) => ({ id: String(route.params.id) }),
         },
         {
           path: 'mail/aliases',
