@@ -22,10 +22,10 @@
 
 ## 4. Jailkit plugin (daemon)
 
-- [ ] 4.1 Implement `internal/jailkit` plugin config merge (server `[jailkit]` + `web_domain` overrides + `php_jk_section`) and hash computation for `last_jailkit_hash`; unit tests. Commit.
-- [ ] 4.2 Implement jail create/update (`jk_init` / program copy / MOTD / force-update with skip web_folder / stamp `last_jailkit_update`+hash) and `_add_jailkit_user` (jailed home, passwd/shadow, `jk_chrootsh`, unlock); tests with fake runner. Commit.
-- [ ] 4.3 Implement jailkit delete: `userdel`, jail passwd/shadow line removal, jailed home delete, optional `_delete_jailkit_if_unused` when `delete_unused_jailkit=y`; tests. Commit.
-- [ ] 4.4 Wire the jailkit plugin into the daemon bootstrap (after shell base on the same events); integration test: jailkit shell_user insert → base creates user → jailkit builds chroot and sets shell. Commit.
+- [x] 4.1 Implement `internal/jailkit` plugin config merge (server `[jailkit]` + `web_domain` overrides + `php_jk_section`) and hash computation for `last_jailkit_hash`; unit tests. Commit.
+- [x] 4.2 Implement jail create/update (`jk_init` / program copy / MOTD / force-update with skip web_folder / stamp `last_jailkit_update`+hash) and `_add_jailkit_user` (jailed home, passwd/shadow, `jk_chrootsh`, unlock); tests with fake runner. Commit.
+- [x] 4.3 Implement jailkit delete: `userdel`, jail passwd/shadow line removal, jailed home delete, optional `_delete_jailkit_if_unused` when `delete_unused_jailkit=y`; tests. Commit.
+- [x] 4.4 Wire the jailkit plugin into the daemon bootstrap (after shell base on the same events); integration test: jailkit shell_user insert → base creates user → jailkit builds chroot and sets shell. Commit.
 
 ## 5. Validation, repositories, REST API
 
