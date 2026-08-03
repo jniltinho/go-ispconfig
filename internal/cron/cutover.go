@@ -1,6 +1,7 @@
 package cron
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -48,7 +49,10 @@ func RemoveLegacyCrontabs(dir string, log *slog.Logger) ([]string, error) {
 		}
 		return nil, fmt.Errorf("cron: listing crontab_dir %s: %w", dir, err)
 	}
-	var removed []string
+	var (
+		removed []string
+		errs    []error
+	)
 	for _, e := range entries {
 		if e.IsDir() {
 			continue
@@ -62,10 +66,13 @@ func RemoveLegacyCrontabs(dir string, log *slog.Logger) ([]string, error) {
 			if os.IsNotExist(err) {
 				continue
 			}
-			return removed, fmt.Errorf("cron: removing legacy crontab %s: %w", path, err)
+			// Stopping here would leave the remaining legacy crontabs armed
+			// under vixie-cron while the daemon also runs those jobs.
+			errs = append(errs, fmt.Errorf("cron: removing legacy crontab %s: %w", path, err))
+			continue
 		}
 		log.Info("cron: removed legacy crontab", "path", path)
 		removed = append(removed, name)
 	}
-	return removed, nil
+	return removed, errors.Join(errs...)
 }

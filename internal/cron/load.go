@@ -2,6 +2,7 @@ package cron
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"gorm.io/gorm"
@@ -44,7 +45,10 @@ func LoadActiveJobs(ctx context.Context, db *gorm.DB, serverID uint32, runner *C
 // registerRows maps cron rows onto the runner. Exported for tests that build
 // rows in-memory without a live database.
 func registerRows(runner *ClientJobRunner, rows []model.Cron, factory JobFactory) (int, error) {
-	n := 0
+	var (
+		n    int
+		errs []error
+	)
 	for _, row := range rows {
 		job := Job{
 			ID:       row.ID,
@@ -55,10 +59,13 @@ func registerRows(runner *ClientJobRunner, rows []model.Cron, factory JobFactory
 			RunWday:  row.RunWday,
 			Run:      factory(row),
 		}
+		// One unparseable row must not disarm every later job: collect and
+		// keep going, the daemon logs the aggregate.
 		if err := runner.Add(job); err != nil {
-			return n, fmt.Errorf("cron: registering job id=%d: %w", row.ID, err)
+			errs = append(errs, fmt.Errorf("cron: registering job id=%d: %w", row.ID, err))
+			continue
 		}
 		n++
 	}
-	return n, nil
+	return n, errors.Join(errs...)
 }
