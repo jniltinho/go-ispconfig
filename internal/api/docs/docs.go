@@ -4621,6 +4621,586 @@ const docTemplate = `{
                 }
             }
         },
+        "/monitor/data": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "monitor_data rows for the caller's readable servers, newest first, payload dual-decoded (JSON, PHP serialize fallback). ?latest=1 keeps only the newest row per server and type.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "monitor"
+                ],
+                "summary": "List monitor data",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Limit to one server",
+                        "name": "server_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Check type (cpu_info, disk_usage, services, ...)",
+                        "name": "type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Severity filter (ok, warning, error, ...)",
+                        "name": "state",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Only the newest row per server and type",
+                        "name": "latest",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 100,
+                        "description": "Max rows",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/api.MonitorDataItem"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Session lacks the monitor module",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/monitor/data/{type}": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "The newest monitor_data row of the given type (port of show_data.php). Defaults to the caller's first readable server; ?server_id= selects another readable server.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "monitor"
+                ],
+                "summary": "Latest monitor data for one check type",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Check type (cpu_info, disk_usage, services, ...)",
+                        "name": "type",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Server (default: first readable)",
+                        "name": "server_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.MonitorDataItem"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Session lacks the monitor module",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No sample collected yet",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/monitor/datalog": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Full sys_datalog change journal (processed and pending), newest first — port of datalog_list.php. Covers the caller's readable servers plus server_id=0 all-server rows; payload omitted, use the detail endpoint.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "monitor"
+                ],
+                "summary": "List datalog history",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Limit to one server",
+                        "name": "server_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Affected table filter",
+                        "name": "dbtable",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "i, u or d",
+                        "name": "action",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Panel user filter",
+                        "name": "user",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "1-based page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 25,
+                        "description": "Page size (max 100)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.DatalogList"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Session lacks the monitor module",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/monitor/datalog/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "One sys_datalog row with its {old,new} field diff dual-decoded (JSON first, PHP serialize fallback) — port of datalog_view.php, read-only (no undo). 404 when the row targets a server the caller may not read.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "monitor"
+                ],
+                "summary": "Datalog entry detail",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "datalog_id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.DatalogItem"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Session lacks the monitor module",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Unknown id or unreadable server",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/monitor/jobqueue": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "sys_datalog rows not yet processed by the daemon (datalog_id \u003e server.updated, including server_id=0 all-server rows), oldest first — port of show_jobqueue.php. Covers the caller's readable servers; ?server_id= narrows to one.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "monitor"
+                ],
+                "summary": "List pending jobqueue entries",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Limit to one server",
+                        "name": "server_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Affected table filter",
+                        "name": "dbtable",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "i, u or d",
+                        "name": "action",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "1-based page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 25,
+                        "description": "Page size (max 100)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.DatalogList"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Session lacks the monitor module",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/monitor/jobqueue/count": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Number of sys_datalog rows not yet processed by the daemon across the caller's readable servers (including server_id=0 all-server rows). ?server_id= narrows to one server.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "monitor"
+                ],
+                "summary": "Count pending jobqueue entries",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Limit to one server",
+                        "name": "server_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.JobqueueCount"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Session lacks the monitor module",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/monitor/state": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Aggregated per-server system state (port of show_sys_state.php): newest monitor_data row per check type folded with the _setState severity order, plus human-readable messages for disk, load, services, updates and sys_log. Covers every server the caller may read; ?server_id= narrows to one.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "monitor"
+                ],
+                "summary": "System state overview",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Limit to one server",
+                        "name": "server_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/monitor.ServerState"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Session lacks the monitor module",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/monitor/sys-log": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Paginated sys_log rows for the caller's readable servers, ordered by tstamp DESC (port of log_list.php). Cleared rows have loglevel 0.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "monitor"
+                ],
+                "summary": "List system log entries",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Limit to one server",
+                        "name": "server_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "0 debug, 1 warning, 2 error",
+                        "name": "loglevel",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Message substring filter",
+                        "name": "message",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "1-based page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 25,
+                        "description": "Page size (max 100)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.SysLogList"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Session lacks the monitor module",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/monitor/sys-log/clear": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Port of log_del.php: sets loglevel = 0 for one syslog_id or for every row of a loglevel — rows are never deleted. Admin only; no sys_datalog row is written.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "monitor"
+                ],
+                "summary": "Clear system log entries (admin)",
+                "parameters": [
+                    {
+                        "description": "One of syslog_id or loglevel",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.SysLogClearRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.SysLogClearResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Neither selector given",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Not an admin",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/resellers": {
             "get": {
                 "security": [
@@ -8004,6 +8584,87 @@ const docTemplate = `{
                 }
             }
         },
+        "api.DatalogItem": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "description": "Action is i (insert), u (update) or d (delete).",
+                    "type": "string",
+                    "example": "u"
+                },
+                "data": {
+                    "description": "Data is the decoded {old,new} diff, nil when decode failed."
+                },
+                "data_raw": {
+                    "description": "DataRaw carries the raw payload when decoding failed.",
+                    "type": "string"
+                },
+                "datalog_id": {
+                    "description": "DatalogID is the journal row id.",
+                    "type": "integer"
+                },
+                "dbidx": {
+                    "description": "DBIdx is \"column:value\" of the affected primary key.",
+                    "type": "string",
+                    "example": "domain_id:7"
+                },
+                "dbtable": {
+                    "description": "DBTable is the affected table.",
+                    "type": "string",
+                    "example": "web_domain"
+                },
+                "decode_error": {
+                    "description": "DecodeError is set when the payload is neither JSON nor PHP serialize.",
+                    "type": "string"
+                },
+                "error": {
+                    "description": "Error is the daemon error message, if any.",
+                    "type": "string"
+                },
+                "server_id": {
+                    "description": "ServerID is the target server (0 = all servers).",
+                    "type": "integer"
+                },
+                "status": {
+                    "description": "Status is the daemon processing status.",
+                    "type": "string",
+                    "example": "ok"
+                },
+                "tstamp": {
+                    "description": "Tstamp is the change unix timestamp.",
+                    "type": "integer"
+                },
+                "user": {
+                    "description": "User is the panel user who made the change.",
+                    "type": "string",
+                    "example": "admin"
+                }
+            }
+        },
+        "api.DatalogList": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "description": "Items are the rows of the requested page (payload omitted; use the\ndetail endpoint).",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/api.DatalogItem"
+                    }
+                },
+                "limit": {
+                    "description": "Limit is the applied page size.",
+                    "type": "integer"
+                },
+                "page": {
+                    "description": "Page is the returned 1-based page number.",
+                    "type": "integer"
+                },
+                "total": {
+                    "description": "Total is the number of rows matching the filters.",
+                    "type": "integer"
+                }
+            }
+        },
         "api.ErrorInfo": {
             "type": "object",
             "properties": {
@@ -8116,6 +8777,15 @@ const docTemplate = `{
                 "name": {
                     "description": "Name identifies the tab.",
                     "type": "string"
+                }
+            }
+        },
+        "api.JobqueueCount": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "description": "Count is the number of unprocessed sys_datalog rows.",
+                    "type": "integer"
                 }
             }
         },
@@ -8382,6 +9052,40 @@ const docTemplate = `{
                 }
             }
         },
+        "api.MonitorDataItem": {
+            "type": "object",
+            "properties": {
+                "created": {
+                    "description": "Created is the collection unix timestamp.",
+                    "type": "integer"
+                },
+                "data": {
+                    "description": "Data is the decoded payload (object or array), nil when decode failed."
+                },
+                "data_raw": {
+                    "description": "DataRaw carries the raw payload when decoding failed.",
+                    "type": "string"
+                },
+                "decode_error": {
+                    "description": "DecodeError is set when the payload is neither JSON nor PHP serialize.",
+                    "type": "string"
+                },
+                "server_id": {
+                    "description": "ServerID is the collecting server.",
+                    "type": "integer"
+                },
+                "state": {
+                    "description": "State is the check severity (no_state/ok/info/warning/critical/error/unknown).",
+                    "type": "string",
+                    "example": "ok"
+                },
+                "type": {
+                    "description": "Type is the check id (cpu_info, disk_usage, services, ...).",
+                    "type": "string",
+                    "example": "disk_usage"
+                }
+            }
+        },
         "api.Option": {
             "type": "object",
             "properties": {
@@ -8466,6 +9170,52 @@ const docTemplate = `{
                     "description": "Username is the sys_user login name.",
                     "type": "string",
                     "example": "admin"
+                }
+            }
+        },
+        "api.SysLogClearRequest": {
+            "type": "object",
+            "properties": {
+                "loglevel": {
+                    "description": "Loglevel batch-clears every row of this level (1 warning, 2 error).",
+                    "type": "integer"
+                },
+                "syslog_id": {
+                    "description": "SyslogID clears one row.",
+                    "type": "integer"
+                }
+            }
+        },
+        "api.SysLogClearResponse": {
+            "type": "object",
+            "properties": {
+                "cleared": {
+                    "description": "Cleared is the number of rows whose loglevel was set to 0.",
+                    "type": "integer"
+                }
+            }
+        },
+        "api.SysLogList": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "description": "Items are the sys_log rows of the requested page, newest first.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.SysLog"
+                    }
+                },
+                "limit": {
+                    "description": "Limit is the applied page size.",
+                    "type": "integer"
+                },
+                "page": {
+                    "description": "Page is the returned 1-based page number.",
+                    "type": "integer"
+                },
+                "total": {
+                    "description": "Total is the number of rows matching the filters.",
+                    "type": "integer"
                 }
             }
         },
@@ -10508,6 +11258,29 @@ const docTemplate = `{
                 }
             }
         },
+        "model.SysLog": {
+            "type": "object",
+            "properties": {
+                "datalogID": {
+                    "type": "integer"
+                },
+                "loglevel": {
+                    "type": "integer"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "serverID": {
+                    "type": "integer"
+                },
+                "syslogID": {
+                    "type": "integer"
+                },
+                "tstamp": {
+                    "type": "integer"
+                }
+            }
+        },
         "model.WebDatabase": {
             "type": "object",
             "properties": {
@@ -10972,6 +11745,81 @@ const docTemplate = `{
                 },
                 "webFolderUserID": {
                     "type": "integer"
+                }
+            }
+        },
+        "monitor.CheckSummary": {
+            "type": "object",
+            "properties": {
+                "created": {
+                    "type": "integer"
+                },
+                "state": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "monitor.Message": {
+            "type": "object",
+            "properties": {
+                "severity": {
+                    "description": "Severity bucket: ok, info, warning, critical, error, unknown.",
+                    "type": "string"
+                },
+                "text": {
+                    "description": "Text is a short English summary (i18n keys resolved by the UI).",
+                    "type": "string"
+                },
+                "type": {
+                    "description": "Type is the monitor_data type that produced the message.",
+                    "type": "string"
+                }
+            }
+        },
+        "monitor.ServerState": {
+            "type": "object",
+            "properties": {
+                "checks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/monitor.CheckSummary"
+                    }
+                },
+                "counts": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer"
+                    }
+                },
+                "ispc_name": {
+                    "type": "string"
+                },
+                "ispc_version": {
+                    "type": "string"
+                },
+                "messages": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/monitor.Message"
+                    }
+                },
+                "os_name": {
+                    "type": "string"
+                },
+                "os_version": {
+                    "type": "string"
+                },
+                "server_id": {
+                    "type": "integer"
+                },
+                "server_name": {
+                    "type": "string"
+                },
+                "state": {
+                    "type": "string"
                 }
             }
         },

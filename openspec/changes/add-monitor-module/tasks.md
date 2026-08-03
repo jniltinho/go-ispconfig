@@ -28,7 +28,7 @@
 
 - [x] 4.1 Add monitor routes: `GET /api/monitor/state`, `GET /api/monitor/data`, `GET /api/monitor/data/{type}` with module gate + server scope; handler tests. Commit.
 - [x] 4.2 Add `GET /api/monitor/sys-log` and admin `POST /api/monitor/sys-log/clear`; tests for 403 non-admin and loglevel-zero semantics. Commit.
-- [ ] 4.3 Add `GET /api/monitor/jobqueue`, `GET /api/monitor/jobqueue/count`, `GET /api/monitor/datalog`, `GET /api/monitor/datalog/{id}`; tests for filters and dual decode. Commit.
+- [x] 4.3 Add `GET /api/monitor/jobqueue`, `GET /api/monitor/jobqueue/count`, `GET /api/monitor/datalog`, `GET /api/monitor/datalog/{id}`; tests for filters and dual decode. Commit.
 - [ ] 4.4 Extend `GET /api/system/scheduler` DTO with `spec` and `next_run` (admin-only preserved); compute next_run from stored spec; tests. Commit.
 - [ ] 4.5 Swaggo annotations for all new/changed endpoints; run `make swagger`; verify Swagger UI lists Monitor + updated scheduler schemas; CI staleness check green. Commit.
 

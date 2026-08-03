@@ -207,6 +207,92 @@ func TestMonitorSysLogListAndClear(t *testing.T) {
 		monitorPost(e, "adm", "/api/monitor/sys-log/clear", `{}`).Code)
 }
 
+func TestMonitorJobqueueAndDatalog(t *testing.T) {
+	db := monitorTestDB(t)
+	// server.updated = 2: datalog rows 1..2 are processed, 3+ are pending.
+	require.NoError(t, db.Exec(`UPDATE server SET updated = 2 WHERE server_id = 1`).Error)
+	rows := []model.SysDatalog{
+		{ServerID: 1, DBTable: "web_domain", DBIdx: "domain_id:1", Action: "i", Tstamp: 100, User: "admin",
+			Data: `{"old":null,"new":{"domain":"a.example.com"}}`, Status: "ok"},
+		{ServerID: 1, DBTable: "web_domain", DBIdx: "domain_id:1", Action: "u", Tstamp: 200, User: "admin",
+			Data:   `a:2:{s:3:"old";a:1:{s:6:"domain";s:13:"a.example.com";}s:3:"new";a:1:{s:6:"domain";s:13:"b.example.com";}}`,
+			Status: "ok"},
+		{ServerID: 1, DBTable: "mail_domain", DBIdx: "domain_id:2", Action: "i", Tstamp: 300, User: "admin",
+			Data: `{"old":null,"new":{"domain":"mail.example.com"}}`, Status: "pending"},
+		{ServerID: 0, DBTable: "sys_config", DBIdx: "name:x", Action: "u", Tstamp: 400, User: "admin",
+			Data: `{"old":1,"new":2}`, Status: "pending"},
+	}
+	for i := range rows {
+		require.NoError(t, db.Create(&rows[i]).Error)
+	}
+	e := monitorTestServer(t, db)
+
+	// Module gate applies to the new routes too.
+	for _, path := range []string{
+		"/api/monitor/jobqueue", "/api/monitor/jobqueue/count",
+		"/api/monitor/datalog", "/api/monitor/datalog/1",
+	} {
+		assert.Equal(t, http.StatusForbidden, monitorGet(e, "usr", path).Code, path)
+	}
+
+	// Jobqueue: only rows with datalog_id > server.updated (3 and 4, incl. server_id=0).
+	rec := monitorGet(e, "adm", "/api/monitor/jobqueue")
+	require.Equal(t, http.StatusOK, rec.Code)
+	var list DatalogList
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &list))
+	assert.EqualValues(t, 2, list.Total)
+	require.Len(t, list.Items, 2)
+	assert.EqualValues(t, 3, list.Items[0].DatalogID, "pending rows come oldest first")
+	assert.Empty(t, list.Items[0].Data, "list omits the payload")
+
+	// Jobqueue dbtable filter.
+	rec = monitorGet(e, "adm", "/api/monitor/jobqueue?dbtable=mail_domain")
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &list))
+	assert.EqualValues(t, 1, list.Total)
+
+	// Count matches the unfiltered pending list.
+	rec = monitorGet(e, "adm", "/api/monitor/jobqueue/count")
+	require.Equal(t, http.StatusOK, rec.Code)
+	assert.JSONEq(t, `{"count":2}`, rec.Body.String())
+
+	// Datalog history: all rows, newest first.
+	rec = monitorGet(e, "adm", "/api/monitor/datalog")
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &list))
+	assert.EqualValues(t, 4, list.Total)
+	assert.EqualValues(t, 4, list.Items[0].DatalogID)
+
+	// History filters.
+	rec = monitorGet(e, "adm", "/api/monitor/datalog?action=u")
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &list))
+	assert.EqualValues(t, 2, list.Total)
+
+	// Detail decodes JSON payloads.
+	rec = monitorGet(e, "adm", "/api/monitor/datalog/1")
+	require.Equal(t, http.StatusOK, rec.Code)
+	assert.Contains(t, rec.Body.String(), `"new":{"domain":"a.example.com"}`)
+
+	// Detail decodes legacy PHP-serialize payloads.
+	rec = monitorGet(e, "adm", "/api/monitor/datalog/2")
+	require.Equal(t, http.StatusOK, rec.Code)
+	assert.Contains(t, rec.Body.String(), `"b.example.com"`, "PHP serialize payload must decode")
+	assert.NotContains(t, rec.Body.String(), "decode_error")
+
+	// Unknown id → 404; bad id → 400.
+	assert.Equal(t, http.StatusNotFound, monitorGet(e, "adm", "/api/monitor/datalog/99").Code)
+	assert.Equal(t, http.StatusBadRequest, monitorGet(e, "adm", "/api/monitor/datalog/abc").Code)
+
+	// Monitor user without readable servers sees nothing.
+	rec = monitorGet(e, "mon", "/api/monitor/datalog")
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &list))
+	assert.EqualValues(t, 0, list.Total)
+	assert.Equal(t, http.StatusNotFound, monitorGet(e, "mon", "/api/monitor/datalog/1").Code,
+		"detail must not leak rows of unreadable servers")
+	rec = monitorGet(e, "mon", "/api/monitor/jobqueue/count")
+	require.Equal(t, http.StatusOK, rec.Code)
+	assert.JSONEq(t, `{"count":0}`, rec.Body.String())
+}
+
 func TestMonitorServersBadServerID(t *testing.T) {
 	e := monitorTestServer(t, monitorTestDB(t))
 	assert.Equal(t, http.StatusBadRequest, monitorGet(e, "adm", "/api/monitor/state?server_id=abc").Code)

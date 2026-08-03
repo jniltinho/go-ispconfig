@@ -25,6 +25,10 @@ func registerMonitorRoutes(g *echo.Group, d *Deps) {
 	mg.GET("/data/:type", monitorDataTypeHandler(d))
 	mg.GET("/sys-log", monitorSysLogHandler(d))
 	mg.POST("/sys-log/clear", monitorSysLogClearHandler(d), requireAdmin)
+	mg.GET("/jobqueue", monitorJobqueueHandler(d))
+	mg.GET("/jobqueue/count", monitorJobqueueCountHandler(d))
+	mg.GET("/datalog", monitorDatalogListHandler(d))
+	mg.GET("/datalog/:id", monitorDatalogDetailHandler(d))
 }
 
 // requireMonitorModule rejects sessions without the monitor module (403).
@@ -206,14 +210,7 @@ func monitorSysLogHandler(d *Deps) echo.HandlerFunc {
 		if len(servers) == 0 {
 			return c.JSON(http.StatusOK, SysLogList{Items: []model.SysLog{}, Page: 1, Limit: 25})
 		}
-		page, _ := strconv.Atoi(c.QueryParamOr("page", "1"))
-		if page < 1 {
-			page = 1
-		}
-		limit, _ := strconv.Atoi(c.QueryParamOr("limit", "25"))
-		if limit < 1 || limit > 100 {
-			limit = 25
-		}
+		page, limit := pageParams(c)
 		f := monitor.SysLogFilter{
 			ServerIDs: monitor.ServerIDs(servers),
 			Message:   c.QueryParam("message"),
@@ -292,6 +289,243 @@ func monitorSysLogClearHandler(d *Deps) echo.HandlerFunc {
 		default:
 			return echo.NewHTTPError(http.StatusBadRequest, "syslog_id or loglevel required")
 		}
+	}
+}
+
+// DatalogItem is one sys_datalog row with its {old,new} payload dual-decoded
+// (JSON first, PHP serialize fallback for pre-cutover history).
+type DatalogItem struct {
+	// DatalogID is the journal row id.
+	DatalogID uint32 `json:"datalog_id"`
+	// ServerID is the target server (0 = all servers).
+	ServerID uint32 `json:"server_id"`
+	// DBTable is the affected table.
+	DBTable string `json:"dbtable" example:"web_domain"`
+	// DBIdx is "column:value" of the affected primary key.
+	DBIdx string `json:"dbidx" example:"domain_id:7"`
+	// Action is i (insert), u (update) or d (delete).
+	Action string `json:"action" example:"u"`
+	// Tstamp is the change unix timestamp.
+	Tstamp int32 `json:"tstamp"`
+	// User is the panel user who made the change.
+	User string `json:"user" example:"admin"`
+	// Status is the daemon processing status.
+	Status string `json:"status" example:"ok"`
+	// Error is the daemon error message, if any.
+	Error string `json:"error,omitempty"`
+	// Data is the decoded {old,new} diff, nil when decode failed.
+	Data any `json:"data,omitempty"`
+	// DataRaw carries the raw payload when decoding failed.
+	DataRaw string `json:"data_raw,omitempty"`
+	// DecodeError is set when the payload is neither JSON nor PHP serialize.
+	DecodeError string `json:"decode_error,omitempty"`
+}
+
+// datalogItem converts a sys_datalog row into the decoded API shape.
+// withData=false skips the payload (list views).
+func datalogItem(r model.SysDatalog, withData bool) DatalogItem {
+	it := DatalogItem{
+		DatalogID: r.DatalogID, ServerID: r.ServerID, DBTable: r.DBTable,
+		DBIdx: r.DBIdx, Action: r.Action, Tstamp: r.Tstamp, User: r.User,
+		Status: r.Status, Error: r.Error,
+	}
+	if withData {
+		dec := monitor.DecodePayload(r.Data)
+		it.Data, it.DataRaw, it.DecodeError = dec.Value, dec.Raw, dec.DecodeError
+	}
+	return it
+}
+
+// DatalogList is a paginated sys_datalog listing (jobqueue or history).
+type DatalogList struct {
+	// Items are the rows of the requested page (payload omitted; use the
+	// detail endpoint).
+	Items []DatalogItem `json:"items"`
+	// Total is the number of rows matching the filters.
+	Total int64 `json:"total"`
+	// Page is the returned 1-based page number.
+	Page int `json:"page"`
+	// Limit is the applied page size.
+	Limit int `json:"limit"`
+}
+
+// pageParams reads ?page= and ?limit= with defaults 1 / 25 (max 100).
+func pageParams(c *echo.Context) (page, limit int) {
+	page, _ = strconv.Atoi(c.QueryParamOr("page", "1"))
+	if page < 1 {
+		page = 1
+	}
+	limit, _ = strconv.Atoi(c.QueryParamOr("limit", "25"))
+	if limit < 1 || limit > 100 {
+		limit = 25
+	}
+	return page, limit
+}
+
+// datalogListJSON pages rows into the DatalogList response shape.
+func datalogListJSON(c *echo.Context, rows []model.SysDatalog, total int64, page, limit int) error {
+	items := make([]DatalogItem, 0, len(rows))
+	for _, r := range rows {
+		items = append(items, datalogItem(r, false))
+	}
+	return c.JSON(http.StatusOK, DatalogList{Items: items, Total: total, Page: page, Limit: limit})
+}
+
+// monitorJobqueueHandler implements GET /api/monitor/jobqueue.
+//
+//	@Summary		List pending jobqueue entries
+//	@Description	sys_datalog rows not yet processed by the daemon (datalog_id > server.updated, including server_id=0 all-server rows), oldest first — port of show_jobqueue.php. Covers the caller's readable servers; ?server_id= narrows to one.
+//	@Tags			monitor
+//	@Produce		json
+//	@Param			server_id	query		int		false	"Limit to one server"
+//	@Param			dbtable		query		string	false	"Affected table filter"
+//	@Param			action		query		string	false	"i, u or d"
+//	@Param			page		query		int		false	"1-based page number"	default(1)
+//	@Param			limit		query		int		false	"Page size (max 100)"	default(25)
+//	@Success		200			{object}	DatalogList
+//	@Failure		401			{object}	ErrorResponse
+//	@Failure		403			{object}	ErrorResponse	"Session lacks the monitor module"
+//	@Router			/monitor/jobqueue [get]
+//	@Security		CookieAuth
+//	@Security		BearerAuth
+func monitorJobqueueHandler(d *Deps) echo.HandlerFunc {
+	return func(c *echo.Context) error {
+		servers, err := monitorServers(c, d)
+		if err != nil {
+			return err
+		}
+		page, limit := pageParams(c)
+		rows, total, err := monitor.ListJobqueue(c.Request().Context(), d.DB, monitor.JobqueueFilter{
+			Servers: servers,
+			DBTable: c.QueryParam("dbtable"),
+			Action:  c.QueryParam("action"),
+			Limit:   limit,
+			Offset:  (page - 1) * limit,
+		})
+		if err != nil {
+			return err
+		}
+		return datalogListJSON(c, rows, total, page, limit)
+	}
+}
+
+// JobqueueCount reports the number of pending jobqueue entries.
+type JobqueueCount struct {
+	// Count is the number of unprocessed sys_datalog rows.
+	Count int64 `json:"count"`
+}
+
+// monitorJobqueueCountHandler implements GET /api/monitor/jobqueue/count.
+//
+//	@Summary		Count pending jobqueue entries
+//	@Description	Number of sys_datalog rows not yet processed by the daemon across the caller's readable servers (including server_id=0 all-server rows). ?server_id= narrows to one server.
+//	@Tags			monitor
+//	@Produce		json
+//	@Param			server_id	query		int	false	"Limit to one server"
+//	@Success		200			{object}	JobqueueCount
+//	@Failure		401			{object}	ErrorResponse
+//	@Failure		403			{object}	ErrorResponse	"Session lacks the monitor module"
+//	@Router			/monitor/jobqueue/count [get]
+//	@Security		CookieAuth
+//	@Security		BearerAuth
+func monitorJobqueueCountHandler(d *Deps) echo.HandlerFunc {
+	return func(c *echo.Context) error {
+		servers, err := monitorServers(c, d)
+		if err != nil {
+			return err
+		}
+		total, err := monitor.CountJobqueue(c.Request().Context(), d.DB, servers, nil)
+		if err != nil {
+			return err
+		}
+		return c.JSON(http.StatusOK, JobqueueCount{Count: total})
+	}
+}
+
+// monitorDatalogListHandler implements GET /api/monitor/datalog.
+//
+//	@Summary		List datalog history
+//	@Description	Full sys_datalog change journal (processed and pending), newest first — port of datalog_list.php. Covers the caller's readable servers plus server_id=0 all-server rows; payload omitted, use the detail endpoint.
+//	@Tags			monitor
+//	@Produce		json
+//	@Param			server_id	query		int		false	"Limit to one server"
+//	@Param			dbtable		query		string	false	"Affected table filter"
+//	@Param			action		query		string	false	"i, u or d"
+//	@Param			user		query		string	false	"Panel user filter"
+//	@Param			page		query		int		false	"1-based page number"	default(1)
+//	@Param			limit		query		int		false	"Page size (max 100)"	default(25)
+//	@Success		200			{object}	DatalogList
+//	@Failure		401			{object}	ErrorResponse
+//	@Failure		403			{object}	ErrorResponse	"Session lacks the monitor module"
+//	@Router			/monitor/datalog [get]
+//	@Security		CookieAuth
+//	@Security		BearerAuth
+func monitorDatalogListHandler(d *Deps) echo.HandlerFunc {
+	return func(c *echo.Context) error {
+		servers, err := monitorServers(c, d)
+		if err != nil {
+			return err
+		}
+		if len(servers) == 0 {
+			return c.JSON(http.StatusOK, DatalogList{Items: []DatalogItem{}, Page: 1, Limit: 25})
+		}
+		page, limit := pageParams(c)
+		// server_id=0 rows target all servers and are visible alongside any
+		// readable server.
+		ids := append(monitor.ServerIDs(servers), 0)
+		rows, total, err := monitor.ListDatalogHistory(c.Request().Context(), d.DB, monitor.DatalogHistoryFilter{
+			ServerIDs: ids,
+			DBTable:   c.QueryParam("dbtable"),
+			Action:    c.QueryParam("action"),
+			User:      c.QueryParam("user"),
+			Limit:     limit,
+			Offset:    (page - 1) * limit,
+		})
+		if err != nil {
+			return err
+		}
+		return datalogListJSON(c, rows, total, page, limit)
+	}
+}
+
+// monitorDatalogDetailHandler implements GET /api/monitor/datalog/{id}.
+//
+//	@Summary		Datalog entry detail
+//	@Description	One sys_datalog row with its {old,new} field diff dual-decoded (JSON first, PHP serialize fallback) — port of datalog_view.php, read-only (no undo). 404 when the row targets a server the caller may not read.
+//	@Tags			monitor
+//	@Produce		json
+//	@Param			id	path		int	true	"datalog_id"
+//	@Success		200	{object}	DatalogItem
+//	@Failure		401	{object}	ErrorResponse
+//	@Failure		403	{object}	ErrorResponse	"Session lacks the monitor module"
+//	@Failure		404	{object}	ErrorResponse	"Unknown id or unreadable server"
+//	@Router			/monitor/datalog/{id} [get]
+//	@Security		CookieAuth
+//	@Security		BearerAuth
+func monitorDatalogDetailHandler(d *Deps) echo.HandlerFunc {
+	return func(c *echo.Context) error {
+		id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "invalid id")
+		}
+		servers, err := monitor.ReadableServers(c.Request().Context(), d.DB, identity(c))
+		if err != nil {
+			return err
+		}
+		row, err := monitor.GetDatalog(c.Request().Context(), d.DB, uint32(id))
+		if err != nil {
+			return err // gorm.ErrRecordNotFound → 404 by the central error handler
+		}
+		readable := row.ServerID == 0 && len(servers) > 0
+		for _, s := range servers {
+			if s.ServerID == row.ServerID {
+				readable = true
+			}
+		}
+		if !readable {
+			return echo.NewHTTPError(http.StatusNotFound, "not found")
+		}
+		return c.JSON(http.StatusOK, datalogItem(row, true))
 	}
 }
 
