@@ -23,7 +23,7 @@ proposal now and get design/specs/tasks when scheduled.
 | `add-client-module` | Client/reseller management, limits, templates, messaging (`client_module`, interface client module) |
 | `add-database-module` | Client MySQL databases and users (`database_module`, `mysql_clientdb_plugin`) |
 | `add-ftp-shell-module` | FTP users (PureFTPd) and shell users incl. jailkit (`ftpuser_base`, `shelluser_*` plugins) |
-| `add-cron-module` | Client cron jobs (`cron_module`, `cron_plugin`) — executed by the go-ispconfig daemon scheduler |
+| `add-cron-module` | Client cron jobs (`cron_module`, `cron_plugin`) — executed by the go-ispconfig daemon scheduler — **implemented** ([docs/cron-module.md](cron-module.md)) |
 | `add-firewall-module` | UFW/nftables management (`firewall_plugin`) |
 | `add-monitor-module` | Server monitoring, logs, datalog history UI (`monitor_core_module`) |
 | `add-dns-powerdns-module` | PowerDNS as alternative DNS backend — same DNS UI/API, SQL zone sync (`powerdns_plugin`, `powerdns.sql`) |

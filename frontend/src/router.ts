@@ -14,6 +14,8 @@ import WebFolderUserList from './views/sites/WebFolderUserList.vue'
 import DatabaseList from './views/sites/DatabaseList.vue'
 import DatabaseForm from './views/sites/DatabaseForm.vue'
 import DatabaseUserList from './views/sites/DatabaseUserList.vue'
+import CronList from './views/sites/CronList.vue'
+import CronForm from './views/sites/CronForm.vue'
 import EntityForm from './views/sites/EntityForm.vue'
 import MailList from './views/mail/MailList.vue'
 import DomainForm from './views/mail/DomainForm.vue'
@@ -408,6 +410,14 @@ export const router = createRouter({
             backTo: `/sites/folders/${route.params.folderId}/users`,
             id: String(route.params.id),
           }),
+        },
+        { path: 'sites/crons', name: 'sites-crons', component: CronList },
+        { path: 'sites/crons/new', name: 'sites-cron-new', component: CronForm },
+        {
+          path: 'sites/crons/:id',
+          name: 'sites-cron-edit',
+          component: CronForm,
+          props: (route) => ({ id: String(route.params.id) }),
         },
         { path: 'sites/databases', name: 'sites-databases', component: DatabaseList },
         {

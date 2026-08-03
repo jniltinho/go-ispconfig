@@ -72,6 +72,7 @@ var allModels = []any{
 	MailDomain{}, MailUser{}, MailForwarding{}, MailTransport{}, MailAccess{},
 	SpamfilterPolicy{}, SpamfilterUser{}, SpamfilterWblist{},
 	WebDatabase{}, WebDatabaseUser{},
+	Cron{},
 }
 
 // TestModelsMatchDDL asserts that every GORM model maps exactly the columns

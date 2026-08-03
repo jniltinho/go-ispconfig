@@ -50,4 +50,27 @@ describe('sites store', () => {
     expect(store.error).toBe('error.forbidden')
     expect(store.loading).toBe(false)
   })
+
+  it('fetches a cron page and its run history through fetchList', async () => {
+    fetchMock.mockResolvedValueOnce(res(200, { items: [{ id: 7 }], total: 1, page: 1, limit: 25 }))
+    const store = useSitesStore()
+    const crons = await store.fetchList('/api/sites/crons', 1, 25, { active: 'y' })
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/sites/crons?page=1&limit=25&active=y')
+    expect(crons.items).toHaveLength(1)
+
+    fetchMock.mockResolvedValueOnce(
+      res(200, { items: [{ syslog_id: 3, status: 'ok' }], total: 1, page: 1, limit: 25 }),
+    )
+    const runs = await store.fetchList('/api/sites/crons/7/runs', 1, 25)
+    expect(fetchMock.mock.calls[1][0]).toBe('/api/sites/crons/7/runs?page=1&limit=25')
+    expect(runs.items[0].status).toBe('ok')
+  })
+
+  it('rejects with the API error key when the cron list is forbidden', async () => {
+    fetchMock.mockResolvedValueOnce(res(403, { error: { key: 'error.forbidden' } }))
+    const store = useSitesStore()
+    await expect(store.fetchList('/api/sites/crons', 1, 25)).rejects.toMatchObject({
+      key: 'error.forbidden',
+    })
+  })
 })

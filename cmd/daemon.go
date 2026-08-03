@@ -21,6 +21,7 @@ import (
 	"go-ispconfig/internal/clientdb"
 	"go-ispconfig/internal/clients"
 	"go-ispconfig/internal/config"
+	"go-ispconfig/internal/cron"
 	"go-ispconfig/internal/database"
 	"go-ispconfig/internal/dns"
 	"go-ispconfig/internal/engine"
@@ -112,8 +113,39 @@ var daemonCmd = &cobra.Command{
 			modules = append(modules, clientdb.NewModule())
 			plugins = append(plugins, clientdb.NewPlugin(db, runner, cfg.Database.ClientDBConf, srv.ServerID, logger))
 		}
+		// Cron module + client-job plugin: only on web servers with the
+		// module enabled in config.toml (cron-module-events / design D1:
+		// server.web_server = 1 and !disable_cron_module).
+		var cronPlugin *cron.Plugin
+		if cron.Enabled(srv.WebServer, cfg.Daemon.DisableCronModule) {
+			cronPlugin = cron.NewPlugin(db, srv.ServerID, cron.NewClientJobRunner(logger), logger)
+			modules = append(modules, cron.NewModule())
+			plugins = append(plugins, cronPlugin)
+		}
 		if err := reg.Load(modules, plugins); err != nil {
 			return err
+		}
+		if cronPlugin != nil {
+			// Legacy cutover (design D7): strip PHP ispc_* crontabs first so
+			// jobs never run both under vixie-cron and in-process.
+			crontabDir := cron.DefaultCrontabDir
+			if sc, err := getconf.GetServerConfig(db, srv.ServerID); err == nil {
+				crontabDir = cron.CrontabDir(sc)
+			} else {
+				logger.Warn("cron: could not load server config for crontab_dir", "error", err)
+			}
+			if removed, err := cron.RemoveLegacyCrontabs(crontabDir, logger); err != nil {
+				logger.Error("cron: legacy cutover failed", "error", err, "dir", crontabDir)
+			} else if len(removed) > 0 {
+				logger.Info("cron: legacy cutover complete", "removed", len(removed), "dir", crontabDir)
+			}
+			if n, err := cron.LoadActiveJobs(context.Background(), db, srv.ServerID, cronPlugin.Runner(), cronPlugin.JobFactory()); err != nil {
+				logger.Error("cron: loading active jobs failed", "error", err)
+			} else {
+				logger.Info("cron: active jobs loaded", "count", n)
+			}
+			cronPlugin.Runner().Start()
+			defer cronPlugin.Runner().Stop()
 		}
 
 		daemon, err := engine.NewDaemon(db, reg, services, logger)

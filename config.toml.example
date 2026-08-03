@@ -69,6 +69,7 @@ datalog_retention_days = 30
 # disable_mail_module = false
 # disable_firewall_module = false
 # disable_database_module = false
+# disable_cron_module = false
 # Emergency: stop client_delete teardown events.
 # disable_client_events = false
 

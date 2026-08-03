@@ -5084,6 +5084,330 @@
                 }
             }
         },
+        "/sites/crons": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sites"
+                ],
+                "summary": "List cron jobs",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "1-based page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 25,
+                        "description": "Page size (max 100)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.ListResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "parent_domain_id must reference a vhost readable by the caller; server_id and sys_groupid are forced from the parent. Schedule fields (run_min/hour/mday/month/wday) and command are validated (validate_cron rules). Type is auto-derived (URL scheme → url; else owner limit_cron_type → full/chrooted). Non-admin clients are subject to limit_cron, limit_cron_type and limit_cron_frequency. Writes sys_datalog; the daemon registers the job in-process (no OS crontab).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sites"
+                ],
+                "summary": "Create a cron job",
+                "parameters": [
+                    {
+                        "description": "Field values",
+                        "name": "record",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.Cron"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/model.Cron"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied or limit reached",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Per-field validation errors",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/sites/crons/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sites"
+                ],
+                "summary": "Get a cron job",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "cron id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.Cron"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied or record not found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "parent_domain_id is immutable. Type is re-derived from command. Non-admin frequency and type limits apply. Writes a sys_datalog update with {old,new}.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sites"
+                ],
+                "summary": "Update a cron job",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "cron id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Changed field values",
+                        "name": "record",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.Cron"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.Cron"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Per-field validation errors",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Removes the row and journals a datalog delete; the daemon unregisters the job.",
+                "tags": [
+                    "sites"
+                ],
+                "summary": "Delete a cron job",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "cron id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/sites/crons/{id}/runs": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Paginated sys_log rows matching the cron_run id=\u0026lt;id\u0026gt; message convention (newest first). Requires read permission on the cron row. Each item exposes status, exit, start/end unix times and the bounded output tail.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sites"
+                ],
+                "summary": "List cron run history",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "cron id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "1-based page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 25,
+                        "description": "Page size (max 100)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.cronRunListResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied or record not found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/sites/database-users": {
             "get": {
                 "security": [
@@ -6830,6 +7154,47 @@
         }
     },
     "definitions": {
+        "api.CronRunItem": {
+            "type": "object",
+            "properties": {
+                "end": {
+                    "description": "End is the run end unix time.",
+                    "type": "integer"
+                },
+                "exit": {
+                    "description": "Exit is the process exit code or HTTP status.",
+                    "type": "integer"
+                },
+                "loglevel": {
+                    "description": "Loglevel is the daemon log level stored on the row.",
+                    "type": "integer"
+                },
+                "output": {
+                    "description": "Output is the bounded output tail.",
+                    "type": "string"
+                },
+                "start": {
+                    "description": "Start is the run start unix time.",
+                    "type": "integer"
+                },
+                "status": {
+                    "description": "Status is ok|exit|timeout|error from the cron_run message.",
+                    "type": "string"
+                },
+                "syslog_id": {
+                    "description": "SyslogID is the sys_log primary key.",
+                    "type": "integer"
+                },
+                "tstamp": {
+                    "description": "Tstamp is the sys_log unix timestamp.",
+                    "type": "integer"
+                },
+                "type": {
+                    "description": "Type is the job type at execution time.",
+                    "type": "string"
+                }
+            }
+        },
         "api.DNSRecordType": {
             "type": "object",
             "properties": {
@@ -7459,6 +7824,26 @@
             "properties": {
                 "password": {
                     "type": "string"
+                }
+            }
+        },
+        "api.cronRunListResponse": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/api.CronRunItem"
+                    }
+                },
+                "limit": {
+                    "type": "integer"
+                },
+                "page": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
                 }
             }
         },
@@ -8387,6 +8772,62 @@
                     "type": "integer"
                 },
                 "printable_name": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.Cron": {
+            "type": "object",
+            "properties": {
+                "active": {
+                    "type": "string"
+                },
+                "command": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "log": {
+                    "type": "string"
+                },
+                "parentDomainID": {
+                    "type": "integer"
+                },
+                "runHour": {
+                    "type": "string"
+                },
+                "runMday": {
+                    "type": "string"
+                },
+                "runMin": {
+                    "type": "string"
+                },
+                "runMonth": {
+                    "type": "string"
+                },
+                "runWday": {
+                    "type": "string"
+                },
+                "serverID": {
+                    "type": "integer"
+                },
+                "sysGroupID": {
+                    "type": "integer"
+                },
+                "sysPermGroup": {
+                    "type": "string"
+                },
+                "sysPermOther": {
+                    "type": "string"
+                },
+                "sysPermUser": {
+                    "type": "string"
+                },
+                "sysUserID": {
+                    "type": "integer"
+                },
+                "type": {
                     "type": "string"
                 }
             }

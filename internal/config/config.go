@@ -107,6 +107,10 @@ type DaemonConfig struct {
 	// mysql_clientdb plugin even when server.db_server = 1 (spec
 	// database-module-events / design D15: config.toml enablement).
 	DisableDatabaseModule bool `toml:"disable_database_module" mapstructure:"disable_database_module"`
+	// DisableCronModule turns off the daemon cron module and client-job
+	// runner even when server.web_server = 1 (spec cron-module-events /
+	// design D1: config.toml enablement).
+	DisableCronModule bool `toml:"disable_cron_module" mapstructure:"disable_cron_module"`
 	// DisableClientEvents turns off the daemon client module (emergency
 	// rollback only; client_delete teardown stops firing while set).
 	DisableClientEvents bool `toml:"disable_client_events" mapstructure:"disable_client_events"`
@@ -138,6 +142,7 @@ func setDefaults() {
 	viper.SetDefault("daemon.disable_mail_module", false)
 	viper.SetDefault("daemon.disable_firewall_module", false)
 	viper.SetDefault("daemon.disable_database_module", false)
+	viper.SetDefault("daemon.disable_cron_module", false)
 	viper.SetDefault("auth.rehash_legacy", false)
 	viper.SetDefault("queue.addr", "localhost:6379")
 	viper.SetDefault("queue.db", 0)
