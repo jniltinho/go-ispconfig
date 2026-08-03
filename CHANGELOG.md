@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+—
+
+## [0.2.0] — 2026-08-03
+
+**Native Debian and RPM packages.** `make deb` and `make rpm` build installable
+packages, and the release workflow publishes both next to the tarball.
+
+### Added
+
+- `make deb` — Debian package (`go-ispconfig_<ver>_amd64.deb`) with the binary at
+  `/usr/local/bin/go-ispconfig`, both systemd units, the example config under
+  `/etc/go-ispconfig/`, and a `postinst` that creates the `go-ispconfig` system
+  user, the `sshusers` group and `/etc/go-ispconfig/ssl`
+- `make rpm` — RPM package (`go-ispconfig-<ver>-1.x86_64.rpm`) with the same
+  layout and `%post` scriptlet
+- Release workflow publishes the `.deb` and `.rpm` alongside the tarball
+
 ## [0.1.0] — 2026-08-03
 
 First public release. ISPConfig3 panel re-implemented in Go + Vue 3. Apache 2.4 and nginx web servers, Bind and PowerDNS, MariaDB, Dovecot + Rspamd, pure-ftpd + shell users, fail2ban + getmail, multi-server management.

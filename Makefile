@@ -17,6 +17,11 @@ GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 
 LDFLAGS    := -trimpath -ldflags "-s -w -X $(PREFIX).Version=$(VERSION) -X $(PREFIX).BuildDate=$(BUILD_TIME) -X $(PREFIX).GitCommit=$(GIT_COMMIT)"
 
+## Package versions: strip the leading "v" (deb), and "-" is illegal in an
+## RPM version field, so untagged builds (v0.1.0-3-gabc) become 0.1.0_3_gabc.
+DEB_VERSION := $(shell echo $(VERSION) | sed 's/^v//')
+RPM_VERSION := $(shell echo $(DEB_VERSION) | tr '-' '_')
+
 ## Vagrant test rig (vagrant/): VM=ubuntu (default) or debian
 VM        ?= ubuntu
 PANEL_IP  := $(if $(filter debian,$(VM)),192.168.56.11,192.168.56.10)
@@ -25,7 +30,7 @@ LINUX_BIN := bin/go-ispconfig-linux-amd64
 .PHONY: all build build-prod build-linux run clean frontend frontend-dev \
         migrate tidy deps deps-frontend install-upx lint swagger e2e-theme e2e-clients e2e-mail e2e-firewall e2e-database e2e-cron \
         e2e-ftp-shell e2e-ui-qa \
-        swagger-check test test-race help \
+        swagger-check test test-race help deb rpm \
         vagrant-up vagrant-test vagrant-destroy vagrant-lab-up vagrant-lab-fixtures \
         vagrant-lab-status vagrant-parity-test
 
@@ -228,6 +233,95 @@ vagrant-lab-status:
 vagrant-parity-test:
 	bash vagrant/parity/parity-test.sh
 
+## Debian package. Layout matches what the units expect (ExecStart
+## /usr/local/bin/go-ispconfig, --config /etc/go-ispconfig/config.toml) and
+## what `go-ispconfig install` writes, so the deb and the installer agree.
+## The example config is shipped, not config.toml: the real one is generated
+## by `go-ispconfig install` with the DB credentials.
+deb: build-prod
+	@echo "Building Debian package..."
+	rm -rf build/deb
+	mkdir -p build/deb/usr/local/bin
+	mkdir -p build/deb/etc/go-ispconfig
+	mkdir -p build/deb/etc/systemd/system
+	mkdir -p build/deb/usr/share/doc/go-ispconfig
+	mkdir -p build/deb/DEBIAN
+	cp $(BIN) build/deb/usr/local/bin/go-ispconfig
+	chmod 755 build/deb/usr/local/bin/go-ispconfig
+	cp config.toml.example build/deb/etc/go-ispconfig/config.toml.example
+	chmod 644 build/deb/etc/go-ispconfig/config.toml.example
+	cp init/systemd/go-ispconfig-serve.service build/deb/etc/systemd/system/
+	cp init/systemd/go-ispconfig-daemon.service build/deb/etc/systemd/system/
+	chmod 644 build/deb/etc/systemd/system/go-ispconfig-*.service
+	cp docs/install.md build/deb/usr/share/doc/go-ispconfig/
+	chmod 644 build/deb/usr/share/doc/go-ispconfig/install.md
+	@echo "Package: go-ispconfig" > build/deb/DEBIAN/control
+	@echo "Version: $(DEB_VERSION)" >> build/deb/DEBIAN/control
+	@echo "Section: web" >> build/deb/DEBIAN/control
+	@echo "Priority: optional" >> build/deb/DEBIAN/control
+	@echo "Architecture: amd64" >> build/deb/DEBIAN/control
+	@echo "Maintainer: jniltinho <jniltinho@gmail.com>" >> build/deb/DEBIAN/control
+	@echo "Description: go-ispconfig - ISPConfig3 panel in Go + Vue 3" >> build/deb/DEBIAN/control
+	@echo " Self-contained hosting panel for nginx/apache2, Bind/PowerDNS," >> build/deb/DEBIAN/control
+	@echo " MariaDB, Dovecot, Rspamd, pure-ftpd, fail2ban and getmail." >> build/deb/DEBIAN/control
+	@echo " Run 'go-ispconfig install' after installing this package." >> build/deb/DEBIAN/control
+	@printf '%s\n' '#!/bin/sh' 'set -e' \
+		'getent group sshusers >/dev/null || groupadd --system sshusers' \
+		'id -u go-ispconfig >/dev/null 2>&1 || useradd --system --user-group \' \
+		'  --home-dir /etc/go-ispconfig --no-create-home \' \
+		'  --shell /usr/sbin/nologin go-ispconfig' \
+		'install -d -o go-ispconfig -g go-ispconfig -m 0750 /etc/go-ispconfig/ssl' \
+		'systemctl daemon-reload >/dev/null 2>&1 || true' \
+		> build/deb/DEBIAN/postinst
+	chmod 755 build/deb/DEBIAN/postinst
+	find build/deb -type d -exec chmod 755 {} +
+	dpkg-deb --root-owner-group --build build/deb go-ispconfig_$(DEB_VERSION)_amd64.deb
+	rm -rf build/deb
+	@echo "Debian package created: go-ispconfig_$(DEB_VERSION)_amd64.deb"
+
+## RPM package. Same layout as the deb.
+rpm: build-prod
+	@echo "Building RPM package..."
+	rm -rf build/rpm
+	mkdir -p build/rpm/BUILD build/rpm/RPMS build/rpm/SOURCES build/rpm/SPECS build/rpm/SRPMS
+	@echo "Name: go-ispconfig" > build/rpm/SPECS/go-ispconfig.spec
+	@echo "Version: $(RPM_VERSION)" >> build/rpm/SPECS/go-ispconfig.spec
+	@echo "Release: 1" >> build/rpm/SPECS/go-ispconfig.spec
+	@echo "Summary: ISPConfig3 hosting panel in Go + Vue 3" >> build/rpm/SPECS/go-ispconfig.spec
+	@echo "License: BSD-3-Clause" >> build/rpm/SPECS/go-ispconfig.spec
+	@echo "URL: https://github.com/jniltinho/go-ispconfig" >> build/rpm/SPECS/go-ispconfig.spec
+	@echo "%description" >> build/rpm/SPECS/go-ispconfig.spec
+	@echo "Self-contained hosting panel for nginx/apache2, Bind/PowerDNS, MariaDB," >> build/rpm/SPECS/go-ispconfig.spec
+	@echo "Dovecot, Rspamd, pure-ftpd, fail2ban and getmail." >> build/rpm/SPECS/go-ispconfig.spec
+	@echo "Run 'go-ispconfig install' after installing this package." >> build/rpm/SPECS/go-ispconfig.spec
+	@echo "%install" >> build/rpm/SPECS/go-ispconfig.spec
+	@echo "mkdir -p %{buildroot}/usr/local/bin" >> build/rpm/SPECS/go-ispconfig.spec
+	@echo "mkdir -p %{buildroot}/etc/go-ispconfig" >> build/rpm/SPECS/go-ispconfig.spec
+	@echo "mkdir -p %{buildroot}/etc/systemd/system" >> build/rpm/SPECS/go-ispconfig.spec
+	@echo "mkdir -p %{buildroot}/usr/share/doc/go-ispconfig" >> build/rpm/SPECS/go-ispconfig.spec
+	@echo "install -m 755 $(CURDIR)/$(BIN) %{buildroot}/usr/local/bin/go-ispconfig" >> build/rpm/SPECS/go-ispconfig.spec
+	@echo "install -m 644 $(CURDIR)/config.toml.example %{buildroot}/etc/go-ispconfig/config.toml.example" >> build/rpm/SPECS/go-ispconfig.spec
+	@echo "install -m 644 $(CURDIR)/init/systemd/go-ispconfig-serve.service %{buildroot}/etc/systemd/system/" >> build/rpm/SPECS/go-ispconfig.spec
+	@echo "install -m 644 $(CURDIR)/init/systemd/go-ispconfig-daemon.service %{buildroot}/etc/systemd/system/" >> build/rpm/SPECS/go-ispconfig.spec
+	@echo "install -m 644 $(CURDIR)/docs/install.md %{buildroot}/usr/share/doc/go-ispconfig/" >> build/rpm/SPECS/go-ispconfig.spec
+	@echo "%post" >> build/rpm/SPECS/go-ispconfig.spec
+	@echo "getent group sshusers >/dev/null || groupadd --system sshusers" >> build/rpm/SPECS/go-ispconfig.spec
+	@echo "id -u go-ispconfig >/dev/null 2>&1 || useradd --system --user-group --home-dir /etc/go-ispconfig --no-create-home --shell /usr/sbin/nologin go-ispconfig" >> build/rpm/SPECS/go-ispconfig.spec
+	@echo "install -d -o go-ispconfig -g go-ispconfig -m 0750 /etc/go-ispconfig/ssl" >> build/rpm/SPECS/go-ispconfig.spec
+	@echo "systemctl daemon-reload >/dev/null 2>&1 || true" >> build/rpm/SPECS/go-ispconfig.spec
+	@echo "%files" >> build/rpm/SPECS/go-ispconfig.spec
+	@echo "%defattr(-,root,root,-)" >> build/rpm/SPECS/go-ispconfig.spec
+	@echo "/usr/local/bin/go-ispconfig" >> build/rpm/SPECS/go-ispconfig.spec
+	@echo "%dir /etc/go-ispconfig" >> build/rpm/SPECS/go-ispconfig.spec
+	@echo "%config(noreplace) /etc/go-ispconfig/config.toml.example" >> build/rpm/SPECS/go-ispconfig.spec
+	@echo "/etc/systemd/system/go-ispconfig-serve.service" >> build/rpm/SPECS/go-ispconfig.spec
+	@echo "/etc/systemd/system/go-ispconfig-daemon.service" >> build/rpm/SPECS/go-ispconfig.spec
+	@echo "%doc /usr/share/doc/go-ispconfig/install.md" >> build/rpm/SPECS/go-ispconfig.spec
+	rpmbuild -bb --define "_topdir $(CURDIR)/build/rpm" build/rpm/SPECS/go-ispconfig.spec
+	find build/rpm/RPMS -name "*.rpm" -exec mv {} . \;
+	rm -rf build/rpm
+	@echo "RPM package created: go-ispconfig-$(RPM_VERSION)-1.x86_64.rpm"
+
 install-upx:
 	@echo "Installing UPX $(UPX_VERSION)..."
 	curl -sSL "$(UPX_URL)" -o "$(UPX_ARCHIVE)"
@@ -244,6 +338,8 @@ help:
 	@echo "  frontend-dev     - Start Vite dev server (:5173)"
 	@echo "  build            - Build Go binary (requires web/dist/)"
 	@echo "  build-prod       - Full prod build with UPX compression"
+	@echo "  deb              - Build the .deb package (dpkg-deb)"
+	@echo "  rpm              - Build the .rpm package (rpmbuild)"
 	@echo "  test             - Run unit tests (./internal/...)"
 	@echo "  test-race        - Unit tests with race detector"
 	@echo "  lint             - Run golangci-lint"

@@ -44,8 +44,13 @@ jobs:
       - name: Frontend Tests
         run: cd frontend && npm test
 
-      - name: Build Application
-        run: make all
+      - name: Install Packaging Tools
+        run: sudo apt-get update && sudo apt-get install -y upx-ucl rpm
+
+      # build-prod runs once for both targets, so bin/ holds the same
+      # UPX-compressed binary the packages ship.
+      - name: Build Packages
+        run: make deb rpm
 
       - name: Package Binary
         run: |
@@ -57,6 +62,9 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
         with:
-          files: ${{ env.ARCHIVE_NAME }}
+          files: |
+            ${{ env.ARCHIVE_NAME }}
+            go-ispconfig_*.deb
+            go-ispconfig-*.rpm
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -31,6 +31,10 @@ go-ispconfig
 *.out
 coverage.out
 tmp/
+build/
+*.deb
+*.rpm
+*.tar.gz
 
 # Frontend
 frontend/node_modules/
