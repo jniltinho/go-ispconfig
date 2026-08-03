@@ -1,5 +1,5 @@
-// Jail configuration merge and hash (task 4.1): server [jailkit] defaults,
-// per-site web_domain overrides, and the optional server_php.php_jk_section.
+// Package jailkit implements the ISPConfig3 jailkit chroot plugin for shell users.
+
 package jailkit
 
 import (

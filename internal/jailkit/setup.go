@@ -77,7 +77,7 @@ func (p *Plugin) addPrograms(ctx context.Context, dir string, programs, opts []s
 		if prog == "" {
 			continue
 		}
-		if info, err := os.Stat(prog); err != nil || !(info.Mode().IsRegular() || info.IsDir()) {
+		if info, err := os.Stat(prog); err != nil || (!info.Mode().IsRegular() && !info.IsDir()) {
 			// Relative names (lesspipe, unzip, …) are looked up later by the
 			// operator's PATH at jail build time; still pass them to jk_cp so
 			// the command argv matches PHP (which also checks is_file/is_dir
