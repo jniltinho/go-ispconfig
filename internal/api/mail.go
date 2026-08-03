@@ -38,8 +38,12 @@ func registerMailEntities(g *echo.Group, d *Deps) error {
 	if err := registerSpamfilterEntities(mg, d); err != nil {
 		return err
 	}
+	if err := registerFetchmailEntity(mg, d); err != nil {
+		return err
+	}
 	registerMailDomainRoutes(mg, d)
 	registerMailboxRoutes(mg, d)
+	registerRspamdRoutes(mg, d)
 	return nil
 }
 

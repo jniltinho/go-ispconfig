@@ -32,6 +32,7 @@ import ZoneWizard from './views/dns/ZoneWizard.vue'
 import SlaveZoneList from './views/dns/SlaveZoneList.vue'
 import TemplateList from './views/dns/TemplateList.vue'
 import MigrationWizard from './views/system/MigrationWizard.vue'
+import Fail2banView from './views/system/Fail2banView.vue'
 import MonitorState from './views/monitor/MonitorState.vue'
 import MonitorData from './views/monitor/MonitorData.vue'
 import MonitorSysLog from './views/monitor/MonitorSysLog.vue'
@@ -142,6 +143,34 @@ export const router = createRouter({
           name: 'mail-forwards-edit',
           component: EntityForm,
           props: (route) => ({ entity: 'forwards', apiBase: '/api/mail/forwards', backTo: '/mail/forwards', id: String(route.params.id) }),
+        },
+        {
+          path: 'mail/fetchmail',
+          name: 'mail-fetchmail',
+          component: MailList,
+          props: {
+            apiBase: '/api/mail/fetchmail', idField: 'mailget_id', formBase: '/mail/fetchmail',
+            columns: [
+              { key: 'active', label: 'mail.col.active' },
+              { key: 'type', label: 'mail.col.type' },
+              { key: 'source_server', label: 'mail.col.source_server' },
+              { key: 'source_username', label: 'mail.col.source_username' },
+              { key: 'destination', label: 'mail.col.destination' },
+            ],
+            titleKey: 'mail.fetchmail_title', addKey: 'mail.add_fetchmail',
+          },
+        },
+        {
+          path: 'mail/fetchmail/new',
+          name: 'mail-fetchmail-new',
+          component: EntityForm,
+          props: { entity: 'fetchmail', apiBase: '/api/mail/fetchmail', backTo: '/mail/fetchmail' },
+        },
+        {
+          path: 'mail/fetchmail/:id(\\d+)',
+          name: 'mail-fetchmail-edit',
+          component: EntityForm,
+          props: (route) => ({ entity: 'fetchmail', apiBase: '/api/mail/fetchmail', backTo: '/mail/fetchmail', id: String(route.params.id) }),
         },
         {
           path: 'mail/catchalls',
@@ -600,6 +629,12 @@ export const router = createRouter({
           component: EntityForm,
           meta: { adminOnly: true },
           props: (route) => ({ entity: 'firewall', apiBase: '/api/firewall', backTo: '/system/firewall', id: String(route.params.id), readonlyFields: ['server_id'] }),
+        },
+        {
+          path: 'system/fail2ban',
+          name: 'system-fail2ban',
+          component: Fail2banView,
+          meta: { adminOnly: true },
         },
         {
           path: 'system/migration',

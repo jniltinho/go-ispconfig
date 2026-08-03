@@ -121,15 +121,18 @@ var daemonCmd = &cobra.Command{
 			jailkit.NewPlugin(db, runner, logger),
 		}
 		var mailPlugin *mail.Plugin
+		var getmailPlugin *mail.GetmailPlugin
 		// Mail module: only on mail servers (mail-module-events spec:
 		// server.mail_server = 1).
 		if srv.MailServer == 1 && !cfg.Daemon.DisableMailModule {
 			modules = append(modules, mail.NewModule())
 			mailPlugin = mail.NewPlugin(db, services, runner, srv.ServerID, logger)
+			getmailPlugin = mail.NewGetmailPlugin(mailPlugin, cfg.Templates.CustomDir)
 			plugins = append(plugins, mailPlugin,
 				mail.NewMaildeliverPlugin(mailPlugin, cfg.Templates.CustomDir),
 				mail.NewDkimPlugin(mailPlugin),
-				mail.NewRspamdPlugin(mailPlugin, cfg.Templates.CustomDir))
+				mail.NewRspamdPlugin(mailPlugin, cfg.Templates.CustomDir),
+				getmailPlugin)
 			mail.RegisterServices(services)
 		}
 		// DNS module: bind or powerdns backend, never both (design D2 of
@@ -252,6 +255,9 @@ var daemonCmd = &cobra.Command{
 		}
 		if mailPlugin != nil {
 			if err := mailPlugin.RegisterPurgeJob(sched); err != nil {
+				return err
+			}
+			if err := getmailPlugin.RegisterFetchJob(sched); err != nil {
 				return err
 			}
 		}

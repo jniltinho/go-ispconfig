@@ -1,0 +1,5 @@
+# Global Rspamd score thresholds (managed by go-ispconfig, [mail] getconf).
+# Per-identity overrides live in local.d/users/*.conf and win over these.
+greylist = <tmpl_var name='rspamd_greylisting_level'>;
+add_header = <tmpl_var name='rspamd_spam_tag_level'>;
+reject = <tmpl_var name='rspamd_spam_kill_level'>;

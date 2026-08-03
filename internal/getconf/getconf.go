@@ -161,19 +161,24 @@ func NormalizeDNSBackend(v string) string {
 // of add-mail-module). Values are strings exactly as ISPConfig stores
 // them; key names follow server.ini.master.
 type MailConfig struct {
-	Module                   string `ini:"module"`
-	MaildirPath              string `ini:"maildir_path"`
-	HomedirPath              string `ini:"homedir_path"`
-	MaildirFormat            string `ini:"maildir_format"`
-	DKIMPath                 string `ini:"dkim_path"`
-	DKIMStrength             string `ini:"dkim_strength"`
-	ContentFilter            string `ini:"content_filter"`
-	RspamdPassword           string `ini:"rspamd_password"`
-	RspamdURL                string `ini:"rspamd_url"`
-	RspamdRedisServers       string `ini:"rspamd_redis_servers"`
-	RspamdRedisPasswd        string `ini:"rspamd_redis_passwd"`
-	RspamdRedisBayesServers  string `ini:"rspamd_redis_bayes_servers"`
-	RspamdRedisBayesPasswd   string `ini:"rspamd_redis_bayes_passwd"`
+	Module                  string `ini:"module"`
+	MaildirPath             string `ini:"maildir_path"`
+	HomedirPath             string `ini:"homedir_path"`
+	MaildirFormat           string `ini:"maildir_format"`
+	DKIMPath                string `ini:"dkim_path"`
+	DKIMStrength            string `ini:"dkim_strength"`
+	ContentFilter           string `ini:"content_filter"`
+	RspamdPassword          string `ini:"rspamd_password"`
+	RspamdURL               string `ini:"rspamd_url"`
+	RspamdRedisServers      string `ini:"rspamd_redis_servers"`
+	RspamdRedisPasswd       string `ini:"rspamd_redis_passwd"`
+	RspamdRedisBayesServers string `ini:"rspamd_redis_bayes_servers"`
+	RspamdRedisBayesPasswd  string `ini:"rspamd_redis_bayes_passwd"`
+	// Global Rspamd action thresholds rendered into
+	// local.d/actions.conf; per-identity settings files override them.
+	RspamdSpamTagLevel       string `ini:"rspamd_spam_tag_level"`
+	RspamdSpamKillLevel      string `ini:"rspamd_spam_kill_level"`
+	RspamdGreylistingLevel   string `ini:"rspamd_greylisting_level"`
 	POP3IMAPDaemon           string `ini:"pop3_imap_daemon"`
 	MailFilterSyntax         string `ini:"mail_filter_syntax"`
 	MailuserUID              string `ini:"mailuser_uid"`
@@ -215,10 +220,34 @@ func DefaultMailConfig() MailConfig {
 		MailboxVirtualUidgidMaps: "n",
 		RspamdRedisServers:       "127.0.0.1",
 		RspamdRedisBayesServers:  "127.0.0.1",
+		RspamdSpamTagLevel:       "6",
+		RspamdSpamKillLevel:      "15",
+		RspamdGreylistingLevel:   "4",
 		MailboxSizeLimit:         "0",
 		MessageSizeLimit:         "0",
 		MailboxSoftDelete:        "0",
 		SendmailPath:             "/usr/sbin/sendmail",
+	}
+}
+
+// GetmailConfig is the typed [getmail] section of server.config
+// (add-getmail-module design D6). Only getmail_config_dir exists in
+// ISPConfig (server_config.tform.php Getmail tab); program and user are
+// PHP install-time constants promoted to config so a distro variant
+// needs no code change.
+type GetmailConfig struct {
+	ConfigDir string `ini:"getmail_config_dir"`
+	Program   string `ini:"getmail_program"`
+	User      string `ini:"getmail_user"`
+}
+
+// DefaultGetmailConfig returns the Debian/Ubuntu defaults of the
+// [getmail] section.
+func DefaultGetmailConfig() GetmailConfig {
+	return GetmailConfig{
+		ConfigDir: "/etc/getmail",
+		Program:   "/usr/bin/getmail",
+		User:      "getmail",
 	}
 }
 
@@ -258,6 +287,7 @@ type ServerConfig struct {
 	Web     WebConfig
 	DNS     DNSConfig
 	Mail    MailConfig
+	Getmail GetmailConfig
 	Jailkit JailkitConfig
 	Raw     Sections
 }
@@ -283,11 +313,13 @@ func GetServerConfig(db *gorm.DB, serverID uint32) (*ServerConfig, error) {
 		Raw:     raw,
 		DNS:     DefaultDNSConfig(),
 		Mail:    DefaultMailConfig(),
+		Getmail: DefaultGetmailConfig(),
 		Jailkit: DefaultJailkitConfig(),
 	}
 	decodeSection(raw["web"], &cfg.Web)
 	decodeSection(raw["dns"], &cfg.DNS)
 	decodeSection(raw["mail"], &cfg.Mail)
+	decodeSection(raw["getmail"], &cfg.Getmail)
 	decodeSection(raw["jailkit"], &cfg.Jailkit)
 	// Empty dns_backend (or garbage) must not leave the daemon without a
 	// known applying plugin — normalize after decode.

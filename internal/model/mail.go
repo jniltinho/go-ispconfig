@@ -141,3 +141,28 @@ type MailAccess struct {
 
 // TableName implements the GORM naming override.
 func (MailAccess) TableName() string { return "mail_access" }
+
+// MailGet maps mail_get (external POP3/IMAP accounts fetched by getmail
+// into a local mailbox). SourcePassword is stored in cleartext because
+// getmail must present it to the remote server; it is never returned by
+// the API (add-getmail-module design D7).
+type MailGet struct {
+	MailgetID      uint32 `gorm:"column:mailget_id;primaryKey;autoIncrement"`
+	SysUserID      uint32 `gorm:"column:sys_userid"`
+	SysGroupID     uint32 `gorm:"column:sys_groupid"`
+	SysPermUser    string `gorm:"column:sys_perm_user"`
+	SysPermGroup   string `gorm:"column:sys_perm_group"`
+	SysPermOther   string `gorm:"column:sys_perm_other"`
+	ServerID       uint32 `gorm:"column:server_id"`
+	Type           string `gorm:"column:type;default:pop3"`
+	SourceServer   string `gorm:"column:source_server"`
+	SourceUsername string `gorm:"column:source_username"`
+	SourcePassword string `gorm:"column:source_password"`
+	SourceDelete   string `gorm:"column:source_delete;default:y"`
+	SourceReadAll  string `gorm:"column:source_read_all;default:y"`
+	Destination    string `gorm:"column:destination"`
+	Active         string `gorm:"column:active;default:y"`
+}
+
+// TableName implements the GORM naming override.
+func (MailGet) TableName() string { return "mail_get" }
