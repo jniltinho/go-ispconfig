@@ -120,7 +120,7 @@ func CollectHarddiskQuota(ctx context.Context, db *gorm.DB, serverID uint32) ([]
 	return out, nil
 }
 
-// repquotaUsers parses `repquota -aug` block limits (KB) keyed by user.
+// repquotaUsers parses `repquota -au` block limits (KB) keyed by user.
 // An empty map means quotas are unavailable on this host.
 func repquotaUsers(ctx context.Context) map[string]HDQuotaEntry {
 	out := map[string]HDQuotaEntry{}
@@ -129,7 +129,9 @@ func repquotaUsers(ctx context.Context) map[string]HDQuotaEntry {
 	}
 	cctx, cancel := context.WithTimeout(ctx, quotaCmdTimeout)
 	defer cancel()
-	raw, err := exec.CommandContext(cctx, "repquota", "-aug").Output()
+	// -au only: the group section would collide with same-named users in
+	// the flat map, and websites are tracked per system_user.
+	raw, err := exec.CommandContext(cctx, "repquota", "-au").Output()
 	if err != nil {
 		return out
 	}

@@ -30,7 +30,13 @@ async function submit() {
     <div class="w-full max-w-sm border border-border bg-surface shadow-sm">
       <!-- Legacy login head: centered brand on a plain white band. -->
       <div class="flex items-center justify-center gap-3 border-b border-border bg-surface px-4 py-6">
-        <img src="/logo.svg" alt="" width="40" height="40" class="shrink-0" />
+        <img
+          src="/icon-isp-panel-256.png"
+          alt=""
+          width="72"
+          height="72"
+          class="size-18 shrink-0"
+        />
         <span class="text-xl font-bold text-brand">{{ t('app.title') }}</span>
       </div>
       <form class="space-y-4 p-6" @submit.prevent="submit">
