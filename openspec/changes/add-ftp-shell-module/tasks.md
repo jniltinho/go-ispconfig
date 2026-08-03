@@ -14,11 +14,11 @@
 
 ## 3. Shell base plugin (daemon)
 
-- [ ] 3.1 Implement `internal/shell` plugin port of `shelluser_base_plugin.inc.php` insert path: security kill-switch `allow_shell_user`, path/UID/user guards (`min_uid` 499), home layout (`dir/home`, user home, `.bash_history`/`.profile`/`.bashrc.d`/`.local/bin`, web/log/private symlinks), `useradd -o -u <puser_uid>`, `chpasswd -e`, temporary lock when `chroot=jailkit`; tests with fake runner asserting argv. Commit.
-- [ ] 3.2 Implement shell update path: homedir rename/move, `usermod`, missing-user fallthrough to insert, inactive → `/bin/false`; tests per branch. Commit.
-- [ ] 3.3 Implement shell delete path for non-jailkit users: optional PHP-FPM stop/start around `killall -u` + `userdel -f`, owned-dotfile cleanup when `dir` is unused; confirm jailkit users skip `userdel` here; tests. Commit.
-- [ ] 3.4 Implement `_setup_ssh_rsa` port: merge site shell_user keys + client `ssh_rsa`, write `.ssh/authorized_keys` with correct modes/ownership for non-jailkit and jailkit home layouts; tests. Commit.
-- [ ] 3.5 Wire the shell plugin into the daemon bootstrap; end-to-end test with fake runner from datalog row → expected commands. Commit.
+- [x] 3.1 Implement `internal/shell` plugin port of `shelluser_base_plugin.inc.php` insert path: security kill-switch `allow_shell_user`, path/UID/user guards (`min_uid` 499), home layout (`dir/home`, user home, `.bash_history`/`.profile`/`.bashrc.d`/`.local/bin`, web/log/private symlinks), `useradd -o -u <puser_uid>`, `chpasswd -e`, temporary lock when `chroot=jailkit`; tests with fake runner asserting argv. Commit.
+- [x] 3.2 Implement shell update path: homedir rename/move, `usermod`, missing-user fallthrough to insert, inactive → `/bin/false`; tests per branch. Commit.
+- [x] 3.3 Implement shell delete path for non-jailkit users: optional PHP-FPM stop/start around `killall -u` + `userdel -f`, owned-dotfile cleanup when `dir` is unused; confirm jailkit users skip `userdel` here; tests. Commit.
+- [x] 3.4 Implement `_setup_ssh_rsa` port: merge site shell_user keys + client `ssh_rsa`, write `.ssh/authorized_keys` with correct modes/ownership for non-jailkit and jailkit home layouts; tests. Commit.
+- [x] 3.5 Wire the shell plugin into the daemon bootstrap; end-to-end test with fake runner from datalog row → expected commands. Commit.
 
 ## 4. Jailkit plugin (daemon)
 
