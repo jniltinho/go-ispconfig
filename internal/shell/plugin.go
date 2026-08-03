@@ -75,7 +75,10 @@ func (*Plugin) Name() string { return "shell" }
 // OnLoad subscribes to the shell_user events (port of
 // shelluser_base_plugin onLoad).
 func (p *Plugin) OnLoad(r *engine.Registry) error {
-	return r.RegisterEvent("shell_user_insert", p.shellUserInsert)
+	if err := r.RegisterEvent("shell_user_insert", p.shellUserInsert); err != nil {
+		return err
+	}
+	return r.RegisterEvent("shell_user_update", p.shellUserUpdate)
 }
 
 // shellUserInsert creates the system account and the home layout of a new
@@ -201,14 +204,24 @@ func (p *Plugin) writeHomeLayout(ctx context.Context, homedir, username, pgroup 
 		name    string
 		mode    os.FileMode
 		content string
+		keep    bool // leave the content of an existing file alone
 	}{
-		{".bash_history", 0o750, ""},
-		{".profile", 0o644, profileContent},
+		// PHP only touch()es the history, so an update must never truncate
+		// what the user has typed so far.
+		{".bash_history", 0o750, "", true},
+		{".profile", 0o644, profileContent, false},
 	}
 	for _, f := range files {
 		path := filepath.Join(homedir, f.name)
-		if err := os.WriteFile(path, []byte(f.content), f.mode); err != nil {
-			return fmt.Errorf("shell: writing %s: %w", path, err)
+		_, err := os.Stat(path)
+		switch {
+		case f.keep && err == nil:
+		case err != nil && !errors.Is(err, os.ErrNotExist):
+			return fmt.Errorf("shell: stat %s: %w", path, err)
+		default:
+			if err := os.WriteFile(path, []byte(f.content), f.mode); err != nil {
+				return fmt.Errorf("shell: writing %s: %w", path, err)
+			}
 		}
 		// WriteFile applies the process umask on creation, so set the mode.
 		if err := os.Chmod(path, f.mode); err != nil {
