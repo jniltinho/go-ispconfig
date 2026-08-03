@@ -44,12 +44,12 @@ func ftpUserEntity() *Entity {
 		return f
 	}
 	return &Entity{
-		Name:        "ftp-users",
-		Title:       "ftp_user_edit_title",
-		Prepare:     ftpUserPrepare,
-		AfterInsert: ftpUserAfterInsert,
+		Name:         "ftp-users",
+		Title:        "ftp_user_edit_title",
+		Prepare:      ftpUserPrepare,
+		AfterInsert:  ftpUserAfterInsert,
 		BeforeUpdate: ftpUserBeforeUpdate,
-		Decorate:    ftpShellDecorate("ftp_user", "ftp_user_id"),
+		Decorate:     ftpShellDecorate("ftp_user", "ftp_user_id"),
 		ListFilters: map[string]ListFilterFunc{
 			"_server_name":   relatedNameFilter("server_id", "server", "server_id", "server_name"),
 			"_parent_domain": relatedNameFilter("parent_domain_id", "web_domain", "domain_id", "domain"),

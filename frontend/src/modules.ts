@@ -19,6 +19,8 @@ export const modules: ModuleDef[] = [
       { labelKey: 'sidebar.sites.websites', path: '/sites' },
       { labelKey: 'sidebar.sites.folders', path: '/sites/folders' },
       { labelKey: 'sidebar.sites.crons', path: '/sites/crons' },
+      { labelKey: 'sidebar.sites.ftp_users', path: '/sites/ftp-users' },
+      { labelKey: 'sidebar.sites.shell_users', path: '/sites/shell-users' },
       { labelKey: 'sidebar.sites.databases', path: '/sites/databases' },
       { labelKey: 'sidebar.sites.database_users', path: '/sites/database-users' },
     ],

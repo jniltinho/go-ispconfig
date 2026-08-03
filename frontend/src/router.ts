@@ -16,6 +16,10 @@ import DatabaseForm from './views/sites/DatabaseForm.vue'
 import DatabaseUserList from './views/sites/DatabaseUserList.vue'
 import CronList from './views/sites/CronList.vue'
 import CronForm from './views/sites/CronForm.vue'
+import FTPUserList from './views/sites/FTPUserList.vue'
+import FTPUserForm from './views/sites/FTPUserForm.vue'
+import ShellUserList from './views/sites/ShellUserList.vue'
+import ShellUserForm from './views/sites/ShellUserForm.vue'
 import EntityForm from './views/sites/EntityForm.vue'
 import MailList from './views/mail/MailList.vue'
 import DomainForm from './views/mail/DomainForm.vue'
@@ -417,6 +421,20 @@ export const router = createRouter({
           path: 'sites/crons/:id',
           name: 'sites-cron-edit',
           component: CronForm,
+        { path: 'sites/ftp-users', name: 'sites-ftp-users', component: FTPUserList },
+          path: 'sites/ftp-users/new',
+          name: 'sites-ftp-user-new',
+          component: FTPUserForm,
+        },
+          path: 'sites/ftp-users/:id',
+          name: 'sites-ftp-user-edit',
+          props: (route) => ({ id: String(route.params.id) }),
+        { path: 'sites/shell-users', name: 'sites-shell-users', component: ShellUserList },
+          path: 'sites/shell-users/new',
+          name: 'sites-shell-user-new',
+          component: ShellUserForm,
+          path: 'sites/shell-users/:id',
+          name: 'sites-shell-user-edit',
           props: (route) => ({ id: String(route.params.id) }),
         },
         { path: 'sites/databases', name: 'sites-databases', component: DatabaseList },
