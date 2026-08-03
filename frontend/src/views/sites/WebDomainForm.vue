@@ -21,16 +21,23 @@ interface ListResponse {
   items: Record<string, unknown>[]
 }
 
-/** ipOptions returns vhost IPs for the selected server and address family. */
+/**
+ * ipOptions returns vhost IPs for the selected server and address family.
+ * The leading entry mirrors the legacy select so the field default stays
+ * selectable: '*' (wildcard) for IPv4, the empty "no IPv6" entry for IPv6.
+ */
 function ipOptions(field: string, values: Record<string, unknown>): Opt[] | undefined {
   if (field !== 'ip_address' && field !== 'ipv6_address') return undefined
-  const ipType = field === 'ip_address' ? 'IPv4' : 'IPv6'
+  const v4 = field === 'ip_address'
   const serverId = String(values.server_id ?? '')
   const rows = serverIPs.value.filter(
-    (r) => String(r.server_id) === serverId && r.ip_type === ipType,
+    (r) => String(r.server_id) === serverId && r.ip_type === (v4 ? 'IPv4' : 'IPv6'),
   )
   if (!rows.length) return undefined
-  return rows.map((r) => ({ value: r.ip_address, label: r.ip_address }))
+  return [
+    v4 ? { value: '*', label: '*' } : { value: '', label: '—' },
+    ...rows.map((r) => ({ value: r.ip_address, label: r.ip_address })),
+  ]
 }
 
 onMounted(async () => {
@@ -46,7 +53,12 @@ onMounted(async () => {
   try {
     const groups = await api.get<Opt[]>('/api/meta/lookups/client-groups')
     if (groups?.length) {
-      o.client_group_id = groups.map((g) => ({ value: String(g.value), label: String(g.label) }))
+      // Leading "no client" entry matches the entity default 0 (legacy
+      // <option value='0'>); picking it leaves the current owner untouched.
+      o.client_group_id = [
+        { value: '0', label: '—' },
+        ...groups.map((g) => ({ value: String(g.value), label: String(g.label) })),
+      ]
     }
   } catch {
     // client_group_id is admin-only; non-admins never see the field.
