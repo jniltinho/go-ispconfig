@@ -55,8 +55,8 @@ const activeTab = ref<string>('mailuser')
 const domains = ref<string[]>([])
 const policies = ref<{ value: string; label: string }[]>([])
 const policiesAvailable = ref(false)
-/** Existing spamfilter_users row of this email (id + assigned policy). */
-const spamUser = ref<{ id: number; policy_id: number } | null>(null)
+/** Existing spamfilter_users row of this email (id + policy + email for rename). */
+const spamUser = ref<{ id: number; policy_id: number; email: string } | null>(null)
 const errors = ref<Record<string, string[]>>({})
 const loadError = ref('')
 const datalogState = ref('')
@@ -158,7 +158,7 @@ onMounted(async () => {
       )
       const match = su.items.find((u) => u.email === email)
       if (match) {
-        spamUser.value = { id: match.id, policy_id: match.policy_id }
+        spamUser.value = { id: match.id, policy_id: match.policy_id, email: match.email }
         form.policy = String(match.policy_id)
       }
     }
@@ -168,22 +168,30 @@ onMounted(async () => {
 })
 
 // syncSpamfilterPolicy mirrors mail_user_edit.php onAfterInsert/Update:
-// update the existing spamfilter_users row when the policy changed, or
-// insert one (priority 7, local Y) when a policy is picked for the first
-// time. Best-effort: the mailbox itself is already saved.
+// update the existing spamfilter_users row when the policy or mailbox
+// email changed, or insert one (priority 7, local Y) when a policy is
+// picked for the first time. Best-effort: the mailbox itself is already saved.
 async function syncSpamfilterPolicy(saved: Record<string, unknown>) {
   const policyId = Number(form.policy)
+  const email = String(saved.email ?? '')
   if (spamUser.value) {
-    if (policyId !== spamUser.value.policy_id) {
-      await api.put(`/api/mail/spamfilter/users/${spamUser.value.id}`, { policy_id: policyId })
+    const patch: Record<string, unknown> = {}
+    if (policyId !== spamUser.value.policy_id) patch.policy_id = policyId
+    // Rename: keep spamfilter_users.email in lockstep (PHP onAfterUpdate).
+    if (email && email !== spamUser.value.email) {
+      patch.email = email
+      patch.fullname = email
+    }
+    if (Object.keys(patch).length) {
+      await api.put(`/api/mail/spamfilter/users/${spamUser.value.id}`, patch)
     }
   } else if (policyId > 0) {
     await api.post('/api/mail/spamfilter/users', {
       server_id: Number(saved.server_id ?? 0),
       priority: 7,
       policy_id: policyId,
-      email: String(saved.email ?? ''),
-      fullname: String(saved.email ?? ''),
+      email,
+      fullname: email,
       local: 'Y',
     })
   }
