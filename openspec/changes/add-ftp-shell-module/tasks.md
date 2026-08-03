@@ -9,8 +9,8 @@
 
 ## 2. FTP plugin (daemon)
 
-- [ ] 2.1 Implement `internal/ftp` plugin port of `ftpuser_base_plugin.inc.php`: subscribe to `ftp_user_insert|update|delete`; ensure dir under parent `document_root` (mkdir `0755` as site system_user/group with web_folder_protection toggle); delete old/new `.ftpquota` on dir change/delete; never call useradd/userdel; unit tests with fake filesystem/runner. Commit.
-- [ ] 2.2 Wire the FTP plugin into the daemon bootstrap next to the nginx plugin; integration-style test: datalog `ftp_user` insert → event → directory created under a temp docroot. Commit.
+- [x] 2.1 Implement `internal/ftp` plugin port of `ftpuser_base_plugin.inc.php`: subscribe to `ftp_user_insert|update|delete`; ensure dir under parent `document_root` (mkdir `0755` as site system_user/group with web_folder_protection toggle); delete old/new `.ftpquota` on dir change/delete; never call useradd/userdel; unit tests with fake filesystem/runner. Commit.
+- [x] 2.2 Wire the FTP plugin into the daemon bootstrap next to the nginx plugin; integration-style test: datalog `ftp_user` insert → event → directory created under a temp docroot. Commit.
 
 ## 3. Shell base plugin (daemon)
 
