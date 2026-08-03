@@ -9,12 +9,12 @@
 
 ## 2. PowerDNS plugin — zone/record/slave SQL sync
 
-- [ ] 2.1 Scaffold `internal/powerdns` Plugin: subscribe to the nine dns events, gate on server_id, inject PowerDNS DB + CommandRunner + logger; unit tests with fake registry. Commit.
-- [ ] 2.2 Implement pure mappers: origin strip, ns/hostmaster SOA content, RR name absolute/relative, content rules (CNAME/MX/NS/ALIAS/PTR/SRV, HINFO quote transform, default raw data), prio←aux; table-driven tests vs PHP fixtures. Commit.
-- [ ] 2.3 Implement `soa_insert` / `soa_update` / `soa_delete` handlers (active/inactive transitions, re-import active `dns_rr` on activate, MASTER domain + SOA record lifecycle). Commit.
-- [ ] 2.4 Implement `rr_insert` / `rr_update` / `rr_delete` (skip missing parent domain, skip duplicate ispconfig_id, never delete SOA via RR path). Commit.
-- [ ] 2.5 Implement `slave_insert` / `slave_update` / `slave_delete` (SLAVE domains, purge `ispconfig_id=0` cache records on update). Commit.
-- [ ] 2.6 Event-to-SQL integration tests against MariaDB: datalog-like payloads produce expected `powerdns.domains` / `powerdns.records` rows for master, RR, and slave scenarios. Commit.
+- [x] 2.1 Scaffold `internal/powerdns` Plugin: subscribe to the nine dns events, gate on server_id, inject PowerDNS DB + CommandRunner + logger; unit tests with fake registry. Commit.
+- [x] 2.2 Implement pure mappers: origin strip, ns/hostmaster SOA content, RR name absolute/relative, content rules (CNAME/MX/NS/ALIAS/PTR/SRV, HINFO quote transform, default raw data), prio←aux; table-driven tests vs PHP fixtures. Commit.
+- [x] 2.3 Implement `soa_insert` / `soa_update` / `soa_delete` handlers (active/inactive transitions, re-import active `dns_rr` on activate, MASTER domain + SOA record lifecycle). Commit.
+- [x] 2.4 Implement `rr_insert` / `rr_update` / `rr_delete` (skip missing parent domain, skip duplicate ispconfig_id, never delete SOA via RR path). Commit.
+- [x] 2.5 Implement `slave_insert` / `slave_update` / `slave_delete` (SLAVE domains, purge `ispconfig_id=0` cache records on update). Commit.
+- [x] 2.6 Event-to-SQL integration tests against MariaDB: datalog-like payloads produce expected `powerdns.domains` / `powerdns.records` rows for master, RR, and slave scenarios. Commit.
 
 ## 3. Control commands, service, and backend selection
 
