@@ -109,7 +109,35 @@ func (apache2Step) Run(ctx context.Context, st *State) error {
 	if _, err := st.Exec.Run(ctx, nil, "systemctl", "reload", p.ApacheService); err != nil {
 		return fmt.Errorf("reloading apache2: %w", err)
 	}
-	return nil
+	// The seeded server config always carries the nginx defaults; without
+	// this the daemon on an Apache host registers the nginx plugin and every
+	// site fails writing its vhost into /etc/nginx.
+	return setServerWebServer(st, WebServerApache)
+}
+
+// setServerWebServer persists the web server choice in the local server row:
+// [web] server_type (which plugin the daemon registers) and the vhost
+// directories that plugin writes into.
+func setServerWebServer(st *State, webServer string) error {
+	if st.DB == nil {
+		return nil
+	}
+	p := st.Profile
+	keys := map[string]string{
+		"server_type":                  "nginx",
+		"vhost_conf_dir":               p.NginxVhostConfDir,
+		"vhost_conf_enabled_dir":       p.NginxVhostEnabledDir,
+		"nginx_vhost_conf_dir":         p.NginxVhostConfDir,
+		"nginx_vhost_conf_enabled_dir": p.NginxVhostEnabledDir,
+	}
+	if webServer == WebServerApache {
+		// "apache" is the spelling getconf and the fail2ban jail selection
+		// compare against, matching ISPConfig's server.ini.
+		keys["server_type"] = "apache"
+		keys["vhost_conf_dir"] = p.ApacheVhostConfDir
+		keys["vhost_conf_enabled_dir"] = p.ApacheVhostEnabledDir
+	}
+	return updateServerConfig(st.DB, st.Answers.Hostname, "[web]", keys)
 }
 
 // apacheAcmeConf is the server-wide Let's Encrypt challenge alias. It is

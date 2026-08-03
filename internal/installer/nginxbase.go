@@ -37,6 +37,11 @@ func (nginxBaseStep) Run(ctx context.Context, st *State) error {
 			return fmt.Errorf("creating %s: %w", dir, err)
 		}
 	}
+	// Written before the Skip paths below: a host converted back from Apache
+	// must get server_type=nginx even when its nginx.conf needs no change.
+	if err := setServerWebServer(st, WebServerNginx); err != nil {
+		return err
+	}
 
 	nginxConf, err := os.ReadFile(filepath.Join(p.NginxConfigDir, "nginx.conf"))
 	if err != nil {
