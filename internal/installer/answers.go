@@ -29,7 +29,7 @@ type Answers struct {
 	// server the installer configures and which plugin the daemon loads.
 	// The two can never coexist — they would fight over port 80.
 	WebServer string
-	EnableDNS      bool
+	EnableDNS bool
 	// DNSBackend is "bind" (default) or "powerdns"; it selects the DNS
 	// packages, the configure step and server.config [dns] dns_backend.
 	DNSBackend    string
@@ -69,9 +69,9 @@ func answerFields() []answerField {
 		// Not prompted: unix-socket auth is the default (design D5); the
 		// flag/answers file covers hosts where socket auth is disabled.
 		{key: "db-root-password", def: s("")},
-		{key: "web", prompt: "Configure web server (nginx)? (y/n)", def: s("y"), boolean: true},
-		{key: "dns", prompt: "Configure DNS server? (y/n)", def: s("y"), boolean: true},
+		{key: "web", prompt: "Configure web server? (y/n)", def: s("y"), boolean: true},
 		{key: "web-server", prompt: "Web server (nginx/apache2)", def: s(WebServerNginx)},
+		{key: "dns", prompt: "Configure DNS server? (y/n)", def: s("y"), boolean: true},
 		{key: "dns-backend", prompt: "DNS backend (bind/powerdns)", def: s(getconf.DNSBackendBind)},
 		{key: "php-fpm", prompt: "Install PHP-FPM for hosted sites? (y/n)", def: s("y"), boolean: true},
 		{key: "acme", prompt: "Install acme.sh for site Let's Encrypt certificates? (y/n)", def: s("n"), boolean: true},

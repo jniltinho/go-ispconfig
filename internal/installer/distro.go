@@ -46,8 +46,8 @@ type Profile struct {
 	ApacheConfigDir       string
 	ApacheVhostConfDir    string
 	ApacheVhostEnabledDir string
-	NginxUser            string
-	NginxGroup           string
+	NginxUser             string
+	NginxGroup            string
 
 	// bind paths (dist/conf $conf['bind']).
 	BindUser             string
@@ -130,8 +130,8 @@ func profileFor(id, name string) *Profile {
 		ApacheConfigDir:       "/etc/apache2",
 		ApacheVhostConfDir:    "/etc/apache2/sites-available",
 		ApacheVhostEnabledDir: "/etc/apache2/sites-enabled",
-		NginxUser:            "www-data",
-		NginxGroup:           "www-data",
+		NginxUser:             "www-data",
+		NginxGroup:            "www-data",
 
 		BindUser:             "root",
 		BindGroup:            "bind",

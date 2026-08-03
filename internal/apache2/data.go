@@ -76,24 +76,3 @@ func yn(b bool) string {
 	}
 	return "n"
 }
-
-// versionGE compares dot-separated numeric versions (PHP version_compare).
-func versionGE(v, min string) bool {
-	if v == "" {
-		return false
-	}
-	va, vb := strings.Split(v, "."), strings.Split(min, ".")
-	for i := 0; i < len(va) || i < len(vb); i++ {
-		var a, b int
-		if i < len(va) {
-			a, _ = strconv.Atoi(va[i]) // non-numeric parts read as 0
-		}
-		if i < len(vb) {
-			b, _ = strconv.Atoi(vb[i])
-		}
-		if a != b {
-			return a > b
-		}
-	}
-	return true
-}
