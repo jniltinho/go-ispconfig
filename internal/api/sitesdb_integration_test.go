@@ -230,6 +230,32 @@ func TestSitesDatabaseAPI(t *testing.T) {
 			Update("limit_database_quota", -1).Error)
 	})
 
+	t.Run("list filters by decorated display names", func(t *testing.T) {
+		// The SPA filter boxes search the decorated _server_name,
+		// _parent_domain and _database_user columns (names, not ids).
+		list := func(query string) api.ListResponse {
+			status, data := call(t, srv, http.MethodGet,
+				"/api/sites/databases?"+query, env.aCookie, "", nil)
+			require.Equal(t, http.StatusOK, status, "%s", data)
+			var res api.ListResponse
+			require.NoError(t, json.Unmarshal(data, &res))
+			return res
+		}
+
+		res := list("_server_name=server1")
+		require.EqualValues(t, 1, res.Total)
+		require.EqualValues(t, databaseID, res.Items[0]["database_id"])
+		require.Zero(t, list("_server_name=nosuchserver").Total)
+
+		res = list("_parent_domain=clienta-db")
+		require.EqualValues(t, 1, res.Total)
+		require.Zero(t, list("_parent_domain=nosuchdomain").Total)
+
+		res = list("_database_user=c1app")
+		require.EqualValues(t, 1, res.Total)
+		require.Zero(t, list("_database_user=nosuchuser").Total)
+	})
+
 	t.Run("delete journals a d row", func(t *testing.T) {
 		status, _ := call(t, srv, http.MethodDelete,
 			fmt.Sprintf("/api/sites/databases/%d", int(databaseID)), env.aCookie, env.aCSRF, nil)

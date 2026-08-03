@@ -16,6 +16,9 @@ const store = useSitesStore()
 
 const columns: Column[] = [
   { key: 'database_user', label: t('sites.col.database_user') },
+  // Decorated via API (_client = "Contact (username)") — legacy PHP
+  // Database User list parity; filterable server-side via ListFilters.
+  { key: '_client', label: t('sites.col.client') },
 ]
 
 const rows = ref<Row[]>([])

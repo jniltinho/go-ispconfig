@@ -99,6 +99,12 @@ type Entity struct {
 	// discriminators on shared tables (e.g. clients vs resellers on the
 	// client table via limit_client).
 	ListScope func(tx *gorm.DB) *gorm.DB `json:"-"`
+	// ListFilters, when set, declares extra list query params beyond the
+	// declared columns — display-name aliases (e.g. ?_server_name=) that
+	// narrow the list by a related table's name instead of the raw id
+	// (legacy panel list parity). Identifiers are compile-time
+	// constants; only the value is bound.
+	ListFilters map[string]ListFilterFunc `json:"-"`
 	// BeforeUpdate, when set, runs inside the update transaction after the
 	// stored row has been loaded (SELECT ... FOR UPDATE) and before the
 	// change detection: derived values computed from the locked stored
@@ -131,8 +137,11 @@ func (e *Entity) fields(yield func(*Field) bool) {
 	}
 }
 
-// LimitHook is consulted before every entity create (design D-limit): it
-// receives the entity name, the requesting identity and the request body
+// ListFilterFunc applies one extra list filter value to the query (see
+// Entity.ListFilters).
+type ListFilterFunc func(q *gorm.DB, value string) *gorm.DB
+
+// LimitHook is consulted before every entity create (design D-limit): it// receives the entity name, the requesting identity and the request body
 // (read-only; needed for per-type limits like web_domain subtypes) and
 // may veto the operation by returning a *LimitError (rendered as 403
 // with its i18n key). add-client-module plugs limit_* enforcement here.
@@ -272,6 +281,11 @@ func (h *entityHandlers[T]) list(c *echo.Context) error {
 	for f := range h.ent.fields {
 		if v := c.QueryParam(f.Name); v != "" {
 			q = q.Where(fmt.Sprintf("`%s` LIKE ?", f.Name), "%"+v+"%")
+		}
+	}
+	for name, filter := range h.ent.ListFilters {
+		if v := c.QueryParam(name); v != "" {
+			q = filter(q, v)
 		}
 	}
 
