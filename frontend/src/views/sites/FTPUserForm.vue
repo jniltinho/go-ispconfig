@@ -42,10 +42,6 @@ onMounted(async () => {
     back-to="/sites/ftp-users"
     :id="props.id"
     :option-overrides="overrides"
-    :readonly-fields="
-      props.id
-        ? ['server_id', 'username_prefix']
-        : ['server_id', 'username_prefix']
-    "
+    :readonly-fields="['server_id', 'username_prefix']"
   />
 </template>

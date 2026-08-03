@@ -97,8 +97,8 @@ Update after each QA batch. **Baseline** (task 1.3) only checks T4 + login for s
 | DB users list | `/sites/database-users` | L* | — | ✅ | `_client` filter OK |
 | DB user form | `/sites/database-users/new\|:id` | — | F* | ✅ | server select; hide empty-label dual-hash field |
 | Crons | `/sites/crons` + form + runs | L* | F* | ✅ | `_parent_domain`/`_server_name` decorate+filter added (was raw id + client lookup); panel-cron e2e 24 checks incl. history + isolation |
-| FTP users | `/sites/ftp-users` | — | — | — | N/A until ftp-shell merged |
-| Shell users | `/sites/shell-users` | — | — | — | N/A until ftp-shell merged |
+| FTP users | `/sites/ftp-users` + form | L* | F* | ✅ | decorated cols/filters already in API; panel-ftp-shell e2e 27 checks |
+| Shell users | `/sites/shell-users` + form | L* | F* | ✅ | parent locked on edit; active toggle persists; same e2e run |
 
 ### DNS
 
