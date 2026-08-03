@@ -15,7 +15,7 @@ const store = useSitesStore()
 
 const columns: Column[] = [
   { key: 'active', label: t('sites.col.active') },
-  { key: 'server_id', label: t('sites.col.server') },
+  { key: '_server_name', label: t('sites.col.server') },
   { key: 'origin', label: t('dns.col.zone') },
   { key: 'ns', label: t('dns.col.master_ns') },
 ]
