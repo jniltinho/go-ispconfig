@@ -12,6 +12,7 @@ func InstallSteps() []Step {
 		configTomlStep{},
 		tlsCertStep{},
 		nginxBaseStep{},
+		apache2Step{},
 		bindBaseStep{},
 		powerDNSStep{},
 		ftpStep{},
@@ -29,6 +30,7 @@ func UpdateSteps() []Step {
 	return []Step{
 		preflightStep{},
 		nginxBaseStep{},
+		apache2Step{},
 		bindBaseStep{},
 		systemdStep{},
 	}

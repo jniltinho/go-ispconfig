@@ -29,7 +29,7 @@ var (
 // (flag name == answers key).
 var answerFlagNames = map[string]bool{
 	"hostname": true, "panel-port": true, "db-name": true, "db-user": true,
-	"db-root-password": true, "web": true, "dns": true, "dns-backend": true, "php-fpm": true,
+	"db-root-password": true, "web": true, "web-server": true, "dns": true, "dns-backend": true, "php-fpm": true,
 	"acme": true, "acme-client": true, "admin-email": true,
 }
 
@@ -112,7 +112,8 @@ func init() {
 	f.String("db-name", "dbispconfig", "ISPConfig database name")
 	f.String("db-user", "ispconfig", "ISPConfig database user")
 	f.String("db-root-password", "", "MariaDB root password (only when unix socket auth is unavailable)")
-	f.String("web", "y", "configure the web server (nginx) [y/n]")
+	f.String("web", "y", "configure the web server [y/n]")
+	f.String("web-server", "nginx", "web server to configure: nginx or apache2")
 	f.String("dns", "y", "configure the DNS server [y/n]")
 	f.String("dns-backend", "bind", "DNS backend to configure: bind or powerdns")
 	f.String("php-fpm", "y", "install the distro php-fpm package for hosted sites [y/n]")

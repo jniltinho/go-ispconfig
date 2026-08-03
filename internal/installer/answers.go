@@ -25,6 +25,10 @@ type Answers struct {
 	DBUser         string
 	DBRootPassword string
 	EnableWeb      bool
+	// WebServer is "nginx" (default) or "apache2"; it selects which web
+	// server the installer configures and which plugin the daemon loads.
+	// The two can never coexist — they would fight over port 80.
+	WebServer string
 	EnableDNS      bool
 	// DNSBackend is "bind" (default) or "powerdns"; it selects the DNS
 	// packages, the configure step and server.config [dns] dns_backend.
@@ -67,6 +71,7 @@ func answerFields() []answerField {
 		{key: "db-root-password", def: s("")},
 		{key: "web", prompt: "Configure web server (nginx)? (y/n)", def: s("y"), boolean: true},
 		{key: "dns", prompt: "Configure DNS server? (y/n)", def: s("y"), boolean: true},
+		{key: "web-server", prompt: "Web server (nginx/apache2)", def: s(WebServerNginx)},
 		{key: "dns-backend", prompt: "DNS backend (bind/powerdns)", def: s(getconf.DNSBackendBind)},
 		{key: "php-fpm", prompt: "Install PHP-FPM for hosted sites? (y/n)", def: s("y"), boolean: true},
 		{key: "acme", prompt: "Install acme.sh for site Let's Encrypt certificates? (y/n)", def: s("n"), boolean: true},
@@ -133,6 +138,7 @@ func ResolveAnswers(opts ResolveOptions) (*Answers, error) {
 
 	a := &Answers{
 		Hostname:       values["hostname"],
+		WebServer:      strings.ToLower(strings.TrimSpace(values["web-server"])),
 		DNSBackend:     strings.ToLower(strings.TrimSpace(values["dns-backend"])),
 		DBName:         values["db-name"],
 		DBUser:         values["db-user"],
@@ -159,6 +165,9 @@ func ResolveAnswers(opts ResolveOptions) (*Answers, error) {
 			return nil, fmt.Errorf("invalid --%s value %q: use y/n", key, values[key])
 		}
 		*dst = v
+	}
+	if a.WebServer != WebServerNginx && a.WebServer != WebServerApache {
+		return nil, fmt.Errorf("invalid --web-server %q: use nginx or apache2", values["web-server"])
 	}
 	if a.DNSBackend != getconf.DNSBackendBind && a.DNSBackend != getconf.DNSBackendPowerDNS {
 		return nil, fmt.Errorf("invalid --dns-backend %q: use bind or powerdns", values["dns-backend"])

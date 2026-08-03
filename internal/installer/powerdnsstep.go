@@ -42,6 +42,12 @@ func (st *State) packageSet() []string {
 	if st.Answers.EnableWeb {
 		pkgs = append(pkgs, PureFTPdPackage)
 	}
+	// Apache and nginx cannot both own port 80; installing nginx would also
+	// leave a unit that fails to start behind. The apache2 step installs the
+	// Apache package set itself.
+	if st.Answers.WebServer == WebServerApache {
+		pkgs = slices.DeleteFunc(pkgs, func(p string) bool { return p == "nginx" })
+	}
 	if !st.PowerDNSBackend() {
 		return pkgs
 	}

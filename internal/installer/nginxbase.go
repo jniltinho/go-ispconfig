@@ -28,6 +28,9 @@ func (nginxBaseStep) Run(ctx context.Context, st *State) error {
 	if !st.Answers.EnableWeb {
 		return Skip("web server disabled by answer")
 	}
+	if st.Answers.WebServer == WebServerApache {
+		return Skip("web server is apache2")
+	}
 	p := st.Profile
 	for _, dir := range []string{p.NginxVhostConfDir, p.NginxVhostEnabledDir, p.WebsiteBasedir, st.AcmeWebroot} {
 		if err := os.MkdirAll(dir, 0o755); err != nil {

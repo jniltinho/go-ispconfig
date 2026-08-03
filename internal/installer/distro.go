@@ -38,6 +38,14 @@ type Profile struct {
 	NginxConfigDir       string
 	NginxVhostConfDir    string
 	NginxVhostEnabledDir string
+
+	// Apache paths and unit, used when the operator picks apache2 as the
+	// web server (Answers.WebServer). Both web servers are described here
+	// because the profile is built before the answers are known.
+	ApacheService         string
+	ApacheConfigDir       string
+	ApacheVhostConfDir    string
+	ApacheVhostEnabledDir string
 	NginxUser            string
 	NginxGroup           string
 
@@ -117,6 +125,11 @@ func profileFor(id, name string) *Profile {
 		NginxConfigDir:       "/etc/nginx",
 		NginxVhostConfDir:    "/etc/nginx/sites-available",
 		NginxVhostEnabledDir: "/etc/nginx/sites-enabled",
+
+		ApacheService:         "apache2",
+		ApacheConfigDir:       "/etc/apache2",
+		ApacheVhostConfDir:    "/etc/apache2/sites-available",
+		ApacheVhostEnabledDir: "/etc/apache2/sites-enabled",
 		NginxUser:            "www-data",
 		NginxGroup:           "www-data",
 

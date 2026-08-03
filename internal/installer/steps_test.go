@@ -21,14 +21,14 @@ func stepNames(steps []Step) []string {
 func TestInstallStepsOrder(t *testing.T) {
 	assert.Equal(t, []string{
 		"preflight", "packages", "mariadb", "server-ips", "panel-user",
-		"config-toml", "tls-cert", "nginx-base", "bind-base", "powerdns", "pure-ftpd", "install-acme",
+		"config-toml", "tls-cert", "nginx-base", "apache2", "bind-base", "powerdns", "pure-ftpd", "install-acme",
 		"systemd-units", "summary",
 	}, stepNames(InstallSteps()))
 }
 
 func TestUpdateStepsNeverTouchDBOrCredentials(t *testing.T) {
 	names := stepNames(UpdateSteps())
-	assert.Equal(t, []string{"preflight", "nginx-base", "bind-base", "systemd-units"}, names)
+	assert.Equal(t, []string{"preflight", "nginx-base", "apache2", "bind-base", "systemd-units"}, names)
 	for _, forbidden := range []string{"mariadb", "config-toml", "tls-cert", "summary", "server-ips"} {
 		assert.NotContains(t, names, forbidden)
 	}
