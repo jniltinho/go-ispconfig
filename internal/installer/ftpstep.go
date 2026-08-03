@@ -10,8 +10,6 @@ import (
 	"strings"
 
 	"gorm.io/gorm"
-
-	"go-ispconfig/internal/model"
 )
 
 // PureFTPd package/unit names, identical on all five supported distros.
@@ -124,9 +122,9 @@ func enablePureFTPdVirtualChroot(path string) (bool, error) {
 // localServerID resolves this host's server_id (the ftp_user rows and the
 // pure-ftpd queries are scoped to it).
 func localServerID(db *gorm.DB, hostname string) (uint32, error) {
-	var srv model.Server
-	if err := db.Where("server_name = ?", hostname).Order("server_id").Take(&srv).Error; err != nil {
-		return 0, fmt.Errorf("loading server row %q: %w", hostname, err)
+	srv, err := localServer(db, hostname)
+	if err != nil {
+		return 0, err
 	}
 	return srv.ServerID, nil
 }
