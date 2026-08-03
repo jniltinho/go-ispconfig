@@ -39,6 +39,9 @@ func mailboxEntity(d *Deps) *Entity {
 					intField("quota", "quota_txt", "0",
 						validator.Rule{Type: "ISINT", AllowEmpty: true, ErrKey: "quota_error_isint"}),
 					text("cc", "cc_txt"),
+					// PHP mail_user_mailbox_edit.htm places forward_in_lda on the
+					// Mailbox tab between CC and BCC (not on Mail Filter).
+					checkbox("forward_in_lda", "forward_in_lda_txt", "n"),
 					text("sender_cc", "sender_cc_txt"),
 					{Name: "imap_prefix", Label: "imap_prefix_txt", Datatype: "VARCHAR", Formtype: "TEXT", AdminOnly: true},
 					checkbox("postfix", "postfix_txt", "y"),
@@ -82,15 +85,15 @@ func mailboxEntity(d *Deps) *Entity {
 						{Value: "a", Label: "move_junk_after_txt"},
 						{Value: "n", Label: "no_txt"},
 					}),
-					checkbox("forward_in_lda", "forward_in_lda_txt", "n"),
 					intField("purge_trash_days", "purge_trash_days_txt", "0"),
 					intField("purge_junk_days", "purge_junk_days_txt", "0"),
 				},
 			},
 			{
-				// PHP tab "Custom Rules" (mailfilter) — free-form sieve/filter text.
-				Name:  "mailfilter",
-				Label: "custom_rules_txt",
+				// PHP: Custom Rules tab only for admin (mail_user.tform.php).
+				Name:      "mailfilter",
+				Label:     "custom_rules_txt",
+				AdminOnly: true,
 				Fields: []Field{
 					textarea("custom_mailfilter", "custom_mailfilter_txt"),
 				},

@@ -52,14 +52,20 @@ const form = reactive({
   backup_copies: '1',
 })
 
-const tabs = ['mailuser', 'autoresponder', 'filter_records', 'mailfilter', 'backup'] as const
-const tabLabelKey: Record<(typeof tabs)[number], string> = {
+// PHP tab order: Mailbox | Autoresponder | Mail Filter | Custom Rules | Backup.
+// Custom Rules is admin-only (mail_user.tform.php: typ == admin).
+const allTabs = ['mailuser', 'autoresponder', 'filter_records', 'mailfilter', 'backup'] as const
+type MailboxTab = (typeof allTabs)[number]
+const tabLabelKey: Record<MailboxTab, string> = {
   mailuser: 'mailbox_txt',
   autoresponder: 'autoresponder_txt',
   filter_records: 'mail_filter_txt',
   mailfilter: 'custom_rules_txt',
   backup: 'backup_tab_txt',
 }
+const tabs = computed(() =>
+  allTabs.filter((tab) => tab !== 'mailfilter' || isAdmin.value),
+)
 const activeTab = ref<string>('mailuser')
 const domains = ref<string[]>([])
 const policies = ref<{ value: string; label: string }[]>([])
@@ -239,14 +245,17 @@ async function save() {
     autoresponder_text: form.autoresponder_text,
     move_junk: form.move_junk,
     forward_in_lda: yn(form.forward_in_lda),
-    custom_mailfilter: form.custom_mailfilter,
     purge_trash_days: Number(form.purge_trash_days || '0'),
     purge_junk_days: Number(form.purge_junk_days || '0'),
     backup_interval: form.backup_interval,
     backup_copies: Number(form.backup_copies || '1'),
   }
   if (form.password) payload.password = form.password
-  if (isAdmin.value) payload.imap_prefix = form.imap_prefix
+  // PHP: imap_prefix + custom_mailfilter are admin-only (applyBody ignores AdminOnly for clients).
+  if (isAdmin.value) {
+    payload.imap_prefix = form.imap_prefix
+    payload.custom_mailfilter = form.custom_mailfilter
+  }
   if (form.autoresponder_start_date) payload.autoresponder_start_date = form.autoresponder_start_date
   if (form.autoresponder_end_date) payload.autoresponder_end_date = form.autoresponder_end_date
 
@@ -494,6 +503,14 @@ const inputClass =
           </div>
         </div>
 
+        <!-- PHP mailbox tab: forward_in_lda sits between CC and BCC -->
+        <div class="flex items-start gap-4">
+          <label for="field-forward_in_lda" class="w-48 shrink-0 pt-1.5 text-right text-sm font-semibold after:content-[':']">
+            {{ t('forward_in_lda_txt') }}
+          </label>
+          <div class="flex-1"><input id="field-forward_in_lda" v-model="form.forward_in_lda" type="checkbox" class="mt-2" /></div>
+        </div>
+
         <div class="flex items-start gap-4">
           <label for="field-sender_cc" class="w-48 shrink-0 pt-1.5 text-right text-sm font-semibold after:content-[':']">
             {{ t('sender_cc_txt') }}
@@ -617,12 +634,6 @@ const inputClass =
               <option value="n">{{ t('no_txt') }}</option>
             </select>
           </div>
-        </div>
-        <div class="flex items-start gap-4">
-          <label for="field-forward_in_lda" class="w-48 shrink-0 pt-1.5 text-right text-sm font-semibold after:content-[':']">
-            {{ t('forward_in_lda_txt') }}
-          </label>
-          <div class="flex-1"><input id="field-forward_in_lda" v-model="form.forward_in_lda" type="checkbox" class="mt-2" /></div>
         </div>
         <div class="flex items-start gap-4">
           <label for="field-purge_trash_days" class="w-48 shrink-0 pt-1.5 text-right text-sm font-semibold after:content-[':']">
