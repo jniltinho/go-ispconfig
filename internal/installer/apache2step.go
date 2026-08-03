@@ -176,9 +176,16 @@ Alias /.well-known/acme-challenge %[1]s/.well-known/acme-challenge
 }
 
 // apacheSitesInclude pulls the daemon-rendered <domain>.vhost files into the
-// server config: Debian's apache2.conf globs sites-enabled/*.conf only.
+// server config: Debian's apache2.conf globs sites-enabled/*.conf only. The
+// general options are the ones ISPConfig ships in apache_ispconfig.conf that
+// every site depends on — without the DirectoryIndex a fresh site answers
+// with a directory listing instead of its standard_index.html.
 func apacheSitesInclude(enabledDir string) string {
 	return fmt.Sprintf(`# Managed by go-ispconfig — do not edit.
+ServerTokens ProductOnly
+ServerSignature Off
+DirectoryIndex index.html index.cgi index.pl index.php index.xhtml index.htm standard_index.html
+
 IncludeOptional %s/*.vhost
 `, strings.TrimSuffix(enabledDir, "/"))
 }
