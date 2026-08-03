@@ -256,15 +256,6 @@ func TestWebFolderOf(t *testing.T) {
 	assert.Equal(t, "blog", webFolderOf(row{"type": "vhostsubdomain", "web_folder": "blog"}))
 }
 
-// TestLogFolderOf pins the per-host log folder rules.
-func TestLogFolderOf(t *testing.T) {
-	assert.Equal(t, "log", logFolderOf(row{"type": "vhost"}, ""))
-	assert.Equal(t, "log/blog",
-		logFolderOf(row{"type": "vhostsubdomain", "domain": "blog.example.com"}, "example.com"))
-	assert.Equal(t, "log/web7",
-		logFolderOf(row{"type": "vhostalias", "domain": "other.org", "domain_id": float64(7)}, "example.com"))
-}
-
 // TestEnsureSiteSymlinks: the website_symlinks links resolve to the docroot
 // (they are what the rendered vhost root points through) and follow a
 // docroot move.

@@ -98,15 +98,16 @@ func (p *Plugin) webConfig(serverID uint32) (*getconf.WebConfig, error) {
 }
 
 func (p *Plugin) webDomainInsert(ctx context.Context, _ string, data engine.Data) error {
-	return p.apply(ctx, row(data.New))
+	return p.apply(ctx, "insert", row(data.Old), row(data.New))
 }
 
 func (p *Plugin) webDomainUpdate(ctx context.Context, _ string, data engine.Data) error {
-	return p.apply(ctx, row(data.New))
+	return p.apply(ctx, "update", row(data.Old), row(data.New))
 }
 
-// apply renders and activates the vhost of one web_domain row.
-func (p *Plugin) apply(ctx context.Context, newRow row) error {
+// apply provisions the site directory tree, then renders and activates the
+// vhost of one web_domain row.
+func (p *Plugin) apply(ctx context.Context, action string, oldRow, newRow row) error {
 	if !isVhostType(newRow.str("type")) {
 		return nil
 	}
@@ -120,6 +121,12 @@ func (p *Plugin) apply(ctx context.Context, newRow row) error {
 	}
 	docroot := strings.TrimSuffix(newRow.str("document_root"), "/")
 	if err := safeSitePath(docroot, cfg.WebsiteBasedir); err != nil {
+		return err
+	}
+	// The document root, its system user/group and the website symlinks must
+	// exist before the vhost pointing at them is written: Apache refuses to
+	// start on a SuexecUserGroup naming an unknown account.
+	if err := p.ensureSite(ctx, cfg, action, oldRow, newRow); err != nil {
 		return err
 	}
 
