@@ -31,11 +31,11 @@ async function submit() {
       <!-- Legacy login head: centered brand on a plain white band. -->
       <div class="flex items-center justify-center gap-3 border-b border-border bg-surface px-4 py-6">
         <img
-          src="/icon-isp-panel-256.png"
+          src="/gopher-256.png"
           alt=""
           width="72"
           height="72"
-          class="size-18 shrink-0"
+          class="size-18 shrink-0 rounded-sm"
         />
         <span class="text-xl font-bold text-brand">{{ t('app.title') }}</span>
       </div>

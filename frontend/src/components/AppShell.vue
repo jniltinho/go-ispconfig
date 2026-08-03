@@ -92,11 +92,11 @@ async function logout() {
         </button>
         <RouterLink to="/dashboard" class="flex items-center gap-3 text-xl font-bold text-brand no-underline">
           <img
-            src="/icon-isp-panel-256.png"
+            src="/gopher-128.png"
             alt=""
             width="64"
             height="64"
-            class="size-16 shrink-0"
+            class="size-16 shrink-0 rounded-sm"
           />
           {{ t('app.title') }}
         </RouterLink>
