@@ -164,7 +164,12 @@ func (p *Plugin) handleRRInsert(ctx context.Context, data engine.Data) error {
 	}
 	ispID := int(n.num("id"))
 	var exists Record
-	if err := p.pdnsDB.WithContext(ctx).Where("ispconfig_id = ?", ispID).Take(&exists).Error; err == nil {
+	// The SOA record carries the dns_soa id in the same column, so the
+	// duplicate check must ignore it (PHP omits the filter and drops the
+	// dns_rr whose id equals the zone id).
+	if err := p.pdnsDB.WithContext(ctx).
+		Where("ispconfig_id = ? AND type != ?", ispID, "SOA").
+		Take(&exists).Error; err == nil {
 		return nil // duplicate ispconfig_id
 	}
 
@@ -220,7 +225,9 @@ func (p *Plugin) handleRRUpdate(ctx context.Context, data engine.Data) error {
 	}
 	ispID := int(n.num("id"))
 	var exists Record
-	err := p.pdnsDB.WithContext(ctx).Where("ispconfig_id = ?", ispID).Take(&exists).Error
+	err := p.pdnsDB.WithContext(ctx).
+		Where("ispconfig_id = ? AND type != ?", ispID, "SOA").
+		Take(&exists).Error
 	if o.activeY() && err == nil {
 		zoneID := int(n.num("zone"))
 		origin, err := p.zoneOrigin(ctx, zoneID, n)
