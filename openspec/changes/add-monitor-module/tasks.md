@@ -19,10 +19,10 @@
 
 ## 3. State aggregation and repositories
 
-- [ ] 3.1 Implement server/system state aggregation porting `show_sys_state.php` (`_getServerState` / `_processDbState`): newest row per type, fold states, build message groups for disk/load/services/updates/sys_log; unit tests with fixture rows. Commit.
-- [ ] 3.2 Implement monitor read repositories: latest-by-type, list with type/state/server filters, server-scoped by caller's readable `server` rows; permission helpers for `monitor` module membership. Commit.
-- [ ] 3.3 Implement sys_log list (filters server_id/loglevel/message, order tstamp DESC) and clear (single id + batch by loglevel → `loglevel=0`, admin-only, no DELETE); tests. Commit.
-- [ ] 3.4 Implement jobqueue query (`datalog_id > server.updated` per server), count (incl. `server_id=0` all-servers), and full datalog history list/detail with dual decode; tests for pending vs history and decode paths. Commit.
+- [x] 3.1 Implement server/system state aggregation porting `show_sys_state.php` (`_getServerState` / `_processDbState`): newest row per type, fold states, build message groups for disk/load/services/updates/sys_log; unit tests with fixture rows. Commit.
+- [x] 3.2 Implement monitor read repositories: latest-by-type, list with type/state/server filters, server-scoped by caller's readable `server` rows; permission helpers for `monitor` module membership. Commit.
+- [x] 3.3 Implement sys_log list (filters server_id/loglevel/message, order tstamp DESC) and clear (single id + batch by loglevel → `loglevel=0`, admin-only, no DELETE); tests. Commit.
+- [x] 3.4 Implement jobqueue query (`datalog_id > server.updated` per server), count (incl. `server_id=0` all-servers), and full datalog history list/detail with dual decode; tests for pending vs history and decode paths. Commit.
 
 ## 4. REST API (swaggo)
 
