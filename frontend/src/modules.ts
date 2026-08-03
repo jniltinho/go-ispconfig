@@ -13,6 +13,17 @@ export const modules: ModuleDef[] = [
     sections: [{ labelKey: 'sidebar.dashboard.overview', path: '/dashboard' }],
   },
   {
+    id: 'client',
+    path: '/clients',
+    sections: [
+      { labelKey: 'sidebar.client.clients', path: '/clients' },
+      { labelKey: 'sidebar.client.resellers', path: '/clients/resellers', adminOnly: true },
+      { labelKey: 'sidebar.client.limit_templates', path: '/clients/limit-templates', adminOnly: true },
+      { labelKey: 'sidebar.client.message_templates', path: '/clients/message-templates' },
+      { labelKey: 'sidebar.client.send_message', path: '/clients/send-message' },
+    ],
+  },
+  {
     id: 'sites',
     path: '/sites',
     sections: [
@@ -23,15 +34,6 @@ export const modules: ModuleDef[] = [
       { labelKey: 'sidebar.sites.shell_users', path: '/sites/shell-users' },
       { labelKey: 'sidebar.sites.databases', path: '/sites/databases' },
       { labelKey: 'sidebar.sites.database_users', path: '/sites/database-users' },
-    ],
-  },
-  {
-    id: 'dns',
-    path: '/dns',
-    sections: [
-      { labelKey: 'sidebar.dns.zones', path: '/dns' },
-      { labelKey: 'sidebar.dns.slave_zones', path: '/dns/slave-zones' },
-      { labelKey: 'sidebar.dns.templates', path: '/dns/templates', adminOnly: true },
     ],
   },
   {
@@ -52,14 +54,12 @@ export const modules: ModuleDef[] = [
     ],
   },
   {
-    id: 'client',
-    path: '/clients',
+    id: 'dns',
+    path: '/dns',
     sections: [
-      { labelKey: 'sidebar.client.clients', path: '/clients' },
-      { labelKey: 'sidebar.client.resellers', path: '/clients/resellers', adminOnly: true },
-      { labelKey: 'sidebar.client.limit_templates', path: '/clients/limit-templates', adminOnly: true },
-      { labelKey: 'sidebar.client.message_templates', path: '/clients/message-templates' },
-      { labelKey: 'sidebar.client.send_message', path: '/clients/send-message' },
+      { labelKey: 'sidebar.dns.zones', path: '/dns' },
+      { labelKey: 'sidebar.dns.slave_zones', path: '/dns/slave-zones' },
+      { labelKey: 'sidebar.dns.templates', path: '/dns/templates', adminOnly: true },
     ],
   },
   {
