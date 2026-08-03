@@ -75,6 +75,10 @@ type State struct {
 	// PowerDNSConfPath is the rendered gmysql backend config
 	// (/etc/powerdns/pdns.d/pdns.local, mode 0600).
 	PowerDNSConfPath string
+	// PureFTPdConfigDir holds db/mysql.conf and the conf/ flag files.
+	PureFTPdConfigDir string
+	// PureFTPdDefaults is the Debian pure-ftpd-common defaults file.
+	PureFTPdDefaults string
 
 	// Set by the mariadb step, consumed by later steps.
 	DB         *gorm.DB
@@ -109,7 +113,9 @@ func NewState(profile *Profile, answers *Answers) *State {
 		SelfExe:         selfExe(),
 		AcmeShHome:      "/root/.acme.sh",
 
-		PowerDNSConfPath: "/etc/powerdns/pdns.d/pdns.local",
+		PowerDNSConfPath:  "/etc/powerdns/pdns.d/pdns.local",
+		PureFTPdConfigDir: "/etc/pure-ftpd",
+		PureFTPdDefaults:  "/etc/default/pure-ftpd-common",
 	}
 }
 

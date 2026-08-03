@@ -34,11 +34,14 @@ func (st *State) DNSService() string {
 	return st.Profile.BindService
 }
 
-// packageSet is the profile package list adjusted for the DNS backend: on
-// the PowerDNS path bind9 is replaced by the pdns packages (both daemons
-// would claim port 53).
+// packageSet is the profile package list adjusted for the answers: the FTP
+// server comes with the web module, and on the PowerDNS path bind9 is
+// replaced by the pdns packages (both daemons would claim port 53).
 func (st *State) packageSet() []string {
 	pkgs := slices.Clone(st.Profile.Packages)
+	if st.Answers.EnableWeb {
+		pkgs = append(pkgs, PureFTPdPackage)
+	}
 	if !st.PowerDNSBackend() {
 		return pkgs
 	}

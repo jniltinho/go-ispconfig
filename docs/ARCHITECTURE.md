@@ -183,7 +183,7 @@ strand users on rollback.
 
 | Package | Role |
 |---|---|
-| `cmd/` | Cobra commands: `serve`, `daemon`, `migrate`, `init`, `version` |
+| `cmd/` | Cobra commands: `install`, `uninstall`, `serve`, `daemon`, `migrate`, `migrate-from`, `templates`, `init`, `version` |
 | `internal/api` | Echo v5 bootstrap, auth endpoints, generic CRUD framework, form metadata, Swagger |
 | `internal/auth` | Password verify (bcrypt + legacy crypt), sessions, security policy flags |
 | `internal/repository` | `WithPerm` scope, generic `Repo[T]`, identity resolution, login lockout |
@@ -196,4 +196,22 @@ strand users on rollback.
 | `internal/getconf` | `server.config` INI + `sys_config`/`sys_ini` accessors |
 | `internal/validator` | tform validator port (REGEX, UNIQUE, ISEMAIL, ...) |
 | `internal/config` | `config.toml` loading (Viper, `GOISP_` env prefix) |
+| `internal/installer` | `install`/`uninstall` step pipeline: distro profiles, packages, MariaDB, base configs, systemd units |
+| `internal/legacy` | Remote-API client and import engine for a running PHP ISPConfig3 |
 | `frontend/` | Vue 3 + Vite + Tailwind v4 SPA, built into `web/dist` and embedded |
+
+Module packages register a datalog module (table hooks) and/or the plugins
+that apply the resulting events (one doc each, linked from the
+[README](../README.md)):
+
+| Package | Module hooks / plugins |
+|---|---|
+| `internal/web`, `internal/nginx` | `web_domain`, `web_folder*`, `ftp_user`, `shell_user` hooks → nginx vhosts, PHP-FPM pools, SSL |
+| `internal/dns`, `internal/powerdns` | `dns_soa`/`dns_slave`/`dns_rr` hooks → Bind zonefiles or PowerDNS gmysql rows (mutually exclusive, chosen by `server.config` `dns_backend`) |
+| `internal/mail` | mail/spamfilter hooks → Postfix maps, Dovecot, DKIM keys, Rspamd settings |
+| `internal/clientdb` | `database`/`database_user` hooks → MySQL databases, users and grants |
+| `internal/ftp`, `internal/shell`, `internal/jailkit` | FTP login dirs (virtual accounts), shell users, jailkit chroots |
+| `internal/cron` | `cron` hooks → jobs run by the daemon scheduler, never a system crontab |
+| `internal/firewall` | `firewall` hooks → UFW rule sets |
+| `internal/clients` | `client` hooks (broadcast) + limit/usage computation |
+| `internal/monitor` | scheduler-only: state, log and quota collectors writing `monitor_data` |

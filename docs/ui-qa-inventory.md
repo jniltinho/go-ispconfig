@@ -3,8 +3,7 @@
 Living catalog of Vue list/form screens under `frontend/src`, mapped to router
 paths, API endpoints, OpenSpec modules, and QA status.
 
-**Branch:** `feat/ui-forms-tables-qa`
-**Change:** `openspec/changes/ui-forms-tables-qa`
+**Change:** `openspec/changes/archive/ui-forms-tables-qa` (merged)
 **Source of truth:** `frontend/src/router.ts`, `frontend/src/modules.ts`, views under `frontend/src/views/**`
 **Generated:** 2026-08-02 (task 1.1)
 

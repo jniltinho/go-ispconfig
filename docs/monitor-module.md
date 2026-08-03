@@ -27,6 +27,7 @@ distinguishable in the scheduler listing.
 | `monitor_kernel_info` | `*/5 * * * *` | `kernel_info` | gopsutil `host.KernelVersion` |
 | `monitor_ispc_info` | `*/5 * * * *` | `ispc_info` | build version |
 | `monitor_sys_usage` | `* * * * *` | `sys_usage` | rolling load/mem/net series |
+| `monitor_quota` | `*/15 * * * *` | `harddisk_quota`, `email_quota`, `database_size` | quota collectors, see below |
 | `monitor_sys_log` | `*/5 * * * *` | `sys_log` | severity rollup of open `sys_log` rows |
 | `monitor_log_ispconfig` | `*/5 * * * *` | `log_ispconfig` | tail of the ISPConfig log |
 | `monitor_log_letsencrypt` | `*/5 * * * *` | `log_letsencrypt` | tail of the Let's Encrypt log |
@@ -39,6 +40,22 @@ rather than filling the overview with a permanently unknown check.
 
 Log tails are daemon-only file reads capped at `MaxLogLines`, matching the PHP
 line budget.
+
+### Quota collectors
+
+`RunQuotaCollectors` (`internal/monitor/quota.go`) is the port of the PHP
+`monitor_*_quota` collectors. Each writes one row per type through `UpsertType`
+(one current row per server+type — quotas are a snapshot, not a history):
+
+| Type | Source | Unit |
+|------|--------|------|
+| `harddisk_quota` | `repquota -au` per site `system_user`; hosts without quotas fall back to `du` of the document root, and the site's `hd_quota` (MB) supplies soft/hard when the filesystem has none | KB |
+| `email_quota` | `doveadm quota get -A` | bytes |
+| `database_size` | one `information_schema` scan joined with the server's `web_database` rows | bytes |
+
+`repquota`, `doveadm` and `du` are daemon-only calls bounded by a 60 s timeout;
+a missing binary yields an empty result instead of an error, so a host without
+disk quotas still reports usage.
 
 ### Write path and pruning
 
@@ -94,6 +111,7 @@ All routes require an authenticated session with the monitor module.
 | `GET /api/monitor/datalog` | full datalog history |
 | `GET /api/monitor/datalog/{id}` | one datalog entry with its decoded `{old,new}` payload |
 | `GET /api/system/scheduler` | admin: job name, cron spec, last run, status, computed next run |
+| `GET /api/monitor/limits` | the caller's own account limits (sites, mailboxes, databases, DNS zones…) with current usage — **outside** the module guard: it is a dashboard dashlet every logged-in user gets, port of the legacy `dashlet_limits` |
 
 The datalog detail view is **read-only** — there is no undo. `sys_datalog` is the
 replication journal; rewriting it would desynchronise servers that already
@@ -116,5 +134,19 @@ metadata and derive `next_run` without talking to the daemon.
 - *Datalog history* — every entry with an old/new field diff in the detail view.
 - *Scheduler jobs* (admin) — name, spec, last run, next run, status.
 
-The dashboard gains a monitor dashlet summarising server states and the pending
-job-queue depth.
+### Dashboard dashlets
+
+Rendered in the legacy order — modules, then metrics, then quotas:
+
+1. *Modules* — shortcut tiles, plus the monitor dashlet with server states and
+   the pending job-queue depth.
+2. *Metrics* — `MetricChart.vue` (Chart.js via `vue-chartjs`) plotting the
+   `sys_usage` series (load, memory, network) with the panel's own palette in
+   both light and dark mode.
+3. *Quotas* — `QuotaBlock.vue` once per quota type (disk, mailbox, database),
+   fed by the `harddisk_quota` / `email_quota` / `database_size` rows and
+   hidden when the caller owns none.
+4. *Account limits* — `LimitBlock.vue` from `GET /api/monitor/limits`
+   (used/limit per resource, port of `dashboard/dashlets/limits.php`). Limits
+   of `0` are omitted, `-1` renders as unlimited, and admins — who have no
+   client row — get `{"unlimited": true}` and a one-line dashlet.
