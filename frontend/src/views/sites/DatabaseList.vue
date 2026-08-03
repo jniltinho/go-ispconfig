@@ -18,14 +18,15 @@ const router = useRouter()
 const store = useSitesStore()
 
 // Display-name columns (_server_name/_parent_domain/_database_user) are
-// decorated by the API — legacy panel parity: names, not raw ids. They
-// are not API filter fields, so their filter boxes are disabled.
+// decorated by the API — legacy panel parity: names, not raw ids. The
+// list endpoint resolves them as filter aliases (subqueries on the
+// related tables), so their filter boxes search names, not ids.
 const columns: Column[] = [
   { key: 'active', label: t('sites.col.active') },
   { key: 'remote_access', label: t('sites.col.remote_access') },
-  { key: '_server_name', label: t('sites.col.server'), filterable: false },
-  { key: '_parent_domain', label: t('sites.col.website'), filterable: false },
-  { key: '_database_user', label: t('sites.col.database_user'), filterable: false },
+  { key: '_server_name', label: t('sites.col.server') },
+  { key: '_parent_domain', label: t('sites.col.website') },
+  { key: '_database_user', label: t('sites.col.database_user') },
   { key: 'database_name', label: t('sites.col.database_name') },
 ]
 

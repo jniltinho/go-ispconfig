@@ -718,6 +718,18 @@ func sitesDatabaseUserBeforeDelete(_ context.Context, tx *gorm.DB, id *repositor
 	return nil
 }
 
+// relatedNameFilter builds a list filter alias: ?<alias>=v narrows the
+// list by a substring match on a related table's name column, so the
+// decorated display-name columns of a list (names, not raw ids) stay
+// searchable like the legacy panel. All identifiers are compile-time
+// constants; only the value is bound.
+func relatedNameFilter(localCol, table, idCol, nameCol string) ListFilterFunc {
+	return func(q *gorm.DB, value string) *gorm.DB {
+		return q.Where(fmt.Sprintf("`%s` IN (SELECT `%s` FROM `%s` WHERE `%s` LIKE ?)",
+			localCol, idCol, table, nameCol), "%"+value+"%")
+	}
+}
+
 // nameLookup batch-resolves id → name for one table so list decoration
 // never runs N+1 queries.
 func nameLookup(ctx context.Context, db *gorm.DB, table, idCol, nameCol string, ids []any) map[string]string {
@@ -861,6 +873,14 @@ func sitesDatabaseEntity() *Entity {
 		AfterInsert:  sitesDatabaseAfterInsert,
 		BeforeUpdate: sitesDatabaseBeforeUpdate,
 		Decorate:     sitesDatabaseDecorate(),
+		// List filter boxes search the decorated display names (legacy
+		// panel parity), resolved to ids via subqueries on the related
+		// tables — mirrors sitesDatabaseDecorate's lookups.
+		ListFilters: map[string]ListFilterFunc{
+			"_server_name":   relatedNameFilter("server_id", "server", "server_id", "server_name"),
+			"_parent_domain": relatedNameFilter("parent_domain_id", "web_domain", "domain_id", "domain"),
+			"_database_user": relatedNameFilter("database_user_id", "web_database_user", "database_user_id", "database_user"),
+		},
 		Tabs: []Tab{
 			{
 				Name: "database", Label: "database_tab_txt",
