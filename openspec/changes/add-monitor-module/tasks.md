@@ -2,7 +2,7 @@
 
 ## 1. Models and dual-format decode
 
-- [ ] 1.1 Add GORM model `MonitorData` for table `monitor_data` with explicit `gorm:"column:..."` tags matching `ispconfig3.sql` (`server_id`, `type`, `created`, `data`, `state`); composite primary key; unit-test round-trip against MariaDB. Commit.
+- [x] 1.1 Add GORM model `MonitorData` for table `monitor_data` with explicit `gorm:"column:..."` tags matching `ispconfig3.sql` (`server_id`, `type`, `created`, `data`, `state`); composite primary key; unit-test round-trip against MariaDB. Commit.
 - [ ] 1.2 Implement dual-format decoder for `monitor_data.data` and `sys_datalog.data`: JSON first, then PHP `serialize`; size-capped; safe failure returns raw + error; table-driven tests with fixtures from PHP serialize and foundation JSON `{old,new}`. Commit.
 - [ ] 1.3 Implement `_setState` severity fold helper (`no_state` < `ok` < `unknown` < `info` < `warning` < `critical` < `error`) with unit tests for promote-only behavior. Commit.
 
