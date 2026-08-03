@@ -76,6 +76,30 @@ func TestEntityValidate(t *testing.T) {
 	})
 }
 
+func TestNormalizeListFilterValue(t *testing.T) {
+	yn := checkbox("active", "active_txt", "y")
+	require.Equal(t, "y", normalizeListFilterValue(&yn, "Yes"))
+	require.Equal(t, "y", normalizeListFilterValue(&yn, "yes"))
+	require.Equal(t, "n", normalizeListFilterValue(&yn, "No"))
+	require.Equal(t, "n", normalizeListFilterValue(&yn, "false"))
+	// Unknown tokens pass through for substring LIKE filters.
+	require.Equal(t, "maybe", normalizeListFilterValue(&yn, "maybe"))
+
+	upper := Field{
+		Name: "active", Formtype: "CHECKBOX",
+		Options: []Option{{Value: "N", Label: "no_txt"}, {Value: "Y", Label: "yes_txt"}},
+	}
+	require.Equal(t, "Y", normalizeListFilterValue(&upper, "yes"))
+	require.Equal(t, "N", normalizeListFilterValue(&upper, "NO"))
+
+	sel := selectField("type", "type_txt", "VARCHAR", "vhost", []Option{
+		{Value: "vhost", Label: "type_vhost_txt"},
+		{Value: "vhostsubdomain", Label: "type_vhostsubdomain_txt"},
+	})
+	require.Equal(t, "vhost", normalizeListFilterValue(&sel, "VHOST"))
+	require.Equal(t, "partial", normalizeListFilterValue(&sel, "partial"))
+}
+
 func TestLimitHookVeto(t *testing.T) {
 	orig := limitHook
 	t.Cleanup(func() { limitHook = orig })

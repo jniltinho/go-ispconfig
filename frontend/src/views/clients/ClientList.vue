@@ -33,11 +33,11 @@ const router = useRouter()
 const store = useSitesStore()
 
 const columns: Column[] = [
-  { key: 'company_name', label: t('company_name_txt') },
-  { key: 'contact_name', label: t('contact_name_txt') },
-  { key: 'username', label: t('username_txt') },
-  { key: 'customer_no', label: t('customer_no_txt') },
-  { key: 'locked', label: t('locked_txt') },
+  { key: 'company_name', label: 'company_name_txt' },
+  { key: 'contact_name', label: 'contact_name_txt' },
+  { key: 'username', label: 'username_txt' },
+  { key: 'customer_no', label: 'customer_no_txt' },
+  { key: 'locked', label: 'locked_txt' },
 ]
 
 const rows = ref<Row[]>([])

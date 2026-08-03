@@ -49,7 +49,7 @@ func ftpUserEntity() *Entity {
 		Prepare:      ftpUserPrepare,
 		AfterInsert:  ftpUserAfterInsert,
 		BeforeUpdate: ftpUserBeforeUpdate,
-		Decorate:     ftpShellDecorate("ftp_user", "ftp_user_id"),
+		Decorate:     siteChildDecorate("ftp_user", "ftp_user_id"),
 		ListFilters: map[string]ListFilterFunc{
 			"_server_name":   relatedNameFilter("server_id", "server", "server_id", "server_name"),
 			"_parent_domain": relatedNameFilter("parent_domain_id", "web_domain", "domain_id", "domain"),
@@ -283,7 +283,7 @@ func shellUserEntity() *Entity {
 		Title:       "shell_user_edit_title",
 		Prepare:     shellUserPrepare,
 		AfterInsert: shellUserAfterInsert,
-		Decorate:    ftpShellDecorate("shell_user", "shell_user_id"),
+		Decorate:    siteChildDecorate("shell_user", "shell_user_id"),
 		ListFilters: map[string]ListFilterFunc{
 			"_server_name":   relatedNameFilter("server_id", "server", "server_id", "server_name"),
 			"_parent_domain": relatedNameFilter("parent_domain_id", "web_domain", "domain_id", "domain"),
@@ -517,9 +517,11 @@ func shellUserAfterInsert(ctx context.Context, tx *gorm.DB, _ *repository.Identi
 	return tx.Model(rec).Select("sys_groupid", "server_id", "puser", "pgroup", "dir", "shell").Updates(rec).Error
 }
 
-// ftpShellDecorate redacts passwords, attaches datalog state, and adds
-// legacy-panel display names (_server_name, _parent_domain) for list UI.
-func ftpShellDecorate(table, pk string) func(ctx context.Context, db *gorm.DB, items []map[string]any) error {
+// siteChildDecorate is the shared Decorate hook for entities hanging off a
+// website (ftp/shell users, crons, folders): redacts passwords (no-op for
+// password-less tables), attaches datalog state, and adds legacy-panel
+// display names (_server_name, _parent_domain) for list UI.
+func siteChildDecorate(table, pk string) func(ctx context.Context, db *gorm.DB, items []map[string]any) error {
 	state := datalogStateDecorator(table, pk)
 	return func(ctx context.Context, db *gorm.DB, items []map[string]any) error {
 		for _, it := range items {

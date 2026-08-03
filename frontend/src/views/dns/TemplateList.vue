@@ -14,9 +14,9 @@ const router = useRouter()
 const store = useSitesStore()
 
 const columns: Column[] = [
-  { key: 'visible', label: t('dns.col.visible') },
-  { key: 'name', label: t('dns.col.template_name') },
-  { key: 'fields', label: t('dns.col.template_fields') },
+  { key: 'visible', label: 'dns.col.visible' },
+  { key: 'name', label: 'dns.col.template_name' },
+  { key: 'fields', label: 'dns.col.template_fields' },
 ]
 
 const rows = ref<Row[]>([])

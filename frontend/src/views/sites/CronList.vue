@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // Cron jobs list: server-side paged DataTable over /api/sites/crons with
 // the five schedule fields collapsed into one summary column and the parent
-// website resolved to its domain name.
+// website / server shown via the API's decorated display-name columns.
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { utilityIcons } from '../../icons'
@@ -16,12 +16,13 @@ const router = useRouter()
 const store = useSitesStore()
 
 const columns: Column[] = [
-  { key: 'active', label: t('sites.col.active') },
-  { key: 'parent_domain_id', label: t('sites.col.website') },
-  { key: 'schedule', label: t('sites.col.schedule'), filterable: false },
-  { key: 'type', label: t('sites.col.type') },
-  { key: 'command', label: t('command_txt') },
-  { key: 'log', label: t('log_txt') },
+  { key: 'active', label: 'sites.col.active' },
+  { key: '_parent_domain', label: 'sites.col.website' },
+  { key: 'schedule', label: 'sites.col.schedule', filterable: false },
+  { key: 'type', label: 'sites.col.type' },
+  { key: 'command', label: 'command_txt' },
+  { key: 'log', label: 'log_txt' },
+  { key: '_server_name', label: 'sites.col.server' },
 ]
 
 const rows = ref<Row[]>([])
@@ -31,8 +32,6 @@ const pageSize = 25
 const filters = ref<Record<string, string>>({})
 const error = ref('')
 const loading = ref(false)
-/** domains maps domain_id → domain so the list shows names, not ids. */
-const domains = ref<Record<string, string>>({})
 
 /** schedule renders the five cron fields as one "min hour mday month wday". */
 function schedule(row: Row): string {
@@ -56,15 +55,7 @@ async function load(toPage = page.value) {
   }
 }
 
-onMounted(async () => {
-  try {
-    const res = await store.fetchList('/api/sites/web-domains', 1, 100, { type: 'vhost' })
-    domains.value = Object.fromEntries(res.items.map((d) => [String(d.domain_id), String(d.domain)]))
-  } catch {
-    // Fall back to raw ids when the website list cannot be loaded.
-  }
-  load(1)
-})
+onMounted(() => load(1))
 
 function onFilter(next: Record<string, string>) {
   filters.value = next
@@ -117,9 +108,6 @@ async function remove(row: Row) {
       </template>
       <template #cell-log="{ value }">
         {{ value === 'y' ? t('yes_txt') : t('no_txt') }}
-      </template>
-      <template #cell-parent_domain_id="{ value }">
-        {{ domains[String(value)] ?? value }}
       </template>
       <template #cell-schedule="{ row }">
         <span class="font-mono text-xs">{{ schedule(row) }}</span>

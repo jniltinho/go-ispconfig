@@ -15,10 +15,10 @@ const router = useRouter()
 const store = useSitesStore()
 
 const columns: Column[] = [
-  { key: 'database_user', label: t('sites.col.database_user') },
+  { key: 'database_user', label: 'sites.col.database_user' },
   // Decorated via API (_client = "Contact (username)") — legacy PHP
   // Database User list parity; filterable server-side via ListFilters.
-  { key: '_client', label: t('sites.col.client') },
+  { key: '_client', label: 'sites.col.client' },
 ]
 
 const rows = ref<Row[]>([])
@@ -106,7 +106,7 @@ async function remove(row: Row) {
           type="button"
           :title="t('sites.delete')"
           :aria-label="t('sites.delete')"
-          class="ml-1 border border-border bg-surface p-1 hover:bg-danger"
+          class="ml-1 border border-danger-border bg-danger p-1 text-danger-text"
           @click.stop="remove(row)"
         >
           <component :is="utilityIcons.delete" :size="14" />

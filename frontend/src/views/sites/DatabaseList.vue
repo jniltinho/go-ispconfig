@@ -22,12 +22,12 @@ const store = useSitesStore()
 // list endpoint resolves them as filter aliases (subqueries on the
 // related tables), so their filter boxes search names, not ids.
 const columns: Column[] = [
-  { key: 'active', label: t('sites.col.active') },
-  { key: 'remote_access', label: t('sites.col.remote_access') },
-  { key: '_server_name', label: t('sites.col.server') },
-  { key: '_parent_domain', label: t('sites.col.website') },
-  { key: '_database_user', label: t('sites.col.database_user') },
-  { key: 'database_name', label: t('sites.col.database_name') },
+  { key: 'active', label: 'sites.col.active' },
+  { key: 'remote_access', label: 'sites.col.remote_access' },
+  { key: '_server_name', label: 'sites.col.server' },
+  { key: '_parent_domain', label: 'sites.col.website' },
+  { key: '_database_user', label: 'sites.col.database_user' },
+  { key: 'database_name', label: 'sites.col.database_name' },
 ]
 
 const rows = ref<Row[]>([])
@@ -134,7 +134,7 @@ async function remove(row: Row) {
           type="button"
           :title="t('sites.delete')"
           :aria-label="t('sites.delete')"
-          class="ml-1 border border-border bg-surface p-1 hover:bg-danger"
+          class="ml-1 border border-danger-border bg-danger p-1 text-danger-text"
           @click.stop="remove(row)"
         >
           <component :is="utilityIcons.delete" :size="14" />

@@ -30,6 +30,8 @@ const props = defineProps<{
   metadata: FormMetadata
   modelValue?: Record<string, unknown>
   errors?: Record<string, string[]>
+  /** saving disables Save/Cancel while the request is in flight. */
+  saving?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -50,6 +52,16 @@ for (const tab of props.metadata.tabs) {
       field.default ??
       (field.type === 'checkbox' ? false : '')
   }
+}
+
+// fieldLabel resolves a field name to its display label for the error
+// summary (falls back to the raw name for fixed/server-only fields).
+function fieldLabel(name: string): string {
+  for (const tab of props.metadata.tabs) {
+    const field = tab.fields.find((f) => f.name === name)
+    if (field?.label) return field.label
+  }
+  return name
 }
 
 const errorList = () => Object.entries(props.errors ?? {}).filter(([, msgs]) => msgs.length > 0)
@@ -103,7 +115,7 @@ watch(
       v-if="errorList().length"
       variant="danger"
       class="m-4"
-      :messages="errorList().map(([field, msgs]) => `${field}: ${msgs.join(', ')}`)"
+      :messages="errorList().map(([field, msgs]) => `${fieldLabel(field)}: ${msgs.join(', ')}`)"
     />
 
     <!-- Fields of the active tab -->
@@ -154,7 +166,7 @@ watch(
                 :id="`field-${field.name}`"
                 v-model="values[field.name] as string"
                 :disabled="field.readonly"
-                class="w-full max-w-md border border-border bg-surface px-3 py-1.5 text-sm outline-none focus:border-link"
+                class="w-full max-w-md border border-border bg-surface px-3 py-1.5 text-sm outline-none focus:border-link disabled:bg-bg disabled:text-text/60"
                 :class="{ 'border-danger-border': errors?.[field.name]?.length }"
               >
                 <option v-for="opt in field.options" :key="opt.value" :value="opt.value">
@@ -166,6 +178,7 @@ watch(
                 :id="`field-${field.name}`"
                 v-model="values[field.name] as boolean"
                 type="checkbox"
+                :disabled="field.readonly"
                 class="mt-2"
               />
               <p
@@ -187,11 +200,12 @@ watch(
         type="button"
         data-test="form-cancel"
         class="btn btn-default px-8"
+        :disabled="saving"
         @click="emit('cancel')"
       >
         {{ t('form.cancel') }}
       </button>
-      <button type="submit" data-test="form-save" class="btn btn-success px-8">
+      <button type="submit" data-test="form-save" class="btn btn-success px-8" :disabled="saving">
         {{ t('form.save') }}
       </button>
     </div>

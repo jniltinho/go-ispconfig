@@ -137,7 +137,10 @@ func dnsZoneEntity() *Entity {
 		Prepare:      dnsZonePrepare,
 		BeforeUpdate: dnsZoneBeforeUpdate,
 		BeforeDelete: dnsZoneBeforeDelete,
-		Decorate:     datalogStateDecorator("dns_soa", "id"),
+		Decorate:     serverNameDecorate(datalogStateDecorator("dns_soa", "id")),
+		ListFilters: map[string]ListFilterFunc{
+			"_server_name": relatedNameFilter("server_id", "server", "server_id", "server_name"),
+		},
 		Tabs: []Tab{{
 			Name: "dns_soa", Label: "dns_soa_tab_txt",
 			Fields: []Field{
@@ -271,7 +274,10 @@ func dnsSlaveEntity() *Entity {
 		Name:     "slave-zones",
 		Title:    "dns_slave_edit_title",
 		Prepare:  dnsSlavePrepare,
-		Decorate: datalogStateDecorator("dns_slave", "id"),
+		Decorate: serverNameDecorate(datalogStateDecorator("dns_slave", "id")),
+		ListFilters: map[string]ListFilterFunc{
+			"_server_name": relatedNameFilter("server_id", "server", "server_id", "server_name"),
+		},
 		Tabs: []Tab{{
 			Name: "dns_slave", Label: "dns_slave_tab_txt",
 			Fields: []Field{

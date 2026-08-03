@@ -25,6 +25,14 @@ interface ListResponse {
 onMounted(async () => {
   const o: Record<string, Opt[]> = {}
   try {
+    const servers = await api.get<Opt[]>('/api/meta/lookups/servers')
+    if (servers?.length) {
+      o.server_id = servers.map((s) => ({ value: String(s.value), label: String(s.label) }))
+    }
+  } catch {
+    // Free-text server_id when the lookup is unavailable.
+  }
+  try {
     const domains = await api.get<ListResponse>('/api/sites/web-domains?type=vhost&limit=100')
     o.parent_domain_id = domains.items.map((d) => ({
       value: String(d.domain_id),

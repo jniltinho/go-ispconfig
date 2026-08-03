@@ -65,7 +65,9 @@ function goTo(page: number) {
             :key="col.key"
             class="px-3 py-2.5 text-left text-xs font-bold uppercase"
           >
-            {{ col.label }}
+            <!-- t() passes unknown keys through, so labels may be plain
+                 strings or i18n keys (router-driven lists use keys). -->
+            {{ t(col.label) }}
           </th>
           <th class="px-3 py-2.5 text-right text-xs font-bold uppercase">
             <template v-if="hasActions">{{ t('table.actions') }}</template>
@@ -79,7 +81,7 @@ function goTo(page: number) {
               v-if="col.filterable !== false"
               v-model="filters[col.key]"
               type="text"
-              :aria-label="`${t('table.filter')}: ${col.label}`"
+              :aria-label="`${t('table.filter')}: ${t(col.label)}`"
               class="w-full border border-border bg-surface px-2 py-1 text-xs font-normal text-text outline-none focus:border-link"
               @keyup.enter="applyFilters"
             />

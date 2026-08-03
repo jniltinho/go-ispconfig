@@ -14,9 +14,9 @@ const router = useRouter()
 const store = useSitesStore()
 
 const columns: Column[] = [
-  { key: 'template_id', label: 'ID' },
-  { key: 'template_name', label: t('template_name_txt') },
-  { key: 'template_type', label: t('template_type_txt') },
+  { key: 'template_id', label: 'client.col.id' },
+  { key: 'template_name', label: 'template_name_txt' },
+  { key: 'template_type', label: 'template_type_txt' },
 ]
 
 const rows = ref<Row[]>([])

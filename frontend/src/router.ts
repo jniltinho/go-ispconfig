@@ -13,6 +13,7 @@ import WebFolderList from './views/sites/WebFolderList.vue'
 import WebFolderUserList from './views/sites/WebFolderUserList.vue'
 import DatabaseList from './views/sites/DatabaseList.vue'
 import DatabaseForm from './views/sites/DatabaseForm.vue'
+import DatabaseUserForm from './views/sites/DatabaseUserForm.vue'
 import DatabaseUserList from './views/sites/DatabaseUserList.vue'
 import CronList from './views/sites/CronList.vue'
 import CronForm from './views/sites/CronForm.vue'
@@ -21,6 +22,7 @@ import ShellUserList from './views/sites/ShellUserList.vue'
 import FTPUserForm from './views/sites/FTPUserForm.vue'
 import FTPUserList from './views/sites/FTPUserList.vue'
 import EntityForm from './views/sites/EntityForm.vue'
+import WebDomainForm from './views/sites/WebDomainForm.vue'
 import MailList from './views/mail/MailList.vue'
 import DomainForm from './views/mail/DomainForm.vue'
 import ZoneList from './views/dns/ZoneList.vue'
@@ -55,8 +57,9 @@ export const router = createRouter({
           props: {
             apiBase: '/api/mail/domains', idField: 'domain_id', formBase: '/mail/domains',
             columns: [
-              { key: 'active', label: 'Active' },
-              { key: 'domain', label: 'Domain' },
+              { key: 'active', label: 'mail.col.active' },
+              { key: '_server_name', label: 'mail.col.server' },
+              { key: 'domain', label: 'mail.col.domain' },
             ],
             titleKey: 'mail.domains_title', addKey: 'mail.add_domain',
           },
@@ -75,9 +78,9 @@ export const router = createRouter({
           props: {
             apiBase: '/api/mail/mailboxes', idField: 'mailuser_id', formBase: '/mail/mailboxes',
             columns: [
-              { key: 'email', label: 'Email' },
-              { key: 'name', label: 'Name' },
-              { key: 'quota', label: 'Quota' },
+              { key: 'email', label: 'mail.col.email' },
+              { key: 'name', label: 'mail.col.name' },
+              { key: 'quota', label: 'mail.col.quota' },
             ],
             titleKey: 'mail.mailboxes_title', addKey: 'mail.add_mailbox',
           },
@@ -100,7 +103,7 @@ export const router = createRouter({
           component: MailList,
           props: {
             apiBase: '/api/mail/aliases', idField: 'forwarding_id', formBase: '/mail/aliases',
-            columns: [{ key: 'source', label: 'Source' }, { key: 'destination', label: 'Destination' }],
+            columns: [{ key: 'source', label: 'mail.col.source' }, { key: 'destination', label: 'mail.col.destination' }],
             titleKey: 'mail.aliases_title', addKey: 'mail.add_alias',
           },
         },
@@ -122,7 +125,7 @@ export const router = createRouter({
           component: MailList,
           props: {
             apiBase: '/api/mail/forwards', idField: 'forwarding_id', formBase: '/mail/forwards',
-            columns: [{ key: 'source', label: 'Source' }, { key: 'destination', label: 'Destination' }],
+            columns: [{ key: 'source', label: 'mail.col.source' }, { key: 'destination', label: 'mail.col.destination' }],
             titleKey: 'mail.forwards_title', addKey: 'mail.add_forward',
           },
         },
@@ -144,7 +147,7 @@ export const router = createRouter({
           component: MailList,
           props: {
             apiBase: '/api/mail/catchalls', idField: 'forwarding_id', formBase: '/mail/catchalls',
-            columns: [{ key: 'source', label: 'Domain' }, { key: 'destination', label: 'Destination' }],
+            columns: [{ key: 'source', label: 'mail.col.domain' }, { key: 'destination', label: 'mail.col.destination' }],
             titleKey: 'mail.catchalls_title', addKey: 'mail.add_catchall',
           },
         },
@@ -166,7 +169,7 @@ export const router = createRouter({
           component: MailList,
           props: {
             apiBase: '/api/mail/alias-domains', idField: 'forwarding_id', formBase: '/mail/alias-domains',
-            columns: [{ key: 'source', label: 'Source domain' }, { key: 'destination', label: 'Target domain' }],
+            columns: [{ key: 'source', label: 'Source domain' }, { key: 'destination', label: 'mail.col.target_domain' }],
             titleKey: 'mail.alias_domains_title', addKey: 'mail.add_alias_domain',
           },
         },
@@ -188,7 +191,7 @@ export const router = createRouter({
           component: MailList,
           props: {
             apiBase: '/api/mail/transports', idField: 'transport_id', formBase: '/mail/transports',
-            columns: [{ key: 'domain', label: 'Domain' }, { key: 'transport', label: 'Transport' }, { key: 'sort_order', label: 'Order' }],
+            columns: [{ key: 'domain', label: 'mail.col.domain' }, { key: 'transport', label: 'Transport' }, { key: 'sort_order', label: 'mail.col.order' }],
             titleKey: 'mail.transports_title', addKey: 'mail.add_transport',
           },
         },
@@ -210,7 +213,7 @@ export const router = createRouter({
           component: MailList,
           props: {
             apiBase: '/api/mail/spamfilter/policies', idField: 'id', formBase: '/mail/spamfilter/policies',
-            columns: [{ key: 'policy_name', label: 'Name' }, { key: 'rspamd_greylisting', label: 'Greylisting' }],
+            columns: [{ key: 'policy_name', label: 'mail.col.name' }, { key: 'rspamd_greylisting', label: 'mail.col.greylisting' }],
             titleKey: 'mail.policies_title', addKey: 'mail.add_policy',
           },
         },
@@ -232,7 +235,7 @@ export const router = createRouter({
           component: MailList,
           props: {
             apiBase: '/api/mail/spamfilter/users', idField: 'id', formBase: '/mail/spamfilter/users',
-            columns: [{ key: 'email', label: 'Email' }, { key: 'priority', label: 'Priority' }],
+            columns: [{ key: 'email', label: 'mail.col.email' }, { key: 'priority', label: 'mail.col.priority' }],
             titleKey: 'mail.spamusers_title', addKey: 'mail.add_spamuser',
           },
         },
@@ -254,7 +257,7 @@ export const router = createRouter({
           component: MailList,
           props: {
             apiBase: '/api/mail/spamfilter/wblists', idField: 'wblist_id', formBase: '/mail/spamfilter/wblists',
-            columns: [{ key: 'wb', label: 'List' }, { key: 'email', label: 'Email' }],
+            columns: [{ key: 'wb', label: 'List' }, { key: 'email', label: 'mail.col.email' }],
             titleKey: 'mail.wblists_title', addKey: 'mail.add_wblist',
           },
         },
@@ -276,7 +279,7 @@ export const router = createRouter({
           component: MailList,
           props: {
             apiBase: '/api/mail/access', idField: 'access_id', formBase: '/mail/access',
-            columns: [{ key: 'source', label: 'Source' }, { key: 'type', label: 'Type' }, { key: 'access', label: 'Access' }],
+            columns: [{ key: 'source', label: 'mail.col.source' }, { key: 'type', label: 'Type' }, { key: 'access', label: 'mail.col.access' }],
             titleKey: 'mail.access_title', addKey: 'mail.add_access',
           },
         },
@@ -351,19 +354,13 @@ export const router = createRouter({
         {
           path: 'sites/domains/new',
           name: 'sites-domain-new',
-          component: EntityForm,
-          props: { entity: 'web-domains', apiBase: '/api/sites/web-domains', backTo: '/sites' },
+          component: WebDomainForm,
         },
         {
           path: 'sites/domains/:id',
           name: 'sites-domain-edit',
-          component: EntityForm,
-          props: (route) => ({
-            entity: 'web-domains',
-            apiBase: '/api/sites/web-domains',
-            backTo: '/sites',
-            id: String(route.params.id),
-          }),
+          component: WebDomainForm,
+          props: (route) => ({ id: String(route.params.id) }),
         },
         { path: 'sites/folders', name: 'sites-folders', component: WebFolderList },
         {
@@ -463,24 +460,13 @@ export const router = createRouter({
         {
           path: 'sites/database-users/new',
           name: 'sites-database-user-new',
-          component: EntityForm,
-          props: {
-            entity: 'database-users',
-            apiBase: '/api/sites/database-users',
-            backTo: '/sites/database-users',
-          },
+          component: DatabaseUserForm,
         },
         {
           path: 'sites/database-users/:id',
           name: 'sites-database-user-edit',
-          component: EntityForm,
-          props: (route) => ({
-            entity: 'database-users',
-            apiBase: '/api/sites/database-users',
-            backTo: '/sites/database-users',
-            id: String(route.params.id),
-            readonlyFields: ['server_id', 'database_user_prefix'],
-          }),
+          component: DatabaseUserForm,
+          props: (route) => ({ id: String(route.params.id) }),
         },
         { path: 'dns', name: 'dns', component: ZoneList },
         { path: 'dns/wizard', name: 'dns-wizard', component: ZoneWizard },
@@ -549,10 +535,10 @@ export const router = createRouter({
           props: {
             apiBase: '/api/firewall', idField: 'firewall_id', formBase: '/system/firewall',
             columns: [
-              { key: 'active', label: 'Active' },
-              { key: 'server_id', label: 'Server' },
-              { key: 'tcp_port', label: 'Open TCP ports' },
-              { key: 'udp_port', label: 'Open UDP ports' },
+              { key: 'active', label: 'firewall.col.active' },
+              { key: '_server_name', label: 'firewall.col.server' },
+              { key: 'tcp_port', label: 'firewall.col.tcp_port' },
+              { key: 'udp_port', label: 'firewall.col.udp_port' },
             ],
             titleKey: 'firewall.firewalls_title', addKey: 'firewall.add_firewall',
           },

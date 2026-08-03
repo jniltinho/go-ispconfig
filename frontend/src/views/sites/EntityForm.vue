@@ -68,6 +68,8 @@ const loadError = ref('')
 const datalogState = ref('')
 const datalogError = ref('')
 const saving = ref(false)
+/** Merged option overrides: parent props + auto-loaded server_id lookup. */
+const resolvedOverrides = ref<Record<string, { value: string; label: string }[]>>({})
 
 /** truthyOption returns the checkbox value meaning "checked" ('y', '1', …). */
 function truthyOption(field: ServerField): string {
@@ -86,13 +88,17 @@ function toFormMetadata(meta: ServerMeta): FormMetadata {
     tabs: meta.tabs.map((tab) => ({
       name: tab.name,
       label: t(tab.label),
-      fields: tab.fields.map((field) => {
-        const override = props.optionOverrides?.[field.name]
+      // Skip server-only columns (empty label) e.g. dual-hash password_sha2.
+      fields: tab.fields
+        .filter((field) => field.label !== '')
+        .map((field) => {
+        const override = resolvedOverrides.value[field.name]
         return {
         name: field.name,
         // SELECTs whose options come from a server datasource (not ported
         // yet, e.g. server_id) arrive without options; render them as text
-        // inputs so the value stays editable.
+        // inputs so the value stays editable — unless resolvedOverrides
+        // filled them (auto server lookup or parent optionOverrides).
         type: override
           ? ('select' as const)
           : field.type === 'select' && !field.options?.length
@@ -111,6 +117,19 @@ function toFormMetadata(meta: ServerMeta): FormMetadata {
       }),
     })),
   }
+}
+
+/** needsServerLookup is true when a bare server_id SELECT has no options yet. */
+function needsServerLookup(meta: ServerMeta): boolean {
+  if (resolvedOverrides.value.server_id?.length) return false
+  for (const tab of meta.tabs) {
+    for (const field of tab.fields) {
+      if (field.name === 'server_id' && field.type === 'select' && !field.options?.length) {
+        return true
+      }
+    }
+  }
+  return false
 }
 
 // toFormValues converts an API record into TabbedForm values: checkboxes
@@ -154,7 +173,23 @@ function toPayload(meta: ServerMeta, values: Record<string, unknown>): Record<st
 
 onMounted(async () => {
   try {
+    resolvedOverrides.value = { ...(props.optionOverrides ?? {}) }
     const meta = await api.get<ServerMeta>(`/api/meta/forms/${props.entity}`)
+    // Auto-fill server_id selects so mail/dns/firewall/sites forms do not
+    // fall back to free-text ids (shared /api/meta/lookups/servers).
+    if (needsServerLookup(meta)) {
+      try {
+        const servers = await api.get<{ value: string; label: string }[]>('/api/meta/lookups/servers')
+        if (servers?.length) {
+          resolvedOverrides.value = {
+            ...resolvedOverrides.value,
+            server_id: servers.map((s) => ({ value: String(s.value), label: String(s.label) })),
+          }
+        }
+      } catch {
+        // Keep free-text fallback when the lookup is unavailable.
+      }
+    }
     let record: Record<string, unknown> = {}
     if (props.id) {
       record = await api.get<Record<string, unknown>>(`${props.apiBase}/${props.id}`)
@@ -171,7 +206,7 @@ onMounted(async () => {
 })
 
 async function save(values: Record<string, unknown>) {
-  if (!serverMeta.value) return
+  if (!serverMeta.value || saving.value) return
   errors.value = {}
   const clientErrors = props.validate?.(values) ?? {}
   if (Object.keys(clientErrors).length) {
@@ -230,6 +265,7 @@ async function save(values: Record<string, unknown>) {
       :metadata="metadata"
       :model-value="initial"
       :errors="errors"
+      :saving="saving"
       @save="save"
       @cancel="router.push(backTo)"
     />

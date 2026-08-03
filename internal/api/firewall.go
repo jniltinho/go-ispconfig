@@ -60,6 +60,10 @@ func firewallEntity() *Entity {
 		Title:     "firewall_edit_title",
 		Policy:    "admin_allow_firewall_config",
 		AdminOnly: true,
+		Decorate:  serverNameDecorate(nil),
+		ListFilters: map[string]ListFilterFunc{
+			"_server_name": relatedNameFilter("server_id", "server", "server_id", "server_name"),
+		},
 		Tabs: []Tab{{
 			Name:  "firewall",
 			Label: "firewall_tab_title",

@@ -20,11 +20,19 @@ function res(status: number, body: unknown = '') {
 
 const page = {
   items: [
-    { domain_id: 1, active: 'y', server_id: 1, domain: 'example.com', type: 'vhost' },
+    {
+      domain_id: 1,
+      active: 'y',
+      server_id: 1,
+      _server_name: 'server1.example.com',
+      domain: 'example.com',
+      type: 'vhost',
+    },
     {
       domain_id: 2,
       active: 'y',
       server_id: 1,
+      _server_name: 'server1.example.com',
       domain: 'pending.com',
       type: 'vhost',
       _datalog_state: 'pending',
@@ -33,6 +41,7 @@ const page = {
       domain_id: 3,
       active: 'n',
       server_id: 1,
+      _server_name: 'server1.example.com',
       domain: 'broken.com',
       type: 'vhostsubdomain',
       _datalog_state: 'error',
@@ -58,6 +67,7 @@ describe('WebDomainList', () => {
 
     expect(fetchMock.mock.calls[0][0]).toBe('/api/sites/web-domains?page=1&limit=25')
     expect(wrapper.text()).toContain('example.com')
+    expect(wrapper.text()).toContain('server1.example.com')
     expect(wrapper.text()).toContain('Subdomain') // type label translated
 
     expect(wrapper.findAll('[data-test="state-pending"]')).toHaveLength(1)

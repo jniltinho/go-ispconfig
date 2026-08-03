@@ -15,11 +15,11 @@ const router = useRouter()
 const store = useSitesStore()
 
 const columns: Column[] = [
-  { key: 'active', label: t('sites.col.active') },
-  { key: 'server_id', label: t('sites.col.server') },
-  { key: 'origin', label: t('dns.col.zone') },
-  { key: 'ns', label: t('dns.col.ns') },
-  { key: 'mbox', label: t('dns.col.mbox') },
+  { key: 'active', label: 'sites.col.active' },
+  { key: '_server_name', label: 'sites.col.server' },
+  { key: 'origin', label: 'dns.col.zone' },
+  { key: 'ns', label: 'dns.col.ns' },
+  { key: 'mbox', label: 'dns.col.mbox' },
 ]
 
 const rows = ref<Row[]>([])

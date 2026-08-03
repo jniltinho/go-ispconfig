@@ -15,11 +15,11 @@ const router = useRouter()
 const store = useSitesStore()
 
 const columns: Column[] = [
-  { key: 'username', label: t('sites.col.username') },
-  { key: '_parent_domain', label: t('sites.col.website') },
-  { key: 'chroot', label: t('sites.col.chroot') },
-  { key: 'active', label: t('sites.col.active') },
-  { key: '_server_name', label: t('sites.col.server') },
+  { key: 'username', label: 'sites.col.username' },
+  { key: '_parent_domain', label: 'sites.col.website' },
+  { key: 'chroot', label: 'sites.col.chroot' },
+  { key: 'active', label: 'sites.col.active' },
+  { key: '_server_name', label: 'sites.col.server' },
 ]
 
 const rows = ref<Row[]>([])
@@ -114,7 +114,7 @@ async function remove(row: Row) {
           type="button"
           :title="t('sites.delete')"
           :aria-label="t('sites.delete')"
-          class="ml-1 border border-border bg-surface p-1 hover:bg-danger"
+          class="ml-1 border border-danger-border bg-danger p-1 text-danger-text"
           @click.stop="remove(row)"
         >
           <component :is="utilityIcons.delete" :size="14" />

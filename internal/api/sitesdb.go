@@ -718,6 +718,26 @@ func sitesDatabaseUserBeforeDelete(_ context.Context, tx *gorm.DB, id *repositor
 	return nil
 }
 
+// serverNameDecorate wraps an optional Decorate hook and adds `_server_name`
+// from the server table so list UIs can show/filter hostnames instead of ids.
+func serverNameDecorate(
+	inner func(ctx context.Context, db *gorm.DB, items []map[string]any) error,
+) func(ctx context.Context, db *gorm.DB, items []map[string]any) error {
+	return func(ctx context.Context, db *gorm.DB, items []map[string]any) error {
+		if inner != nil {
+			if err := inner(ctx, db, items); err != nil {
+				return err
+			}
+		}
+		servers := nameLookup(ctx, db, "server", "server_id", "server_name",
+			collectIDs(items, "server_id"))
+		for _, item := range items {
+			item["_server_name"] = servers[idString(item["server_id"])]
+		}
+		return nil
+	}
+}
+
 // relatedNameFilter builds a list filter alias: ?<alias>=v narrows the
 // list by a substring match on a related table's name column, so the
 // decorated display-name columns of a list (names, not raw ids) stay

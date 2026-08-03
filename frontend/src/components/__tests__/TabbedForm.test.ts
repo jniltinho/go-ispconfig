@@ -69,7 +69,29 @@ describe('TabbedForm', () => {
     expect(wrapper.text()).toContain('Section heading')
     const alert = wrapper.find('[data-test="alert-danger"]')
     expect(alert.exists()).toBe(true)
-    expect(alert.text()).toContain('domain: is invalid')
+    expect(alert.text()).toContain('Domain: is invalid')
     expect(alert.classes()).toContain('m-4')
+  })
+
+  it('disables readonly checkboxes and buttons while saving', () => {
+    const wrapper = mount(TabbedForm, {
+      props: {
+        metadata: {
+          tabs: [
+            {
+              name: 'main',
+              label: 'Main',
+              fields: [{ name: 'active', type: 'checkbox', label: 'Active', readonly: true }],
+            },
+          ],
+        },
+        saving: true,
+      },
+    })
+    expect((wrapper.find('#field-active').element as HTMLInputElement).disabled).toBe(true)
+    expect((wrapper.find('[data-test="form-save"]').element as HTMLButtonElement).disabled).toBe(true)
+    expect(
+      (wrapper.find('[data-test="form-cancel"]').element as HTMLButtonElement).disabled,
+    ).toBe(true)
   })
 })
