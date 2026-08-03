@@ -72,8 +72,10 @@ async function logout() {
       aria-valuemax="100"
       :aria-label="t('nav.loading')"
     />
-    <header class="border-b border-border bg-surface">
-      <div class="mx-auto flex max-w-[1260px] items-center gap-6 px-5">
+    <!-- Legacy header: brand row (logo | search | red logout) over a full
+         width row of boxed module tabs (ispconfig.css #topNav). -->
+    <header class="bg-surface">
+      <div class="mx-auto flex max-w-[1260px] items-center gap-6 px-5 py-3">
         <button
           type="button"
           data-test="sidebar-toggle"
@@ -85,27 +87,13 @@ async function logout() {
         >
           <Menu :size="18" />
         </button>
-        <RouterLink to="/dashboard" class="flex items-center gap-2 py-3 text-lg font-bold text-brand no-underline">
+        <RouterLink to="/dashboard" class="flex items-center gap-2 text-lg font-bold text-brand no-underline">
           <img src="/logo.svg" alt="" width="28" height="28" class="shrink-0" />
           {{ t('app.title') }}
         </RouterLink>
 
-        <!-- Module tabs: 32px icon over bold title (original top-nav) -->
-        <nav class="flex min-w-0 flex-1 justify-center overflow-x-auto">
-          <RouterLink
-            v-for="mod in visibleModules"
-            :key="mod.id"
-            :to="mod.path"
-            class="flex w-24 flex-col items-center gap-1 border-b-2 border-transparent py-2 text-text no-underline transition-colors duration-150 hover:bg-bg hover:text-brand"
-            :class="{ 'border-brand! bg-bg text-brand': activeModule.id === mod.id }"
-          >
-            <component :is="moduleIcons[mod.id]" :size="32" :stroke-width="1.5" />
-            <span class="text-xs font-bold">{{ t(`module.${mod.id}`) }}</span>
-          </RouterLink>
-        </nav>
-
-        <!-- Global search + logout -->
-        <div class="flex items-center gap-3">
+        <!-- Global search + logout, pushed to the right edge of the wrapper -->
+        <div class="ml-auto flex items-center gap-3">
           <div class="flex items-center border border-border bg-surface focus-within:border-link max-md:hidden">
             <input
               v-model="search"
@@ -135,6 +123,26 @@ async function logout() {
           </button>
         </div>
       </div>
+
+      <!-- Module tabs: equal-width boxes filling the wrapper, 32px icon over
+           bold title; the active tab is white and red like the legacy panel. -->
+      <nav class="mx-auto flex max-w-[1260px] overflow-x-auto px-5">
+        <RouterLink
+          v-for="mod in visibleModules"
+          :key="mod.id"
+          :to="mod.path"
+          class="-ml-px flex min-w-24 flex-1 flex-col items-center gap-1 border border-border bg-bg py-2.5 text-text no-underline transition-colors duration-150 first:ml-0 hover:text-brand"
+          :class="
+            activeModule.id === mod.id
+              ? 'border-b-surface! bg-surface text-brand'
+              : 'border-b-border'
+          "
+        >
+          <component :is="moduleIcons[mod.id]" :size="32" :stroke-width="1.5" />
+          <span class="text-xs font-bold">{{ t(`module.${mod.id}`) }}</span>
+        </RouterLink>
+      </nav>
+      <div class="border-b border-border" />
     </header>
 
     <!-- Legacy #main-wrapper: page centered at max 1260px (ispconfig.css),
