@@ -32,6 +32,7 @@ import ZoneWizard from './views/dns/ZoneWizard.vue'
 import SlaveZoneList from './views/dns/SlaveZoneList.vue'
 import TemplateList from './views/dns/TemplateList.vue'
 import MigrationWizard from './views/system/MigrationWizard.vue'
+import Fail2banView from './views/system/Fail2banView.vue'
 import MonitorState from './views/monitor/MonitorState.vue'
 import MonitorData from './views/monitor/MonitorData.vue'
 import MonitorSysLog from './views/monitor/MonitorSysLog.vue'
@@ -628,6 +629,12 @@ export const router = createRouter({
           component: EntityForm,
           meta: { adminOnly: true },
           props: (route) => ({ entity: 'firewall', apiBase: '/api/firewall', backTo: '/system/firewall', id: String(route.params.id), readonlyFields: ['server_id'] }),
+        },
+        {
+          path: 'system/fail2ban',
+          name: 'system-fail2ban',
+          component: Fail2banView,
+          meta: { adminOnly: true },
         },
         {
           path: 'system/migration',
