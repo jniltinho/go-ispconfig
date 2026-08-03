@@ -61,3 +61,7 @@ func (WebDatabase) DBHistory() bool { return true }
 
 // DBHistory reports that web_database_user mutations are datalogged.
 func (WebDatabaseUser) DBHistory() bool { return true }
+
+// Cron is journaled so the daemon client-job runner can add/replace/remove
+// schedules from sys_datalog (add-cron-module).
+func (Cron) DBHistory() bool { return true }
