@@ -50,14 +50,19 @@ func (e *LimitError) Error() string { return "api: limit exceeded: " + e.Key }
 // LimitKey satisfies the error handler's limit-veto interface.
 func (e *LimitError) LimitKey() string { return e.Key }
 
-// statusKeys maps HTTP statuses raised via echo.HTTPError (middlewares,
-// route misses) to their i18n keys.
+// statusKeys maps HTTP statuses raised by Echo (middlewares, route misses,
+// body limit) to their i18n keys. A status missing here still keeps its own
+// code; only the key falls back.
 var statusKeys = map[int]string{
-	http.StatusBadRequest:      "error.bad_request",
-	http.StatusUnauthorized:    "error.unauthorized",
-	http.StatusForbidden:       "error.forbidden",
-	http.StatusNotFound:        "error.not_found",
-	http.StatusTooManyRequests: "error.too_many_requests",
+	http.StatusBadRequest:            "error.bad_request",
+	http.StatusUnauthorized:          "error.unauthorized",
+	http.StatusForbidden:             "error.forbidden",
+	http.StatusNotFound:              "error.not_found",
+	http.StatusMethodNotAllowed:      "error.method_not_allowed",
+	http.StatusRequestEntityTooLarge: "error.request_too_large",
+	http.StatusUnsupportedMediaType:  "error.unsupported_media_type",
+	http.StatusTooManyRequests:       "error.too_many_requests",
+	http.StatusServiceUnavailable:    "error.service_unavailable",
 }
 
 // ErrorHandler returns the central Echo error handler: it converts known
@@ -76,7 +81,6 @@ func ErrorHandler() echo.HTTPErrorHandler {
 		var (
 			valErr   *ValidationError
 			limErr   interface{ LimitKey() string }
-			httpErr  *echo.HTTPError
 			bindErr  *echo.BindingError
 			validate = errors.As(err, &valErr)
 		)
@@ -96,12 +100,17 @@ func ErrorHandler() echo.HTTPErrorHandler {
 		case errors.As(err, &bindErr):
 			status = http.StatusBadRequest
 			info = ErrorInfo{Key: "error.bad_request"}
-		case errors.As(err, &httpErr):
-			status = httpErr.Code
-			if key, ok := statusKeys[status]; ok {
-				info = ErrorInfo{Key: key}
-			} else {
-				info = ErrorInfo{Key: "error.internal"}
+		// echo.StatusCode, not errors.As on *echo.HTTPError: Echo's own
+		// sentinels (ErrNotFound, ErrMethodNotAllowed, the body-limit 413,
+		// ...) are an unexported type that only implements HTTPStatusCoder,
+		// so matching on *echo.HTTPError alone let every route miss fall
+		// through to 500.
+		default:
+			if code := echo.StatusCode(err); code != 0 {
+				status = code
+				if key, ok := statusKeys[status]; ok {
+					info = ErrorInfo{Key: key}
+				}
 			}
 		}
 

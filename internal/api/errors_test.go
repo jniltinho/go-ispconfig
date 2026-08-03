@@ -33,6 +33,36 @@ func decodeError(t *testing.T, rec *httptest.ResponseRecorder) ErrorResponse {
 }
 
 func TestErrorHandler(t *testing.T) {
+	t.Run("echo's own sentinels keep their status", func(t *testing.T) {
+		// Regression: these are an unexported type implementing only
+		// HTTPStatusCoder, so an errors.As on *echo.HTTPError missed them
+		// and every route miss was served as 500 error.internal.
+		for _, tc := range []struct {
+			err  error
+			code int
+			key  string
+		}{
+			{echo.ErrNotFound, http.StatusNotFound, "error.not_found"},
+			{echo.ErrMethodNotAllowed, http.StatusMethodNotAllowed, "error.method_not_allowed"},
+			{echo.ErrStatusRequestEntityTooLarge, http.StatusRequestEntityTooLarge, "error.request_too_large"},
+			{echo.ErrTooManyRequests, http.StatusTooManyRequests, "error.too_many_requests"},
+		} {
+			rec := fire(t, tc.err)
+			require.Equal(t, tc.code, rec.Code, tc.err)
+			require.Equal(t, tc.key, decodeError(t, rec).Error.Key)
+		}
+	})
+
+	t.Run("an unrouted path is 404, not 500", func(t *testing.T) {
+		e := echo.New()
+		e.HTTPErrorHandler = ErrorHandler()
+		e.GET("/api/known", func(c *echo.Context) error { return nil })
+		rec := httptest.NewRecorder()
+		e.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/nope", nil))
+		require.Equal(t, http.StatusNotFound, rec.Code)
+		require.Equal(t, "error.not_found", decodeError(t, rec).Error.Key)
+	})
+
 	t.Run("permission denied is 403", func(t *testing.T) {
 		rec := fire(t, repository.ErrPermissionDenied)
 		require.Equal(t, http.StatusForbidden, rec.Code)
