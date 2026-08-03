@@ -90,8 +90,14 @@ async function logout() {
         >
           <Menu :size="18" />
         </button>
-        <RouterLink to="/dashboard" class="flex items-center gap-2 text-lg font-bold text-brand no-underline">
-          <img src="/logo.svg" alt="" width="28" height="28" class="shrink-0" />
+        <RouterLink to="/dashboard" class="flex items-center gap-3 text-xl font-bold text-brand no-underline">
+          <img
+            src="/icon-isp-panel-256.png"
+            alt=""
+            width="64"
+            height="64"
+            class="size-16 shrink-0"
+          />
           {{ t('app.title') }}
         </RouterLink>
 

@@ -1028,5 +1028,10 @@
   "dashboard.metrics.memory": "Memory Usage %",
   "dashboard.metrics.net_in": "Network In/kB",
   "dashboard.metrics.net_out": "Network Out/kB",
+  "dashboard.quota": "Quota",
+  "dashboard.quota.harddisk": "Website Harddisk Quota",
+  "dashboard.quota.mailbox": "Mailbox Quota",
+  "dashboard.quota.database": "Database Quota",
+  "dashboard.quota.unlimited": "Unlimited",
   "monitor.server_id": "Server"
 }
