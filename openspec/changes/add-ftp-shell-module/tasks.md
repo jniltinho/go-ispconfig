@@ -32,7 +32,7 @@
 - [x] 5.1 Implement FTP user validation + prepare/after-insert/after-update hooks (prefix, parent vhost scope, CRYPT password, dir under docroot, admin-only advanced fields, client `limit_ftp_user`); table-driven unit tests. Commit.
 - [x] 5.2 Implement Shell user validation + prepare/after-insert/after-update hooks (prefix, blacklist, 32-char cap, immutable parent, chroot allow-list, `ssh_authentication` password/key mode, client `limit_shell_user`, admin-only advanced fields); table-driven unit tests. Commit.
 - [x] 5.3 Register declarative entities `FTPUser` and `ShellUser` under `/api/sites/ftp-users` and `/api/sites/shell-users` via `RegisterEntity` (list/get/create/update/delete), riud-scoped repositories, datalog `{old,new}`, password redaction on read; handler tests including 403 cross-client. Commit.
-- [ ] 5.4 Add swaggo annotations for both entities; run `make swagger` / `swag init` and verify Swagger UI lists the new endpoints; CI staleness check green. Commit.
+- [x] 5.4 Add swaggo annotations for both entities; run `make swagger` / `swag init` and verify Swagger UI lists the new endpoints; CI staleness check green. Commit.
 
 ## 6. Panel UI (Vue)
 
