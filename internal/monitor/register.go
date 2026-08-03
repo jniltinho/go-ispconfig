@@ -117,6 +117,9 @@ func RegisterJobs(sched *engine.Scheduler, db *gorm.DB, opts RegisterOptions) er
 			}
 			return Store(ctx, db, serverID, "ispc_info", data, state, 0)
 		}},
+		{"monitor_rspamd", SpecEvery5Min, func(ctx context.Context) error {
+			return RunRspamdCollector(ctx, db, serverID, "")
+		}},
 		{"monitor_sys_usage", SpecEveryMin, func(ctx context.Context) error {
 			return RunSysUsageCollector(ctx, db, serverID)
 		}},

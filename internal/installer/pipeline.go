@@ -80,6 +80,8 @@ type State struct {
 	PureFTPdConfigDir string
 	// PureFTPdDefaults is the Debian pure-ftpd-common defaults file.
 	PureFTPdDefaults string
+	// RspamdConfigDir is the Rspamd config root the baseline is written to.
+	RspamdConfigDir string
 	// Fail2banJailDir holds the panel-owned ispconfig-*.local jail drop-ins.
 	Fail2banJailDir string
 
@@ -119,6 +121,7 @@ func NewState(profile *Profile, answers *Answers) *State {
 		PowerDNSConfPath:  "/etc/powerdns/pdns.d/pdns.local",
 		PureFTPdConfigDir: "/etc/pure-ftpd",
 		PureFTPdDefaults:  "/etc/default/pure-ftpd-common",
+		RspamdConfigDir:   RspamdConfigDir,
 		Fail2banJailDir:   fail2ban.JailDir,
 	}
 }

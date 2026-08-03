@@ -40,6 +40,7 @@ func registerMailEntities(g *echo.Group, d *Deps) error {
 	}
 	registerMailDomainRoutes(mg, d)
 	registerMailboxRoutes(mg, d)
+	registerRspamdRoutes(mg, d)
 	return nil
 }
 
