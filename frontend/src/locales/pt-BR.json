@@ -30,5 +30,18 @@
   "limits.limit_domain": "Número de domínios",
   "limits.limit_mailquota": "Cotas atribuídas para contas de email",
   "limits.limit_web_quota": "Cotas atribuídas para sites",
-  "limits.limit_database_quota": "Cotas atribuídas para bancos de dados"
+  "limits.limit_database_quota": "Cotas atribuídas para bancos de dados",
+  "sidebar.system.fail2ban": "Fail2ban",
+  "fail2ban.title": "Fail2ban",
+  "fail2ban.loading": "Carregando jails...",
+  "fail2ban.unavailable": "O fail2ban não está instalado ou o daemon não está em execução neste servidor.",
+  "fail2ban.currently_banned": "Banidos agora",
+  "fail2ban.total_banned": "Total de banimentos",
+  "fail2ban.currently_failed": "Falhas atuais",
+  "fail2ban.total_failed": "Total de falhas",
+  "fail2ban.no_bans": "Nenhum IP banido nesta jail.",
+  "fail2ban.col.ip": "Endereço IP",
+  "fail2ban.col.actions": "Ações",
+  "fail2ban.unban": "Desbanir",
+  "fail2ban.confirm_unban": "Deseja realmente desbanir este endereço IP?"
 }
