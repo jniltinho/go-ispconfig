@@ -10,6 +10,13 @@ import _ "embed"
 //go:embed assets/named.conf.options
 var namedConfOptions string
 
+// pureFTPdMySQLConf is the PureFTPd MySQL auth backend (verbatim copy of
+// install/tpl/pureftpd_mysql.conf.master); the ftp step fills the
+// {mysql_*}/{server_id} placeholders.
+//
+//go:embed assets/pureftpd-mysql.conf
+var pureFTPdMySQLConf string
+
 // nginxSitesInclude re-enables the sites-enabled include on hosts whose
 // nginx.conf lost it; on stock Debian/Ubuntu nginx it is never written.
 //
