@@ -151,7 +151,7 @@ func (SysSession) TableName() string { return "sys_session" }
 
 // SysCron is the run bookkeeping of one panel cron job (table sys_cron).
 type SysCron struct {
-	Name    string     `gorm:"column:name"`
+	Name    string     `gorm:"column:name;primaryKey"`
 	LastRun *time.Time `gorm:"column:last_run"`
 	NextRun *time.Time `gorm:"column:next_run"`
 	Running uint8      `gorm:"column:running"`

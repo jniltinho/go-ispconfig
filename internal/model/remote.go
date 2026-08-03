@@ -2,7 +2,7 @@ package model
 
 // RemoteSession is an authenticated remote API session (table remote_session).
 type RemoteSession struct {
-	RemoteSession   string `gorm:"column:remote_session"`
+	RemoteSession   string `gorm:"column:remote_session;primaryKey"`
 	RemoteUserID    uint32 `gorm:"column:remote_userid"`
 	RemoteFunctions string `gorm:"column:remote_functions"`
 	ClientLogin     uint8  `gorm:"column:client_login"`
