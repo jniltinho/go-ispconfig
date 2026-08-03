@@ -26,6 +26,7 @@ import (
 	"go-ispconfig/internal/dns"
 	"go-ispconfig/internal/engine"
 	"go-ispconfig/internal/firewall"
+	"go-ispconfig/internal/ftp"
 	"go-ispconfig/internal/getconf"
 	"go-ispconfig/internal/mail"
 	"go-ispconfig/internal/nginx"
@@ -75,7 +76,9 @@ var daemonCmd = &cobra.Command{
 		// The client module loads regardless of server roles: client
 		// datalog rows broadcast with server_id = 0 to every node.
 		modules := []engine.Module{web.NewModule(), clientModule}
-		plugins := []engine.Plugin{nginxPlugin}
+		// The FTP plugin rides along with nginx: both consume events of the
+		// web module and an FTP account only exists inside a website.
+		plugins := []engine.Plugin{nginxPlugin, ftp.NewPlugin(db, runner, logger)}
 		var mailPlugin *mail.Plugin
 		// Mail module: only on mail servers (mail-module-events spec:
 		// server.mail_server = 1).
