@@ -179,22 +179,7 @@ func dnsZoneEntity() *Entity {
 
 // checkDNSServer verifies the referenced server is DNS-capable
 // (dns_soa.tform.php server_id datasource: dns_server = 1).
-func checkDNSServer(c *echo.Context, d *Deps, body map[string]any) error {
-	sid := bodyInt(body, "server_id")
-	if sid <= 0 {
-		return nil
-	}
-	var n int64
-	err := d.DB.WithContext(c.Request().Context()).Model(&model.Server{}).
-		Where("server_id = ? AND dns_server = 1 AND mirror_server_id = 0", sid).Count(&n).Error
-	if err != nil {
-		return err
-	}
-	if n == 0 {
-		return &ValidationError{Fields: map[string][]string{"server_id": {"server_id_error_empty"}}}
-	}
-	return nil
-}
+var checkDNSServer = requireTargetServer("dns_server")
 
 // dnsZonePrepare normalizes zone body fields before validation (tform
 // IDNTOASCII/TOLOWER save filters on origin/ns/mbox, STRIPTAGS/STRIPNL on

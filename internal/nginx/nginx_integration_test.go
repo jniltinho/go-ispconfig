@@ -128,7 +128,7 @@ func TestDatalogToNginxPipeline(t *testing.T) {
 	// Daemon-shaped load: the nginx plugin subscribes client_delete,
 	// announced by the client module (as in cmd/daemon).
 	require.NoError(t, reg.Load([]engine.Module{web.NewModule(), clients.NewModule()}, []engine.Plugin{plugin}))
-	daemon, err := engine.NewDaemon(db, reg, services, nil)
+	daemon, err := engine.NewDaemon(db, reg, services, nil, 0)
 	require.NoError(t, err)
 
 	rec := e2eDomain(base)

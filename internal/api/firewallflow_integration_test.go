@@ -99,7 +99,7 @@ func TestFirewallEndToEndFlow(t *testing.T) {
 	reg := engine.NewRegistry(nil)
 	plugin := firewall.NewPlugin(rec, 1, 8080, nil)
 	require.NoError(t, reg.Load([]engine.Module{firewall.NewModule()}, []engine.Plugin{plugin}))
-	daemon, err := engine.NewDaemon(db, reg, engine.NewServices(nopFwExec{}, nil), nil)
+	daemon, err := engine.NewDaemon(db, reg, engine.NewServices(nopFwExec{}, nil), nil, 0)
 	require.NoError(t, err)
 
 	// Drain the seed backlog so assertions see only this test's events.

@@ -27,6 +27,10 @@ type Config struct {
 	// when dns_backend=powerdns (default: same host as [database] with
 	// database name "powerdns").
 	PowerDNS PowerDNSConfig `toml:"powerdns" mapstructure:"powerdns"`
+	// ServerID is this node's row in the server table (ISPConfig
+	// conf['server_id'] parity). Required on a multi-server installation;
+	// 0 means auto-detect by hostname, then by "the single active row".
+	ServerID uint32 `toml:"server_id" mapstructure:"server_id"`
 }
 
 // PowerDNSConfig is the optional [powerdns] section of config.toml. An empty
@@ -140,6 +144,7 @@ type AuthConfig struct {
 // setDefaults registers the built-in default for every known key so that
 // environment overrides are visible to viper.Unmarshal.
 func setDefaults() {
+	viper.SetDefault("server_id", 0)
 	viper.SetDefault("server.host", "0.0.0.0")
 	viper.SetDefault("server.port", 8080)
 	viper.SetDefault("server.https", true)

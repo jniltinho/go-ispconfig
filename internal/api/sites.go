@@ -485,7 +485,10 @@ func webDomainPrepare(c *echo.Context, d *Deps, id *repository.Identity, body ma
 			body["server_id"] = float64(parent.ServerID)
 		}
 	}
-	return nil
+	// Last: a vhostsubdomain inherits server_id from its parent above, and
+	// an unowned parent must fail with the permission error, not with a
+	// target-server complaint.
+	return requireTargetServer("web_server")(c, d, body)
 }
 
 // defaultWebsitePath is the ISPConfig Debian/Ubuntu website_path used when

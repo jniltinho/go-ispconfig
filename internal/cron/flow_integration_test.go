@@ -54,7 +54,7 @@ func TestCronDatalogToRunnerFlow(t *testing.T) {
 
 	reg := engine.NewRegistry(nil)
 	require.NoError(t, reg.Load([]engine.Module{NewModule()}, []engine.Plugin{plugin}))
-	daemon, err := engine.NewDaemon(db, reg, engine.NewServices(nopExec{}, nil), nil)
+	daemon, err := engine.NewDaemon(db, reg, engine.NewServices(nopExec{}, nil), nil, 0)
 	require.NoError(t, err)
 	ctx := context.Background()
 	require.NoError(t, daemon.RunCycle(ctx)) // drain seed backlog

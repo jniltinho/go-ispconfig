@@ -1,11 +1,14 @@
 package api
 
 import (
+	"context"
 	"net/netip"
 
 	"github.com/labstack/echo/v5"
+	"gorm.io/gorm"
 
 	"go-ispconfig/internal/model"
+	"go-ispconfig/internal/repository"
 	"go-ispconfig/internal/validator"
 )
 
@@ -19,6 +22,24 @@ func serverIPEntity() *Entity {
 		Title:    "server_ip_edit_title",
 		Policy:   "admin_allow_server_ip",
 		Decorate: serverNameDecorate(nil),
+		Prepare: func(c *echo.Context, d *Deps, _ *repository.Identity, body map[string]any) error {
+			return requireTargetServer("web_server")(c, d, body)
+		},
+		// An IP belongs to the host it is configured on; moving the row
+		// would leave the vhosts bound to it pointing at another machine
+		// (port of interface/web/admin/server_ip_edit.php:56-66).
+		BeforeUpdate: func(_ context.Context, _ *gorm.DB, _ *repository.Identity, body map[string]any, old, _ any) error {
+			stored, ok := old.(*model.ServerIP)
+			if !ok {
+				return nil
+			}
+			if sid := bodyInt(body, "server_id"); sid > 0 && uint32(sid) != stored.ServerID {
+				return &ValidationError{Fields: map[string][]string{
+					"server_id": {"server_ip_change_not_allowed"},
+				}}
+			}
+			return nil
+		},
 		Tabs: []Tab{{
 			Name:  "server_ip",
 			Label: "server_ip_tab_title",
@@ -79,6 +100,9 @@ func checkServerIP(_ *validator.Context, value string) string {
 
 // registerEntities mounts every CRUD entity on the authenticated group.
 func registerEntities(g *echo.Group, d *Deps) error {
+	if err := RegisterEntity[model.Server](g, d, serverEntity()); err != nil {
+		return err
+	}
 	if err := RegisterEntity[model.ServerIP](g, d, serverIPEntity()); err != nil {
 		return err
 	}

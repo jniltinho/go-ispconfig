@@ -13,6 +13,12 @@
 # Only static process configuration lives here. Runtime server behavior
 # (web/dns settings per server) stays in the database, editable from the panel.
 
+# This node's row in the server table (ISPConfig conf['server_id'] parity).
+# 0 = auto-detect: the active server row matching this host's name, or the
+# single active row. Set it explicitly on a multi-server installation, where
+# it decides which sys_datalog rows this node applies.
+server_id = 0
+
 [server]
 host = "0.0.0.0"
 port = 8080

@@ -47,7 +47,7 @@ func TestDatalogToPowerDNSPipeline(t *testing.T) {
 
 	reg := engine.NewRegistry(nil)
 	require.NoError(t, reg.Load([]engine.Module{dns.NewModule()}, []engine.Plugin{plugin}))
-	daemon, err := engine.NewDaemon(panelDB, reg, services, nil)
+	daemon, err := engine.NewDaemon(panelDB, reg, services, nil, 0)
 	require.NoError(t, err)
 
 	ctx := context.Background()

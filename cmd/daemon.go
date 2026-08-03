@@ -57,9 +57,10 @@ var daemonCmd = &cobra.Command{
 			return err
 		}
 
-		// Server row: the dns module/plugin only load on DNS servers
+		// Server row: this node's identity (config.toml server_id, else the
+		// hostname match). The dns module/plugin only load on DNS servers
 		// (dns-module-events spec: server.dns_server = 1).
-		srv, err := engine.GuardServer(db)
+		srv, err := engine.ResolveServer(db, cfg.ServerID)
 		if err != nil {
 			return err
 		}
@@ -191,7 +192,7 @@ var daemonCmd = &cobra.Command{
 			defer cronPlugin.Runner().Stop()
 		}
 
-		daemon, err := engine.NewDaemon(db, reg, services, logger)
+		daemon, err := engine.NewDaemon(db, reg, services, logger, srv.ServerID)
 		if err != nil {
 			return err
 		}

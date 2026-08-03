@@ -111,7 +111,7 @@ func TestDatalogToJailkitPipeline(t *testing.T) {
 		[]engine.Module{web.NewModule()},
 		[]engine.Plugin{shellPlugin, jkPlugin},
 	))
-	daemon, err := engine.NewDaemon(db, reg, engine.NewServices(nil, nil), nil)
+	daemon, err := engine.NewDaemon(db, reg, engine.NewServices(nil, nil), nil, 0)
 	require.NoError(t, err)
 
 	rec := &model.ShellUser{

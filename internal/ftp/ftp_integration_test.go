@@ -54,7 +54,7 @@ func TestDatalogToFTPPipeline(t *testing.T) {
 	reg := engine.NewRegistry(nil)
 	require.NoError(t, reg.Load([]engine.Module{web.NewModule()},
 		[]engine.Plugin{NewPlugin(db, runner, nil)}))
-	daemon, err := engine.NewDaemon(db, reg, engine.NewServices(nil, nil), nil)
+	daemon, err := engine.NewDaemon(db, reg, engine.NewServices(nil, nil), nil, 0)
 	require.NoError(t, err)
 
 	rec := &model.FTPUser{
