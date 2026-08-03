@@ -73,7 +73,9 @@ onMounted(async () => {
         '/api/monitor/data?type=sys_usage',
       )) ?? []
     metrics.value = rows
-      .filter((r) => r.data?.load?.length)
+      // A server with a sys_usage row but no samples still gets a block; the
+      // charts render their own "no data" state.
+      .filter((r) => r.data)
       .map((r) => ({ serverId: r.server_id, usage: r.data as SysUsage }))
   } catch {
     // No monitor module (403) or no samples yet — section stays hidden.

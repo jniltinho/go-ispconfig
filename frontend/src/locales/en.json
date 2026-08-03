@@ -1028,6 +1028,7 @@
   "dashboard.metrics.memory": "Memory Usage %",
   "dashboard.metrics.net_in": "Network In/kB",
   "dashboard.metrics.net_out": "Network Out/kB",
+  "dashboard.metrics.no_data": "No data collected yet",
   "dashboard.quota": "Quota",
   "dashboard.quota.harddisk": "Website Harddisk Quota",
   "dashboard.quota.mailbox": "Mailbox Quota",

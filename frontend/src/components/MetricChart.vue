@@ -3,6 +3,9 @@
 // legacy dashlets/templates/metrics.htm Chart.js line charts: teal stroke,
 // filled area, hidden x-axis, y starting at zero).
 import { computed } from 'vue'
+import { Line } from 'vue-chartjs'
+import 'chart.js/auto'
+import { useI18n } from '../i18n'
 
 const props = defineProps<{
   /** label is the series name shown as the chart legend. */
@@ -13,71 +16,47 @@ const props = defineProps<{
   times?: string[]
 }>()
 
-// Fixed drawing space; the SVG stretches to the container width and the
-// stroke keeps its width thanks to vector-effect.
-const W = 300
-const H = 60
+const { t } = useI18n()
 
-/** top is the y-axis maximum, rounded up so the line never touches the edge. */
-const top = computed(() => {
-  const max = Math.max(0, ...props.values)
-  return max <= 0 ? 1 : max * 1.1
-})
+const chartData = computed(() => ({
+  labels: props.values.map((_, i) => props.times?.[i] ?? ''),
+  datasets: [
+    {
+      label: props.label,
+      data: props.values,
+      borderColor: 'rgb(75, 192, 192)',
+      backgroundColor: 'rgba(75, 192, 192, 0.2)',
+      borderWidth: 1,
+      pointRadius: 0,
+      pointHitRadius: 8,
+      fill: true,
+      tension: 0.1,
+    },
+  ],
+}))
 
-const points = computed(() => {
-  const n = props.values.length
-  if (n === 0) return []
-  return props.values.map((v, i) => ({
-    x: n === 1 ? W / 2 : (i / (n - 1)) * W,
-    y: H - (Math.max(0, v) / top.value) * H,
-    v,
-    t: props.times?.[i] ?? '',
-  }))
-})
-
-const line = computed(() => points.value.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' '))
-
-/** area closes the polyline down to the baseline for the fill. */
-const area = computed(() => {
-  const p = points.value
-  if (!p.length) return ''
-  return `${p[0].x.toFixed(1)},${H} ${line.value} ${p[p.length - 1].x.toFixed(1)},${H}`
-})
-
-/** formatted keeps the axis label short (2 decimals only when needed). */
-function fmt(v: number): string {
-  return v >= 100 ? String(Math.round(v)) : String(Math.round(v * 100) / 100)
+// Legacy options: no legend (the figcaption carries the name), no visible
+// x-axis, y anchored at zero.
+const chartOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  animation: false as const,
+  plugins: { legend: { display: false } },
+  scales: {
+    x: { display: false },
+    y: { beginAtZero: true },
+  },
 }
 </script>
 
 <template>
-  <figure class="border border-border bg-surface p-2" :data-test="`metric-chart`">
+  <figure class="border border-border bg-surface p-2" data-test="metric-chart">
     <figcaption class="mb-1 text-center text-xs font-bold text-text">{{ label }}</figcaption>
-    <div class="flex items-stretch gap-1">
-      <div class="flex w-10 shrink-0 flex-col justify-between text-right text-[10px] text-text-muted">
-        <span>{{ fmt(top) }}</span>
-        <span>0</span>
-      </div>
-      <svg
-        class="h-16 w-full"
-        :viewBox="`0 0 ${W} ${H}`"
-        preserveAspectRatio="none"
-        role="img"
-        :aria-label="label"
-      >
-        <polygon v-if="area" :points="area" fill="rgba(75, 192, 192, 0.2)" />
-        <polyline
-          v-if="line"
-          :points="line"
-          fill="none"
-          stroke="rgb(75, 192, 192)"
-          stroke-width="1"
-          vector-effect="non-scaling-stroke"
-        />
-        <title v-if="points.length">
-          {{ points.map((p) => `${p.t} ${fmt(p.v)}`).join(' · ') }}
-        </title>
-      </svg>
+    <div class="h-24">
+      <Line v-if="values.length" :data="chartData" :options="chartOptions" />
+      <p v-else class="flex h-full items-center justify-center text-xs text-text-muted">
+        {{ t('dashboard.metrics.no_data') }}
+      </p>
     </div>
   </figure>
 </template>
