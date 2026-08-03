@@ -13,6 +13,7 @@ import (
 
 	"go-ispconfig/internal/engine"
 	"go-ispconfig/internal/getconf"
+	"go-ispconfig/internal/system"
 )
 
 // fakeRunner records commands without executing anything: the plugin runs
@@ -52,8 +53,8 @@ func testPlugin(t *testing.T) (*Plugin, *fakeRunner, string) {
 
 	runner := &fakeRunner{}
 	p := NewPlugin(nil, runner, nil)
-	p.LoadWeb = func(int64) (row, error) {
-		return row{
+	p.LoadWeb = func(int64) (system.Row, error) {
+		return system.Row{
 			"domain_id": int64(1), "document_root": docroot, "server_id": int64(1),
 			"system_user": "web1", "system_group": "client1",
 		}, nil
@@ -184,7 +185,7 @@ func TestDeleteMissingQuotaIsNotAnError(t *testing.T) {
 
 func TestDeleteWithGoneParentKeepsQuota(t *testing.T) {
 	p, _, docroot := testPlugin(t)
-	p.LoadWeb = func(int64) (row, error) { return nil, nil }
+	p.LoadWeb = func(int64) (system.Row, error) { return nil, nil }
 	dir := filepath.Join(docroot, "files")
 	require.NoError(t, os.Mkdir(dir, 0o755))
 	quota := filepath.Join(dir, quotaFile)
@@ -194,59 +195,4 @@ func TestDeleteWithGoneParentKeepsQuota(t *testing.T) {
 		engine.Data{Old: ftpUser(dir)}))
 
 	assert.FileExists(t, quota, "without a docroot to check against, nothing is unlinked")
-}
-
-func TestUnderDocroot(t *testing.T) {
-	const docroot = "/var/www/web1"
-	tests := []struct {
-		dir  string
-		want bool
-	}{
-		{"/var/www/web1", true},
-		{"/var/www/web1/", true},
-		{"/var/www/web1/files", true},
-		{"/var/www/web12", false},        // sibling sharing the prefix
-		{"/var/www/web1files", false},    // no path boundary
-		{"/var/www/web1/../web2", false}, // traversal
-		{"/var/www/./web1", false},
-		{"/var/www", false},
-		{"var/www/web1", false}, // relative
-		{"", false},
-	}
-	for _, tt := range tests {
-		assert.Equal(t, tt.want, underDocroot(tt.dir, docroot), tt.dir)
-	}
-	assert.False(t, underDocroot("/var/www/web1", ""), "an empty docroot matches nothing")
-}
-
-func TestCheckPathRejectsSymlinkAndExoticChars(t *testing.T) {
-	base, err := filepath.EvalSymlinks(t.TempDir())
-	require.NoError(t, err)
-	real := filepath.Join(base, "real")
-	require.NoError(t, os.Mkdir(real, 0o755))
-	link := filepath.Join(base, "link")
-	require.NoError(t, os.Symlink(real, link))
-
-	assert.True(t, checkPath(real))
-	assert.False(t, checkPath(link), "a symlinked component could redirect a root chattr")
-	assert.False(t, checkPath(filepath.Join(link, "sub")), "symlink anywhere along the path")
-	assert.False(t, checkPath("relative/path"))
-	assert.False(t, checkPath("/var/www/web1; rm -rf /"))
-}
-
-func TestWebFolderProtectionRules(t *testing.T) {
-	p, runner, docroot := testPlugin(t)
-	ctx := context.Background()
-	off := &getconf.WebConfig{}
-
-	require.NoError(t, p.webFolderProtection(ctx, off, docroot, false))
-	assert.Equal(t, []string{"chattr -i " + docroot}, runner.all(),
-		"unlocking is unconditional, so a server that just disabled the option still unlocks")
-
-	require.NoError(t, p.webFolderProtection(ctx, off, docroot, true))
-	assert.Len(t, runner.all(), 1, "no relock while web_folder_protection is off")
-
-	require.NoError(t, p.webFolderProtection(ctx, off, "/", false))
-	require.NoError(t, p.webFolderProtection(ctx, off, "/var", false))
-	assert.Len(t, runner.all(), 1, "/ and short paths are never chattr'd")
 }

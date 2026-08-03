@@ -14,17 +14,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/fs"
 	"log/slog"
 	"os"
 	"path/filepath"
-	"regexp"
-	"strings"
 
 	"gorm.io/gorm"
 
 	"go-ispconfig/internal/engine"
 	"go-ispconfig/internal/getconf"
+	"go-ispconfig/internal/system"
 )
 
 // quotaFile is the per-directory quota state file PureFTPd maintains.
@@ -40,7 +38,7 @@ type Plugin struct {
 	// LoadWeb returns the parent website row (nil when the site is gone) and
 	// LoadWebConfig the [web] section of its server. Both default to the
 	// database lookups below and are swapped out in tests.
-	LoadWeb       func(domainID int64) (row, error)
+	LoadWeb       func(domainID int64) (system.Row, error)
 	LoadWebConfig func(serverID uint32) (*getconf.WebConfig, error)
 }
 
@@ -78,17 +76,17 @@ func (p *Plugin) OnLoad(r *engine.Registry) error {
 
 // ftpUserInsert ensures the login directory of a new account exists.
 func (p *Plugin) ftpUserInsert(ctx context.Context, _ string, data engine.Data) error {
-	return p.ensureDir(ctx, row(data.New))
+	return p.ensureDir(ctx, system.Row(data.New))
 }
 
 // ftpUserUpdate ensures the login directory exists and drops the .ftpquota
 // file left behind at the previous location when the directory moved.
 func (p *Plugin) ftpUserUpdate(ctx context.Context, _ string, data engine.Data) error {
-	if err := p.ensureDir(ctx, row(data.New)); err != nil {
+	if err := p.ensureDir(ctx, system.Row(data.New)); err != nil {
 		return err
 	}
-	old, new := row(data.Old), row(data.New)
-	if oldDir := old.str("dir"); oldDir != "" && oldDir != new.str("dir") {
+	old, new := system.Row(data.Old), system.Row(data.New)
+	if oldDir := old.Str("dir"); oldDir != "" && oldDir != new.Str("dir") {
 		return p.removeQuotaFile(old)
 	}
 	return nil
@@ -98,11 +96,11 @@ func (p *Plugin) ftpUserUpdate(ctx context.Context, _ string, data engine.Data) 
 // site content are never touched, and no system account exists to delete.
 func (p *Plugin) ftpUserDelete(ctx context.Context, _ string, data engine.Data) error {
 	_ = ctx
-	old := row(data.Old)
+	old := system.Row(data.Old)
 	if err := p.removeQuotaFile(old); err != nil {
 		return err
 	}
-	p.log.Debug("ftp: user deleted", "username", old.str("username"))
+	p.log.Debug("ftp: user deleted", "username", old.Str("username"))
 	return nil
 }
 
@@ -111,36 +109,36 @@ func (p *Plugin) ftpUserDelete(ctx context.Context, _ string, data engine.Data) 
 // insert/update body of the PHP plugin). A directory outside the parent
 // site's document root is refused: the daemon re-checks what the API
 // already validated, because it acts as root.
-func (p *Plugin) ensureDir(ctx context.Context, user row) error {
-	dir := user.str("dir")
+func (p *Plugin) ensureDir(ctx context.Context, user system.Row) error {
+	dir := user.Str("dir")
 	if dir == "" {
 		return nil
 	}
 	if info, err := os.Stat(dir); err == nil && info.IsDir() {
 		return nil
 	}
-	web, err := p.LoadWeb(user.num("parent_domain_id"))
+	web, err := p.LoadWeb(user.Num("parent_domain_id"))
 	if err != nil || web == nil {
 		return err
 	}
-	docroot := web.str("document_root")
-	if !underDocroot(dir, docroot) {
+	docroot := web.Str("document_root")
+	if !system.UnderDocroot(dir, docroot) {
 		p.log.Warn("ftp: user dir is outside of docroot", "dir", dir, "document_root", docroot)
 		return nil
 	}
-	cfg, err := p.LoadWebConfig(uint32(web.num("server_id")))
+	cfg, err := p.LoadWebConfig(uint32(web.Num("server_id")))
 	if err != nil {
 		return err
 	}
 
 	p.log.Debug("ftp: user directory does not exist, creating it", "dir", dir)
-	if err := p.webFolderProtection(ctx, cfg, docroot, false); err != nil {
+	if err := p.unlockDocroot(ctx, cfg, docroot, false); err != nil {
 		return err
 	}
-	mkErr := p.mkdirPath(ctx, dir, 0o755, web.str("system_user"), web.str("system_group"))
+	mkErr := system.MkdirPath(ctx, p.runner, dir, 0o755, web.Str("system_user"), web.Str("system_group"))
 	// Re-protect the docroot even when the mkdir failed: leaving it mutable
 	// would silently weaken the site for every later run.
-	if err := p.webFolderProtection(ctx, cfg, docroot, true); err != nil && mkErr == nil {
+	if err := p.unlockDocroot(ctx, cfg, docroot, true); err != nil && mkErr == nil {
 		mkErr = err
 	}
 	if mkErr != nil {
@@ -154,12 +152,12 @@ func (p *Plugin) ensureDir(ctx context.Context, user row) error {
 // re-checked against the parent site's document root first, so a stale or
 // tampered datalog payload can never make the root daemon unlink a file
 // outside the website.
-func (p *Plugin) removeQuotaFile(user row) error {
-	dir := user.str("dir")
+func (p *Plugin) removeQuotaFile(user system.Row) error {
+	dir := user.Str("dir")
 	if dir == "" {
 		return nil
 	}
-	web, err := p.LoadWeb(user.num("parent_domain_id"))
+	web, err := p.LoadWeb(user.Num("parent_domain_id"))
 	if err != nil {
 		return err
 	}
@@ -167,9 +165,9 @@ func (p *Plugin) removeQuotaFile(user row) error {
 		p.log.Warn("ftp: parent website is gone, keeping .ftpquota", "dir", dir)
 		return nil
 	}
-	if !underDocroot(dir, web.str("document_root")) {
+	if !system.UnderDocroot(dir, web.Str("document_root")) {
 		p.log.Warn("ftp: user dir is outside of docroot", "dir", dir,
-			"document_root", web.str("document_root"))
+			"document_root", web.Str("document_root"))
 		return nil
 	}
 	path := filepath.Join(dir, quotaFile)
@@ -179,105 +177,17 @@ func (p *Plugin) removeQuotaFile(user row) error {
 	return nil
 }
 
-// underDocroot reports whether dir is the document root or a directory
-// below it. PHP compares raw string prefixes, which also accepts a sibling
-// like /var/www/web12 for docroot /var/www/web1; this port requires a path
-// boundary and rejects traversal segments outright.
-func underDocroot(dir, docroot string) bool {
-	if docroot == "" || !strings.HasPrefix(dir, "/") {
-		return false
-	}
-	if strings.Contains(dir, "..") || strings.Contains(dir, "./") {
-		return false
-	}
-	dir = strings.TrimSuffix(dir, "/")
-	docroot = strings.TrimSuffix(docroot, "/")
-	return dir == docroot || strings.HasPrefix(dir, docroot+"/")
-}
-
-// safePathRe is the character allow-list of system::checkpath.
-var safePathRe = regexp.MustCompile(`^/[-a-zA-Z0-9_/.*]+~?$`)
-
-// checkPath ports system::checkpath: absolute, no exotic characters and no
-// symlink anywhere along the path, so a symlinked component can never
-// redirect a root-owned chmod/chown outside the website.
-func checkPath(path string) bool {
-	path = strings.TrimSpace(path)
-	if !safePathRe.MatchString(path) {
-		return false
-	}
-	var test strings.Builder
-	for part := range strings.SplitSeq(strings.TrimPrefix(path, "/"), "/") {
-		test.WriteString("/" + part)
-		if info, err := os.Lstat(test.String()); err == nil && info.Mode()&os.ModeSymlink != 0 {
-			return false
-		}
-	}
-	return true
-}
-
-// mkdirPath ports system::mkdirpath: create every missing path component and
-// give each new one the requested mode and ownership.
-func (p *Plugin) mkdirPath(ctx context.Context, path string, mode fs.FileMode, user, group string) error {
-	current := ""
-	for _, part := range strings.Split(strings.TrimPrefix(strings.TrimSuffix(path, "/"), "/"), "/") {
-		current += "/" + part
-		if info, err := os.Stat(current); err == nil {
-			if !info.IsDir() {
-				return fmt.Errorf("ftp: %s exists and is not a directory", current)
-			}
-			continue
-		}
-		if err := os.Mkdir(current, mode); err != nil {
-			return fmt.Errorf("ftp: creating %s: %w", current, err)
-		}
-		// Mkdir applies the process umask, so set the mode explicitly.
-		if err := os.Chmod(current, mode); err != nil {
-			return fmt.Errorf("ftp: chmod %s: %w", current, err)
-		}
-		if user == "" && group == "" {
-			continue
-		}
-		if out, err := p.runner.Run(ctx, "chown", user+":"+group, current); err != nil {
-			return fmt.Errorf("ftp: chown %s: %w: %s", current, err, out)
-		}
-	}
-	return nil
-}
-
-// webFolderProtection ports system::web_folder_protection: the immutable
-// flag on the document root is dropped before the daemon writes into a site
-// and restored afterwards, but only when the server enables
-// web_folder_protection. Removing the flag is unconditional, exactly as in
-// PHP, so a server that just turned the option off still unlocks its sites.
-func (p *Plugin) webFolderProtection(ctx context.Context, cfg *getconf.WebConfig, docroot string, protect bool) error {
-	if !checkPath(docroot) {
-		p.log.Debug("ftp: action aborted, target is a symlink or unsafe path", "path", docroot)
-		return nil
-	}
-	// PHP guards: never chattr /, or a suspiciously short path.
-	if len(docroot) <= 6 || docroot == "/" {
-		return nil
-	}
-	flag := "-i"
-	if protect {
-		if cfg == nil || cfg.WebFolderProtection != "y" {
-			return nil
-		}
-		flag = "+i"
-	}
-	if out, err := p.runner.Run(ctx, "chattr", flag, docroot); err != nil {
-		// A filesystem without chattr support (overlayfs, tmpfs in tests) must
-		// not fail the whole event, as in PHP where the exec result is ignored.
-		p.log.Debug("ftp: chattr failed", "flag", flag, "path", docroot,
-			"err", err, "output", string(out))
-	}
-	return nil
+// unlockDocroot drops (protect=false) or restores (protect=true) the
+// immutable flag of the document root, honouring the server's
+// web_folder_protection setting.
+func (p *Plugin) unlockDocroot(ctx context.Context, cfg *getconf.WebConfig, docroot string, protect bool) error {
+	return system.WebFolderProtection(ctx, p.runner, p.log, docroot, protect,
+		cfg != nil && cfg.WebFolderProtection == "y")
 }
 
 // loadWebDomain fetches the parent website row (nil when it no longer
 // exists).
-func (p *Plugin) loadWebDomain(domainID int64) (row, error) {
+func (p *Plugin) loadWebDomain(domainID int64) (system.Row, error) {
 	if domainID == 0 || p.db == nil {
 		return nil, nil
 	}
