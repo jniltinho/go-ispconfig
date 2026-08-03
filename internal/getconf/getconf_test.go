@@ -88,6 +88,27 @@ func TestStripSlashes(t *testing.T) {
 	assert.Equal(t, "trailing", StripSlashes(`trailing\`))
 }
 
+func TestJailkitConfigDefaultsAndDecode(t *testing.T) {
+	// server.ini.master defaults survive a missing [jailkit] section.
+	cfg := DefaultJailkitConfig()
+	assert.Equal(t, "/home/[username]", cfg.ChrootHome)
+	assert.Equal(t, "coreutils basicshell editors extendedshell netutils "+
+		"ssh sftp scp jk_lsh mysql-client git", cfg.ChrootAppSections)
+	assert.Equal(t, "lesspipe pico unzip zip patch which", cfg.ChrootAppPrograms)
+	assert.Contains(t, cfg.ChrootCronPrograms, "/usr/bin/php")
+	assert.Equal(t, "/root/.ssh/authorized_keys", cfg.ChrootAuthorizedKeysTmpl)
+	assert.Equal(t, "allow", cfg.Hardlinks)
+
+	// Present keys override; absent keys keep the default.
+	raw := ParseINI("[jailkit]\njailkit_hardlinks=yes\n" +
+		"jailkit_chroot_app_sections=coreutils basicshell git\n")
+	decodeSection(raw["jailkit"], &cfg)
+	assert.Equal(t, "yes", cfg.Hardlinks)
+	assert.Equal(t, "coreutils basicshell git", cfg.ChrootAppSections)
+	assert.Equal(t, "/home/[username]", cfg.ChrootHome, "default kept for absent key")
+	assert.Equal(t, "lesspipe pico unzip zip patch which", cfg.ChrootAppPrograms)
+}
+
 func TestMailConfigDefaultsAndDecode(t *testing.T) {
 	// Defaults survive a missing [mail] section entirely.
 	cfg := DefaultMailConfig()

@@ -1,0 +1,51 @@
+<script setup lang="ts">
+// FTP user form: metadata-driven EntityForm with parent website select
+// options loaded from the vhost list (legacy datasource parity).
+import { onMounted, ref } from 'vue'
+import EntityForm from './EntityForm.vue'
+import { api } from '../../api'
+
+const props = defineProps<{
+  /** id is the ftp_user_id; absent for the create form. */
+  id?: string
+}>()
+
+type Opt = { value: string; label: string }
+const overrides = ref<Record<string, Opt[]>>({})
+const ready = ref(false)
+
+interface ListResponse {
+  items: Record<string, unknown>[]
+}
+
+onMounted(async () => {
+  const o: Record<string, Opt[]> = {}
+  try {
+    const domains = await api.get<ListResponse>('/api/sites/web-domains?type=vhost&limit=100')
+    o.parent_domain_id = domains.items.map((d) => ({
+      value: String(d.domain_id),
+      label: String(d.domain),
+    }))
+  } catch {
+    // Text input fallback when the list cannot be loaded.
+  }
+  overrides.value = o
+  ready.value = true
+})
+</script>
+
+<template>
+  <EntityForm
+    v-if="ready"
+    entity="ftp-users"
+    api-base="/api/sites/ftp-users"
+    back-to="/sites/ftp-users"
+    :id="props.id"
+    :option-overrides="overrides"
+    :readonly-fields="
+      props.id
+        ? ['server_id', 'username_prefix']
+        : ['server_id', 'username_prefix']
+    "
+  />
+</template>

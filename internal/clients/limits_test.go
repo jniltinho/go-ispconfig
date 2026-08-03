@@ -55,6 +55,20 @@ func TestResolveRuleDatabaseEntities(t *testing.T) {
 	assert.Equal(t, int32(7), rule.limit(&model.Client{LimitDatabaseUser: 7}))
 }
 
+// TestResolveRuleFTPShellEntities pins the FTP/shell limit mapping
+// (add-ftp-shell-module tasks 5.1–5.2).
+func TestResolveRuleFTPShellEntities(t *testing.T) {
+	rule, ok := resolveRule("ftp-users", nil)
+	assert.True(t, ok)
+	assert.Equal(t, "error.limit_ftp_user", rule.key)
+	assert.Equal(t, int32(2), rule.limit(&model.Client{LimitFTPUser: 2}))
+
+	rule, ok = resolveRule("shell-users", nil)
+	assert.True(t, ok)
+	assert.Equal(t, "error.limit_shell_user", rule.key)
+	assert.Equal(t, int32(0), rule.limit(&model.Client{LimitShellUser: 0}))
+}
+
 // TestDatabaseServerAllowList: creating on a server outside db_servers
 // is vetoed before any counting; allow-listed and unset lists pass (with
 // unlimited quota nothing else is queried).

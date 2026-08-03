@@ -26,7 +26,7 @@ Sites without upload access are of limited use: customers need FTP accounts and 
 
 ### Modified Capabilities
 
-(none — new plugins on the existing datalog/event engine; Sites UI gains screens but its existing requirements are unchanged)
+- `web-module-events`: the web module gains the `ftp_user` and `shell_user` table hooks and announces the six matching events (PHP parity with `web_module.inc.php`, which already registers them). No other module behaviour changes; the Sites UI gains screens but its existing requirements are unchanged.
 
 ## Impact
 

@@ -140,3 +140,68 @@ type WebFolderUser struct {
 
 // TableName maps WebFolderUser to the ISPConfig table web_folder_user.
 func (WebFolderUser) TableName() string { return "web_folder_user" }
+
+// FTPUser is a virtual FTP account of a website (table ftp_user).
+// PureFTPd authenticates against this table directly (design D2), so the
+// daemon never creates an OS account for it: uid/gid are the site's
+// system_user/system_group as plain strings, exactly as ISPConfig stores
+// them.
+type FTPUser struct {
+	FTPUserID      uint32 `gorm:"column:ftp_user_id;primaryKey;autoIncrement"`
+	SysUserID      uint32 `gorm:"column:sys_userid"`
+	SysGroupID     uint32 `gorm:"column:sys_groupid"`
+	SysPermUser    string `gorm:"column:sys_perm_user"`
+	SysPermGroup   string `gorm:"column:sys_perm_group"`
+	SysPermOther   string `gorm:"column:sys_perm_other"`
+	ServerID       uint32 `gorm:"column:server_id"`
+	ParentDomainID uint32 `gorm:"column:parent_domain_id"`
+	Username       string `gorm:"column:username"`
+	UsernamePrefix string `gorm:"column:username_prefix"`
+	Password       string `gorm:"column:password"`
+	QuotaSize      int64  `gorm:"column:quota_size"`
+	// default tags: NOT NULL enum/set columns whose Go zero value ("")
+	// is not a valid member under strict mode.
+	Active      string     `gorm:"column:active;default:y"`
+	UID         string     `gorm:"column:uid"`
+	GID         string     `gorm:"column:gid"`
+	Dir         string     `gorm:"column:dir"`
+	QuotaFiles  int64      `gorm:"column:quota_files"`
+	ULRatio     int32      `gorm:"column:ul_ratio"`
+	DLRatio     int32      `gorm:"column:dl_ratio"`
+	ULBandwidth int32      `gorm:"column:ul_bandwidth"`
+	DLBandwidth int32      `gorm:"column:dl_bandwidth"`
+	Expires     *time.Time `gorm:"column:expires"`
+	UserType    string     `gorm:"column:user_type;default:user"`
+	UserConfig  string     `gorm:"column:user_config"`
+}
+
+// TableName maps FTPUser to the ISPConfig table ftp_user.
+func (FTPUser) TableName() string { return "ftp_user" }
+
+// ShellUser is a (optionally jailkit-chrooted) SSH account of a website
+// (table shell_user). Unlike FTPUser this maps onto a real system account
+// created by the daemon; puser/pgroup are the site's system user/group.
+type ShellUser struct {
+	ShellUserID    uint32 `gorm:"column:shell_user_id;primaryKey;autoIncrement"`
+	SysUserID      uint32 `gorm:"column:sys_userid"`
+	SysGroupID     uint32 `gorm:"column:sys_groupid"`
+	SysPermUser    string `gorm:"column:sys_perm_user"`
+	SysPermGroup   string `gorm:"column:sys_perm_group"`
+	SysPermOther   string `gorm:"column:sys_perm_other"`
+	ServerID       uint32 `gorm:"column:server_id"`
+	ParentDomainID uint32 `gorm:"column:parent_domain_id"`
+	Username       string `gorm:"column:username"`
+	UsernamePrefix string `gorm:"column:username_prefix"`
+	Password       string `gorm:"column:password"`
+	QuotaSize      int64  `gorm:"column:quota_size"`
+	Active         string `gorm:"column:active;default:y"`
+	PUser          string `gorm:"column:puser"`
+	PGroup         string `gorm:"column:pgroup"`
+	Shell          string `gorm:"column:shell;default:/bin/bash"`
+	Dir            string `gorm:"column:dir"`
+	Chroot         string `gorm:"column:chroot"`
+	SSHRsa         string `gorm:"column:ssh_rsa"`
+}
+
+// TableName maps ShellUser to the ISPConfig table shell_user.
+func (ShellUser) TableName() string { return "shell_user" }

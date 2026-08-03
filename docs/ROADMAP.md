@@ -14,6 +14,7 @@ proposal now and get design/specs/tasks when scheduled.
 | `add-installer-cli` | `go-ispconfig install` for Debian 11–13 / Ubuntu 22.04–24.04 + Vagrant test rig |
 | `add-panel-ui-theme` | ISPConfig-derived theme, modernized, square corners, dark mode |
 | `add-legacy-migration` | Import wizard/CLI from a running PHP ISPConfig3 via remote API |
+| `add-ftp-shell-module` | FTP users (PureFTPd) and shell users incl. jailkit — **implemented** ([docs/ftp-shell-module.md](ftp-shell-module.md)); installer `configure_pureftpd` / `configure_jailkit` remain a Modified Capability of `add-installer-cli` |
 
 ## Phase 2 — Future modules (proposals ready, implementation later)
 
@@ -24,6 +25,7 @@ proposal now and get design/specs/tasks when scheduled.
 | `add-database-module` | Client MySQL databases and users (`database_module`, `mysql_clientdb_plugin`) |
 | `add-ftp-shell-module` | FTP users (PureFTPd) and shell users incl. jailkit (`ftpuser_base`, `shelluser_*` plugins) |
 | `add-cron-module` | Client cron jobs (`cron_module`, `cron_plugin`) — executed by the go-ispconfig daemon scheduler — **implemented** ([docs/cron-module.md](cron-module.md)) |
+| `add-cron-module` | Client cron jobs (`cron_module`, `cron_plugin`) — executed by the go-ispconfig daemon scheduler |
 | `add-firewall-module` | UFW/nftables management (`firewall_plugin`) |
 | `add-monitor-module` | Server monitoring, logs, datalog history UI (`monitor_core_module`) |
 | `add-dns-powerdns-module` | PowerDNS as alternative DNS backend — same DNS UI/API, SQL zone sync (`powerdns_plugin`, `powerdns.sql`) |

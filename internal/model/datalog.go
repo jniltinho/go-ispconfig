@@ -62,6 +62,11 @@ func (WebDatabase) DBHistory() bool { return true }
 // DBHistory reports that web_database_user mutations are datalogged.
 func (WebDatabaseUser) DBHistory() bool { return true }
 
-// DBHistory reports that cron mutations are datalogged, so the daemon
-// DBHistory reports whether Cron changes are written to sys_datalog.
+// DBHistory reports that cron mutations are datalogged.
 func (Cron) DBHistory() bool { return true }
+
+// DBHistory reports that ftp_user mutations are datalogged.
+func (FTPUser) DBHistory() bool { return true }
+
+// DBHistory reports that shell_user mutations are datalogged.
+func (ShellUser) DBHistory() bool { return true }

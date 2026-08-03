@@ -26,10 +26,13 @@ import (
 	"go-ispconfig/internal/dns"
 	"go-ispconfig/internal/engine"
 	"go-ispconfig/internal/firewall"
+	"go-ispconfig/internal/ftp"
 	"go-ispconfig/internal/getconf"
+	"go-ispconfig/internal/jailkit"
 	"go-ispconfig/internal/mail"
 	"go-ispconfig/internal/nginx"
 	"go-ispconfig/internal/queue"
+	"go-ispconfig/internal/shell"
 	"go-ispconfig/internal/web"
 )
 
@@ -75,7 +78,16 @@ var daemonCmd = &cobra.Command{
 		// The client module loads regardless of server roles: client
 		// datalog rows broadcast with server_id = 0 to every node.
 		modules := []engine.Module{web.NewModule(), clientModule}
-		plugins := []engine.Plugin{nginxPlugin}
+		// The FTP, shell and jailkit plugins ride along with nginx: they all
+		// consume events of the web module, and an FTP or shell account only
+		// exists inside a website. Jailkit is registered after the base shell
+		// plugin so the OS account already exists when the chroot is built.
+		plugins := []engine.Plugin{
+			nginxPlugin,
+			ftp.NewPlugin(db, runner, logger),
+			shell.NewPlugin(db, runner, logger),
+			jailkit.NewPlugin(db, runner, logger),
+		}
 		var mailPlugin *mail.Plugin
 		// Mail module: only on mail servers (mail-module-events spec:
 		// server.mail_server = 1).

@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"bytes"
 	"context"
 	"os/exec"
 	"time"
@@ -23,6 +24,15 @@ type DirRunner interface {
 	RunInDir(ctx context.Context, dir, name string, args ...string) ([]byte, error)
 }
 
+// StdinRunner is the optional standard-input extension of CommandRunner,
+// for tools that read a secret from a pipe instead of argv (chpasswd -e,
+// whose hash must not end up visible in the process list).
+type StdinRunner interface {
+	// RunWithStdin executes name with args, feeding stdin to the process,
+	// and returns the combined stdout/stderr.
+	RunWithStdin(ctx context.Context, stdin []byte, name string, args ...string) ([]byte, error)
+}
+
 // commandTimeout caps one command invocation so a hanging binary can never
 // stall the daemon cycle indefinitely.
 const commandTimeout = 90 * time.Second
@@ -43,5 +53,15 @@ func (ExecRunner) RunInDir(ctx context.Context, dir, name string, args ...string
 	defer cancel()
 	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Dir = dir
+	return cmd.CombinedOutput()
+}
+
+// RunWithStdin executes the command with a hard timeout, writing stdin to
+// its standard input, and returns its combined output.
+func (ExecRunner) RunWithStdin(ctx context.Context, stdin []byte, name string, args ...string) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(ctx, commandTimeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.Stdin = bytes.NewReader(stdin)
 	return cmd.CombinedOutput()
 }

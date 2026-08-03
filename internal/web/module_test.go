@@ -26,30 +26,28 @@ func subscribeAll(t *testing.T, r *engine.Registry, events []string) *[]string {
 
 var allWebEvents = []string{
 	"web_domain_insert", "web_domain_update", "web_domain_delete",
+	"ftp_user_insert", "ftp_user_update", "ftp_user_delete",
+	"shell_user_insert", "shell_user_update", "shell_user_delete",
 	"web_folder_insert", "web_folder_update", "web_folder_delete",
 	"web_folder_user_insert", "web_folder_user_update", "web_folder_user_delete",
 }
 
 // TestModuleFanOut covers the web-module-events spec: a datalog row for a
 // hooked table fans out to the correspondingly named event with the decoded
-// payload, for all nine table/action combinations.
+// payload, for all table/action combinations.
 func TestModuleFanOut(t *testing.T) {
 	r := engine.NewRegistry(nil)
 	require.NoError(t, r.Load([]engine.Module{NewModule()}, nil))
 	got := subscribeAll(t, r, allWebEvents)
 
 	data := engine.Data{New: map[string]any{"domain": "example.com"}}
-	for _, table := range []string{"web_domain", "web_folder", "web_folder_user"} {
+	for _, table := range hookedTables {
 		for _, action := range []string{"i", "u", "d"} {
 			require.NoError(t, r.RaiseTableHook(context.Background(), table, action, data))
 		}
 	}
 
-	assert.Equal(t, []string{
-		"web_domain_insert", "web_domain_update", "web_domain_delete",
-		"web_folder_insert", "web_folder_update", "web_folder_delete",
-		"web_folder_user_insert", "web_folder_user_update", "web_folder_user_delete",
-	}, *got)
+	assert.Equal(t, allWebEvents, *got)
 }
 
 // TestModulePayloadReachesSubscriber asserts the decoded {old,new} payload
@@ -73,13 +71,14 @@ func TestModulePayloadReachesSubscriber(t *testing.T) {
 }
 
 // TestModuleIgnoresUnhookedTable covers the spec scenario "Unhooked table is
-// ignored": ftp_user rows raise nothing and processing continues.
+// ignored": webdav_user rows raise nothing and processing continues.
+// (ftp_user/shell_user are hooked since add-ftp-shell-module task 1.3.)
 func TestModuleIgnoresUnhookedTable(t *testing.T) {
 	r := engine.NewRegistry(nil)
 	require.NoError(t, r.Load([]engine.Module{NewModule()}, nil))
 	got := subscribeAll(t, r, allWebEvents)
 
-	require.NoError(t, r.RaiseTableHook(context.Background(), "ftp_user", "i", engine.Data{}))
+	require.NoError(t, r.RaiseTableHook(context.Background(), "webdav_user", "i", engine.Data{}))
 	assert.Empty(t, *got)
 }
 

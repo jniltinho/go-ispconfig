@@ -3,7 +3,7 @@
 // into named events for plugins and registers the httpd / php-fpm services.
 // It is the Go port of ISPConfig3's server/mods-available/web_module.inc.php,
 // trimmed to the tables this port hooks (design D1: unhooked tables like
-// ftp_user or aps_* are simply not registered — adding them later is
+// webdav_user or aps_* are simply not registered — adding them later is
 // additive).
 package web
 
@@ -15,8 +15,12 @@ import (
 
 // hookedTables are the datalog tables the web module translates into events.
 // server_php stays a plain data table in this port: no plugin consumes
-// server_php_* events yet, so they are not announced (design D1).
-var hookedTables = []string{"web_domain", "web_folder", "web_folder_user"}
+// server_php_* events yet, so they are not announced (design D1). ftp_user
+// and shell_user are owned by the ftp/shell/jailkit plugins of
+// add-ftp-shell-module, but the hooks live here, as in PHP.
+var hookedTables = []string{
+	"web_domain", "ftp_user", "shell_user", "web_folder", "web_folder_user",
+}
 
 // Module is the web module. Wire it into the daemon via
 // engine.Registry.Load.
