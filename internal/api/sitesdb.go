@@ -852,7 +852,13 @@ func sitesDatabaseUserDecorate() func(ctx context.Context, db *gorm.DB, items []
 		}
 		clients := clientLabelByGroupID(ctx, db, collectIDs(items, "sys_groupid"))
 		for _, item := range items {
-			item["_client"] = clients[idString(item["sys_groupid"])]
+			gid := idString(item["sys_groupid"])
+			label := clients[gid]
+			if label == "" && gid == "1" {
+				// Admin-owned rows have no client; PHP shows the admin group.
+				label = "Admin"
+			}
+			item["_client"] = label
 		}
 		return nil
 	}
