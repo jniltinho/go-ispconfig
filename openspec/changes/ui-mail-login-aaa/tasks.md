@@ -17,4 +17,4 @@
 ## 3. Review / ship
 - [x] 3.1 Claude Fable 5 write-up `.hermes/review-fable-mailbox-aaa.md`.
 - [x] 3.2 Grok final review + residual fixes (tabs + admin Custom Rules + forward_in_lda).
-- [ ] 3.3 Redeploy lab `.10`; Telegram MEDIA; PR to main; archive change when green.
+- [x] 3.3 Redeploy lab `.10`; Telegram MEDIA; PR to main; archive change when green.
