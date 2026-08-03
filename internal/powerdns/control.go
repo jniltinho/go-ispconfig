@@ -118,17 +118,22 @@ func (p *Plugin) doRetrieve(ctx context.Context, data engine.Data) {
 	}
 }
 
-func (p *Plugin) doRectify(ctx context.Context, data engine.Data) {
+// pdnsUtilTool returns the pdnsutil/pdnssec path when zone maintenance
+// commands may run: binary present and, when the version probe succeeded,
+// major version 3 or 4 (PHP is_pdns_version_supported). An empty version
+// (pdns_control missing) stays permissive.
+func (p *Plugin) pdnsUtilTool(ctx context.Context) string {
 	t := p.ensureTools(ctx)
-	if t.pdnsUtil == "" || !VersionSupported(t.version) {
-		// Version probe uses pdns_control; if version empty, still try
-		// rectify when util is present (tests often skip version).
-		if t.pdnsUtil == "" {
-			return
-		}
-		if t.version != "" && !VersionSupported(t.version) {
-			return
-		}
+	if t.pdnsUtil == "" || (t.version != "" && !VersionSupported(t.version)) {
+		return ""
+	}
+	return t.pdnsUtil
+}
+
+func (p *Plugin) doRectify(ctx context.Context, data engine.Data) {
+	tool := p.pdnsUtilTool(ctx)
+	if tool == "" {
+		return
 	}
 	origin := stripTrailingDot(row(data.New).str("origin"))
 	if origin == "" {
@@ -148,7 +153,7 @@ func (p *Plugin) doRectify(ctx context.Context, data engine.Data) {
 	if origin == "" {
 		return
 	}
-	if _, err := p.runner.Run(ctx, t.pdnsUtil, "rectify-zone", origin); err != nil {
+	if _, err := p.runner.Run(ctx, tool, "rectify-zone", origin); err != nil {
 		p.log.Warn("powerdns: rectify-zone failed", "origin", origin, "error", err)
 	}
 }
@@ -165,13 +170,6 @@ func (p *Plugin) SetToolsForTest(pdnsControl, pdnsUtil, version string) {
 // ProbeVersion returns the cached pdns version string (for tests/DNSSEC).
 func (p *Plugin) ProbeVersion(ctx context.Context) string {
 	return p.ensureTools(ctx).version
-}
-
-// doHandleDNSSEC is implemented in section 4 (dnssec.go); stub keeps the
-// SOA handlers wired until then.
-func (p *Plugin) doHandleDNSSEC(ctx context.Context, data engine.Data) {
-	_ = ctx
-	_ = data
 }
 
 // Format tools status for errors.
