@@ -32,6 +32,12 @@ const props = defineProps<{
    * API by the wrapping view).
    */
   optionOverrides?: Record<string, { value: string; label: string }[]>
+  /**
+   * validate runs client-side before the save call and, when it returns
+   * field errors, blocks the request (mirrors the API rules for instant
+   * feedback; the API stays the authority).
+   */
+  validate?: (values: Record<string, unknown>) => Record<string, string[]>
 }>()
 
 const { t } = useI18n()
@@ -167,6 +173,11 @@ onMounted(async () => {
 async function save(values: Record<string, unknown>) {
   if (!serverMeta.value) return
   errors.value = {}
+  const clientErrors = props.validate?.(values) ?? {}
+  if (Object.keys(clientErrors).length) {
+    errors.value = clientErrors
+    return
+  }
   saving.value = true
   try {
     const payload = toPayload(serverMeta.value, values)
