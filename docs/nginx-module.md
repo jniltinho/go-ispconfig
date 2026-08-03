@@ -12,11 +12,12 @@ the web module and nginx plugin (`cmd/daemon.go`).
 
 ## Event flow
 
-The **web module** hooks the datalog tables `web_domain`, `web_folder` and
-`web_folder_user` and raises the ISPConfig-named events
-(`web_domain_insert/update/delete`, …). Unported tables (`ftp_user`,
-`webdav_user`, `aps_*`, …) are simply not hooked; adding them later is
-additive. The module also registers the services:
+The **web module** hooks the datalog tables `web_domain`, `ftp_user`,
+`shell_user`, `web_folder` and `web_folder_user` and raises the
+ISPConfig-named events (`web_domain_insert/update/delete`, …). The
+`ftp_user`/`shell_user` events are consumed by the ftp, shell and jailkit
+plugins (see `docs/ftp-shell-module.md`). Unported tables (`webdav_user`,
+`aps_*`, …) are simply not hooked; adding them later is additive. The module also registers the services:
 
 - `httpd` — maps to the nginx systemd unit; every restart/reload is guarded
   by `nginx -t` (a broken config can never take nginx down);
