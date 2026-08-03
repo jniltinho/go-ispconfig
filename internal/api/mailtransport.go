@@ -18,6 +18,7 @@ func mailTransportEntity() *Entity {
 			Name:  "transport",
 			Label: "transport_txt",
 			Fields: []Field{
+				clientGroupField(),
 				intField("server_id", "server_id_txt", "0"),
 				text("domain", "domain_txt",
 					validator.Rule{Type: "NOTEMPTY", ErrKey: "domain_error_empty"},

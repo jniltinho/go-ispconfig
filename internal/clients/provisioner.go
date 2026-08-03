@@ -18,7 +18,9 @@ import (
 // InterfaceModules is the module set granted to new client panel logins
 // (PHP $conf['interface_modules_enabled'] for this panel's scope).
 // Resellers additionally get the client module.
-const InterfaceModules = "dashboard,sites,dns,tools,help"
+// mail belongs here for parity with PHP's "mail,sites,dns,tools": without it
+// a client owning mail domains and mailboxes gets no Email tab at all.
+const InterfaceModules = "dashboard,mail,sites,dns,tools,help"
 
 // themeRe sanitizes usertheme (path-traversal guard, PHP parity).
 var themeRe = regexp.MustCompile(`^[a-zA-Z0-9_-]{1,32}$`)

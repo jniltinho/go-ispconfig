@@ -87,6 +87,7 @@ func spamfilterUserEntity() *Entity {
 			Name:  "user",
 			Label: "user_txt",
 			Fields: []Field{
+				clientGroupField(),
 				intField("server_id", "server_id_txt", "0"),
 				text("email", "email_txt",
 					validator.Rule{Type: "NOTEMPTY", ErrKey: "email_error_empty"},
@@ -111,6 +112,7 @@ func spamfilterWblistEntity() *Entity {
 			Name:  "wblist",
 			Label: "wblist_txt",
 			Fields: []Field{
+				clientGroupField(),
 				intField("server_id", "server_id_txt", "0"),
 				selectField("wb", "wb_txt", "VARCHAR", "W", []Option{
 					{Value: "W", Label: "whitelist_txt"},

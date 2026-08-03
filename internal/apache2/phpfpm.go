@@ -18,10 +18,19 @@ const poolTemplate = "php_fpm_pool.conf.master"
 // buildPool assembles the pool template vector for one site.
 func buildPool(cfg *getconf.WebConfig, d row, fpm fpmInfo) (map[string]any, []map[string]any) {
 	documentRoot, _, _ := docRoots(d)
+	// The socket is opened by the pool (running as the site user) and dialed by
+	// Apache, so it must be group-readable by the web server group.
+	listenGroup := cfg.Group
+	if listenGroup == "" {
+		listenGroup = "www-data"
+	}
 	vars := map[string]any{
 		"fpm_pool":                fpm.poolName,
 		"fpm_port":                fpm.port,
 		"fpm_socket":              fpm.socketPath,
+		"fpm_listen_user":         d.str("system_user"),
+		"fpm_listen_group":        listenGroup,
+		"fpm_listen_mode":         "0660",
 		"fpm_user":                d.str("system_user"),
 		"fpm_group":               d.str("system_group"),
 		"pm":                      orDefault(d.str("pm"), "dynamic"),
@@ -105,6 +114,13 @@ func (p *Plugin) managePool(cfg *getconf.WebConfig, d row, fpm fpmInfo) error {
 		}
 		p.scheduleFPM(cfg, fpm.initScript)
 		return nil
+	}
+	if fpm.useSocket {
+		// PHP-FPM refuses to start when the listen socket's parent dir is
+		// missing, taking every other pool on the host down with it.
+		if err := os.MkdirAll(fpm.socketDir, 0o755); err != nil {
+			return fmt.Errorf("apache2: creating socket dir %s: %w", fpm.socketDir, err)
+		}
 	}
 	content, err := p.renderPool(cfg, d, fpm)
 	if err != nil {

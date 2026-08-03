@@ -65,6 +65,7 @@ func mailDomainEntity(d *Deps) *Entity {
 			Name:  "domain",
 			Label: "domain_txt",
 			Fields: []Field{
+				clientGroupField(),
 				{
 					Name: "server_id", Label: "server_id_txt",
 					Datatype: "INTEGER", Formtype: "SELECT",

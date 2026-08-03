@@ -35,3 +35,13 @@ func TestModuleHelpers(t *testing.T) {
 	require.Equal(t, "dashboard,sites", removeModule("dashboard,client,sites", "client"))
 	require.Equal(t, "dashboard", removeModule("dashboard", "client"))
 }
+
+// The nav filters tabs by this CSV, so an omission here silently hides a
+// whole module from every client that owns records in it.
+func TestInterfaceModulesGrantsClientOwnedModules(t *testing.T) {
+	for _, m := range []string{"dashboard", "mail", "sites", "dns", "tools", "help"} {
+		require.True(t, hasModule(InterfaceModules, m), "module %q must be granted", m)
+	}
+	require.False(t, hasModule(InterfaceModules, "client"), "reseller-only")
+	require.False(t, hasModule(InterfaceModules, "admin"))
+}

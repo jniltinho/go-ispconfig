@@ -56,6 +56,7 @@ func forwardingEntity(ft forwardingType) *Entity {
 			Name:  "forwarding",
 			Label: "forwarding_txt",
 			Fields: []Field{
+				clientGroupField(),
 				intField("server_id", "server_id_txt", "0"),
 				text("source", "source_txt", sourceRules...),
 				textarea("destination", "destination_txt", destRules...),

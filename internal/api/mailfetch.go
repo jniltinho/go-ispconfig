@@ -42,6 +42,7 @@ func fetchmailEntity() *Entity {
 			Name:  "mailget",
 			Label: "mailget_txt",
 			Fields: []Field{
+				clientGroupField(),
 				selectField("type", "type_txt", "VARCHAR", "pop3", fetchmailTypes(),
 					validator.Rule{Type: "CUSTOM", ErrKey: "type_error_regex", Fn: checkFetchmailType}),
 				text("source_server", "source_server_txt",

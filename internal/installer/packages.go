@@ -28,7 +28,7 @@ func (packagesStep) Name() string { return "packages" }
 func (packagesStep) Run(ctx context.Context, st *State) error {
 	wanted := st.packageSet()
 	if st.Answers.InstallPHPFPM {
-		wanted = append(wanted, st.Profile.PHPFPMPackage())
+		wanted = append(wanted, st.Profile.PHPPackages()...)
 	}
 
 	var missing []string

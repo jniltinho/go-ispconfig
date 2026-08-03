@@ -68,6 +68,10 @@ func (mariadbStep) Run(_ context.Context, st *State) error {
 		}
 	}
 
+	if err := clientdbAdmin(st, root); err != nil {
+		return err
+	}
+
 	// Schema through the foundation migrate path (embedded ispconfig3.sql,
 	// existing-schema detection included).
 	db, err := database.Open(st.ispconfigDSN())
@@ -89,6 +93,62 @@ func (mariadbStep) Run(_ context.Context, st *State) error {
 	}
 	st.AdminPassword = adminPassword
 	return nil
+}
+
+// clientdbAdmin creates the dedicated client-DB admin account and writes its
+// credentials file. The mysql_clientdb plugin refuses to provision any client
+// database without it, so skipping this leaves every site's database created
+// in the panel but absent from MariaDB. It needs GRANT OPTION because it hands
+// privileges to the per-site database users it creates.
+func clientdbAdmin(st *State, root *gorm.DB) error {
+	const user = "goisp_clientdb"
+	path := filepath.Join(st.ConfigDir, "mysql_clientdb.conf")
+
+	// Reuse the password of an existing file so re-runs never break a
+	// working install.
+	pw := existingClientDBPassword(path)
+	if pw == "" {
+		generated, err := database.RandomPassword(20)
+		if err != nil {
+			return err
+		}
+		pw = generated
+	}
+	esc := strings.NewReplacer(`\`, `\\`, `'`, `\'`).Replace(pw)
+
+	for _, host := range st.DBUserHosts {
+		for _, s := range []string{
+			fmt.Sprintf("CREATE USER IF NOT EXISTS '%s'@'%s' IDENTIFIED BY '%s'", user, host, esc),
+			fmt.Sprintf("ALTER USER '%s'@'%s' IDENTIFIED BY '%s'", user, host, esc),
+			fmt.Sprintf("GRANT ALL PRIVILEGES ON *.* TO '%s'@'%s' WITH GRANT OPTION", user, host),
+		} {
+			if err := root.Exec(s).Error; err != nil {
+				return fmt.Errorf("client-DB admin setup: %w", err)
+			}
+		}
+	}
+
+	content := fmt.Sprintf("clientdb_host = %q\nclientdb_port = 3306\nclientdb_user = %q\nclientdb_password = %q\n",
+		"localhost", user, pw)
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		return fmt.Errorf("writing %s: %w", path, err)
+	}
+	return nil
+}
+
+// existingClientDBPassword returns the password already recorded in the
+// client-DB credentials file, or "" when the file is missing or unreadable.
+func existingClientDBPassword(path string) string {
+	if _, err := os.Stat(path); err != nil {
+		return ""
+	}
+	v := viper.New()
+	v.SetConfigFile(path)
+	v.SetConfigType("toml")
+	if err := v.ReadInConfig(); err != nil {
+		return ""
+	}
+	return v.GetString("clientdb_password")
 }
 
 // rootDSN builds a root DSN through mysql.Config so an operator-supplied

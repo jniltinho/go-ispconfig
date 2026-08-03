@@ -193,6 +193,21 @@ func TestMailboxAPI(t *testing.T) {
 		assert.NotEmpty(t, row.Password, "password hashed and stored")
 	})
 
+	// Without the virtual client_group_id field the record is filed under the
+	// admin group and the owning client can never list its own mailbox.
+	t.Run("client_group_id assigns ownership", func(t *testing.T) {
+		status, data := call(t, srv, http.MethodPost, "/api/mail/mailboxes", cookie, csrf,
+			map[string]any{"email": "owned@box.example", "password": "s3cr3t-pw",
+				"quota": 1048576, "client_group_id": 7})
+		require.Equal(t, http.StatusCreated, status, "%s", data)
+		var rec map[string]any
+		require.NoError(t, json.Unmarshal(data, &rec))
+
+		var row model.MailUser
+		require.NoError(t, db.Take(&row, rec["mailuser_id"].(float64)).Error)
+		assert.EqualValues(t, 7, row.SysGroupID)
+	})
+
 	t.Run("create for unknown domain is rejected", func(t *testing.T) {
 		status, data := call(t, srv, http.MethodPost, "/api/mail/mailboxes", cookie, csrf,
 			map[string]any{"email": "who@no-such.example", "password": "x-pw-123"})

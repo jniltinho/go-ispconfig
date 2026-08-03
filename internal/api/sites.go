@@ -76,6 +76,14 @@ func intField(name, label string, def any, rules ...validator.Rule) Field {
 		Default: def, Validators: rules}
 }
 
+// clientGroupField is the virtual owner selector: applyClientGroup maps it
+// onto sys_groupid on create. An entity that omits it silently files every
+// record under the admin group, where the owning client can never see it.
+func clientGroupField() Field {
+	return Field{Name: "client_group_id", Label: "client_txt", Datatype: "INTEGER",
+		Formtype: "SELECT", Default: "0", AdminOnly: true, Virtual: true}
+}
+
 // selectField is a SELECT field.
 func selectField(name, label, datatype string, def any, opts []Option, rules ...validator.Rule) Field {
 	return Field{Name: name, Label: label, Datatype: datatype, Formtype: "SELECT",
@@ -110,11 +118,7 @@ func webDomainEntity() *Entity {
 				Fields: []Field{
 					selectField("server_id", "server_id_txt", "INTEGER", nil, nil,
 						validator.Rule{Type: "ISPOSITIVE", ErrKey: "no_server_error"}),
-					// Virtual: maps onto sys_groupid via applyClientGroup
-					// (tform client_group_id); options come from the
-					// client-groups lookup.
-					{Name: "client_group_id", Label: "client_txt", Datatype: "INTEGER",
-						Formtype: "SELECT", Default: "0", AdminOnly: true, Virtual: true},
+					clientGroupField(),
 					selectField("ip_address", "ip_address_txt", "VARCHAR", "*", nil),
 					selectField("ipv6_address", "ipv6_address_txt", "VARCHAR", "", nil),
 					text("domain", "domain_txt",

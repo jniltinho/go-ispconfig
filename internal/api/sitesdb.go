@@ -1024,8 +1024,7 @@ func sitesDatabaseUserEntity() *Entity {
 					// admins): without it every admin-created user lands in
 					// the admin group and can never be bound to a client's
 					// database (database_client_differs_error).
-					{Name: "client_group_id", Label: "client_txt", Datatype: "INTEGER",
-						Formtype: "SELECT", Default: "0", AdminOnly: true, Virtual: true},
+					clientGroupField(),
 					{Name: "database_user", Label: "database_user_txt", Datatype: "VARCHAR",
 						Formtype: "TEXT", Validators: databaseUserRules()},
 					text("database_user_prefix", "database_user_prefix_txt"),

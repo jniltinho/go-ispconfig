@@ -69,6 +69,20 @@ type Profile struct {
 // PHPFPMPackage is the distro php-fpm apt package (php8.3-fpm).
 func (p *Profile) PHPFPMPackage() string { return "php" + p.PHPVersion + "-fpm" }
 
+// phpExtensions are the extensions any mainstream PHP application expects.
+// php-fpm alone ships none of them, so a hosted WordPress/Nextcloud dies on
+// "missing the MySQL extension" right after provisioning succeeds.
+var phpExtensions = []string{"mysql", "curl", "gd", "mbstring", "xml", "zip", "intl"}
+
+// PHPPackages is the php-fpm package plus the extensions hosted sites need.
+func (p *Profile) PHPPackages() []string {
+	pkgs := []string{p.PHPFPMPackage()}
+	for _, ext := range phpExtensions {
+		pkgs = append(pkgs, "php"+p.PHPVersion+"-"+ext)
+	}
+	return pkgs
+}
+
 // PowerDNS package/unit names, identical on all five supported distros.
 const (
 	// PowerDNSService is the unit shipped by pdns-server.

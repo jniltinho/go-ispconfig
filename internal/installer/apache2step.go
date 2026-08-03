@@ -150,6 +150,13 @@ func setServerWebServer(st *State, webServer string) error {
 		"vhost_conf_enabled_dir":       p.NginxVhostEnabledDir,
 		"nginx_vhost_conf_dir":         p.NginxVhostConfDir,
 		"nginx_vhost_conf_enabled_dir": p.NginxVhostEnabledDir,
+		// The seeded config hardcodes one PHP version; only the distro
+		// profile knows which php-fpm was actually installed. Without this
+		// the daemon writes pools into a dir no running FPM reads.
+		"php_fpm_init_script": p.PHPFPMService,
+		"php_fpm_ini_path":    p.PHPFPMIniPath,
+		"php_fpm_pool_dir":    p.PHPFPMPoolDir,
+		"php_fpm_socket_dir":  p.PHPFPMSocketDir,
 	}
 	if webServer == WebServerApache {
 		// "apache" is the spelling getconf and the fail2ban jail selection

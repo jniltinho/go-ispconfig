@@ -27,6 +27,7 @@ func mailboxEntity(d *Deps) *Entity {
 				Name:  "mailuser",
 				Label: "mailbox_txt",
 				Fields: []Field{
+					clientGroupField(),
 					text("email", "email_txt",
 						validator.Rule{Type: "NOTEMPTY", ErrKey: "email_error_empty"},
 						validator.Rule{Type: "ISEMAIL", ErrKey: "email_error_isemail"},
