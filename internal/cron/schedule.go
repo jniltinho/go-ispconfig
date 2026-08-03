@@ -62,7 +62,7 @@ func validateRunField(field, value string) error {
 		return errors.New("invalid cron schedule")
 	}
 
-	for _, token := range strings.Split(value, ",") {
+	for token := range strings.SplitSeq(value, ",") {
 		matches := cronToken.FindStringSubmatch(token)
 		if matches == nil {
 			return errors.New("invalid cron schedule")
@@ -112,10 +112,20 @@ func MinFrequencyMinutes(runMin, runHour, runMday, runMonth, runWday string) (in
 		if err := validateRunField(field.name, field.value); err != nil {
 			return 0, fmt.Errorf("%s: %w", field.name, err)
 		}
-		frequency, err := fieldFrequency(field.name, field.value)
+		raw, err := fieldFrequency(field.name, field.value)
 		if err != nil {
 			return 0, err
 		}
+		// PHP only stores a field's frequency when it stays inside the
+		// field's own cycle (validate_cron.inc.php:219): a once-per-cycle
+		// field such as run_hour="0" says nothing about the interval — the
+		// coarser fields do. Without this guard "0 0 * * *" (daily) would
+		// report 60 minutes instead of 1440.
+		limits := cronFields[field.name]
+		if raw <= 0 || raw > limits.max {
+			continue
+		}
+		frequency := raw * limits.unit
 		if minimum < 0 || frequency < minimum {
 			minimum = frequency
 		}
@@ -130,7 +140,7 @@ func fieldFrequency(field, value string) (int, error) {
 	limits := cronFields[field]
 	value = strings.ReplaceAll(value, " ", "")
 	used := make([]int, 0, limits.max-limits.min+1)
-	for _, token := range strings.Split(value, ",") {
+	for token := range strings.SplitSeq(value, ",") {
 		matches := cronToken.FindStringSubmatch(token)
 		if matches == nil {
 			return 0, errors.New("invalid cron schedule")
@@ -168,5 +178,5 @@ func fieldFrequency(field, value string) (int, error) {
 	if minimum < 0 || wrap < minimum {
 		minimum = wrap
 	}
-	return minimum * limits.unit, nil
+	return minimum, nil
 }

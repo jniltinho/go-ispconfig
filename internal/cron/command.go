@@ -9,7 +9,9 @@ import (
 
 var (
 	urlScheme    = regexp.MustCompile(`^\w+://`)
-	cronHostname = regexp.MustCompile(`^([a-z0-9][a-z0-9-]{0,62}\.)+([a-zA-Z0-9-]{2,63})$`)
+	// PHP applies the 'i' modifier to the whole pattern; an uppercase host
+	// must validate the same as a lowercase one.
+	cronHostname = regexp.MustCompile(`(?i)^([a-z0-9][a-z0-9-]{0,62}\.)+([a-z0-9-]{2,63})$`)
 )
 
 // ValidateCommand ports validate_cron.inc.php::command_format: reject CR/LF/NUL;

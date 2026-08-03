@@ -76,7 +76,12 @@ func TestMinFrequencyMinutes(t *testing.T) {
 	}{
 		{name: "every minute", min: "*", hour: "*", mday: "*", month: "*", wday: "*", want: 1},
 		{name: "step", min: "*/5", hour: "*", mday: "*", month: "*", wday: "*", want: 5},
-		{name: "single value", min: "5", hour: "1", mday: "1", month: "1", wday: "1", want: 60},
+		// A once-per-cycle field contributes nothing (PHP min_freq <=
+		// max_entry guard): only run_mday/run_month remain, and the
+		// smallest of those is 31 days.
+		{name: "single value", min: "5", hour: "1", mday: "1", month: "1", wday: "1", want: 31 * 1440},
+		{name: "hourly", min: "0", hour: "*", mday: "*", month: "*", wday: "*", want: 60},
+		{name: "daily", min: "0", hour: "0", mday: "*", month: "*", wday: "*", want: 1440},
 		{name: "list gap", min: "0,30", hour: "1", mday: "1", month: "1", wday: "1", want: 30},
 		{name: "wrap around", min: "55,0", hour: "1", mday: "1", month: "1", wday: "1", want: 5},
 		{name: "reboot ignores month", min: "*/5", hour: "*", mday: "*", month: "@reboot", wday: "*", want: 5},
