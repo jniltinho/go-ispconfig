@@ -1,9 +1,11 @@
 <script setup lang="ts">
 // Cron job form: the metadata-driven EntityForm plus the parent website
 // select (vhost datasource parity), the placeholder help of the legacy
-// panel and client-side schedule/command checks.
+// panel, client-side schedule/command checks and — on edit — the run
+// history from /api/sites/crons/:id/runs.
 import { onMounted, ref } from 'vue'
 import EntityForm from './EntityForm.vue'
+import CronRuns from './CronRuns.vue'
 import { api } from '../../api'
 import { useI18n } from '../../i18n'
 
@@ -76,5 +78,7 @@ function validate(values: Record<string, unknown>): Record<string, string[]> {
       :validate="validate"
       :readonly-fields="props.id ? ['parent_domain_id', 'server_id', 'type'] : ['server_id', 'type']"
     />
+
+    <CronRuns v-if="props.id" :id="props.id" class="mt-6" />
   </div>
 </template>

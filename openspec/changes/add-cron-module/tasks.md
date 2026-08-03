@@ -36,7 +36,7 @@
 
 - [x] 5.1 Add Sites → Cron sidebar section and job list view (DataTable: active, parent domain, schedule summary, type, command, log) with search/filter and add button; English i18n keys. Commit.
 - [x] 5.2 Cron form (TabbedForm single tab): parent domain select (vhosts; disabled on edit), five schedule fields, command with placeholder help, type display, log/active toggles; client-side validation mirroring API; inline API errors. Commit.
-- [ ] 5.3 Run-history section/view on the edit screen listing runs from `/api/sites/crons/:id/runs` (start, status, exit, output tail) with empty state. Commit.
+- [x] 5.3 Run-history section/view on the edit screen listing runs from `/api/sites/crons/:id/runs` (start, status, exit, output tail) with empty state. Commit.
 - [ ] 5.4 Pinia/store + router wiring for cron list/form/history; unit tests for store fetch/error paths. Commit.
 
 ## 6. E2E and docs
