@@ -24,6 +24,7 @@ LINUX_BIN := bin/go-ispconfig-linux-amd64
 
 .PHONY: all build build-prod build-linux run clean frontend frontend-dev \
         migrate tidy deps deps-frontend install-upx lint swagger e2e-theme e2e-clients e2e-mail e2e-firewall e2e-database e2e-cron \
+        e2e-ftp-shell e2e-ui-qa \
         swagger-check test test-race help \
         vagrant-up vagrant-test vagrant-destroy vagrant-lab-up vagrant-lab-fixtures \
         vagrant-lab-status vagrant-parity-test
@@ -100,6 +101,26 @@ e2e-cron:
 ##   make e2e-database PANEL_URL=https://127.0.0.1:8095 ADMIN_PASSWORD=...
 e2e-database:
 	PANEL_URL=$(PANEL_URL) ADMIN_PASSWORD=$(ADMIN_PASSWORD) e2e/panel-database.sh
+
+## FTP/shell-users E2E (agent-browser) against a running built binary:
+##   make e2e-ftp-shell PANEL_URL=http://127.0.0.1:8097 ADMIN_PASSWORD=...
+e2e-ftp-shell:
+	PANEL_URL=$(PANEL_URL) ADMIN_PASSWORD=$(ADMIN_PASSWORD) e2e/panel-ftp-shell.sh
+
+## Unified UI QA E2E: baseline smoke + every module suite + theme, in order,
+## against ONE running panel. Precondition: freshly migrated DB with the
+## seeded admin plus one DNS zone id=1 (panel-theme.sh requirement).
+##   make e2e-ui-qa PANEL_URL=http://127.0.0.1:8096 ADMIN_PASSWORD=... [CRON_SQL=...]
+e2e-ui-qa:
+	PANEL_URL=$(PANEL_URL) ADMIN_PASSWORD=$(ADMIN_PASSWORD) e2e/panel-ui-qa-baseline.sh
+	PANEL_URL=$(PANEL_URL) ADMIN_PASSWORD=$(ADMIN_PASSWORD) CRON_SQL="$(CRON_SQL)" e2e/panel-cron.sh
+	PANEL_URL=$(PANEL_URL) ADMIN_PASSWORD=$(ADMIN_PASSWORD) e2e/panel-ftp-shell.sh
+	PANEL_URL=$(PANEL_URL) ADMIN_PASSWORD=$(ADMIN_PASSWORD) e2e/panel-database.sh
+	PANEL_URL=$(PANEL_URL) ADMIN_PASSWORD=$(ADMIN_PASSWORD) e2e/panel-mail.sh
+	PANEL_URL=$(PANEL_URL) ADMIN_PASSWORD=$(ADMIN_PASSWORD) e2e/panel-clients.sh
+	PANEL_URL=$(PANEL_URL) ADMIN_PASSWORD=$(ADMIN_PASSWORD) e2e/panel-firewall.sh
+	PANEL_URL=$(PANEL_URL) ADMIN_PASSWORD=$(ADMIN_PASSWORD) e2e/panel-theme.sh
+	@echo "e2e-ui-qa: all suites green"
 
 ## Run golangci-lint (godoc on exported identifiers is enforced)
 lint:
