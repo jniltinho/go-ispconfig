@@ -116,6 +116,7 @@ it comes back. Full walkthrough in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 | [docs/README.md](docs/README.md) | **Technical deep dive** — modules, build, install, API, daemon, operations, security |
 | [docs/install.md](docs/install.md) | Installer flags, every step, every file touched |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Datalog engine, module/plugin registries, template system |
+| [docs/multi-server.md](docs/multi-server.md) | Running several nodes off one panel and database |
 | [docs/MIGRATION.md](docs/MIGRATION.md) | Migrating from PHP ISPConfig3 |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | What is not built yet |
 | [AGENTS.md](AGENTS.md) | Developer runbook — environment, build, test, validation |
