@@ -131,9 +131,10 @@ fails loudly.
 
 ## ACME clients
 
-`--acme y` installs **one client and nothing else**: `acme.sh` through its own
-installer script, or the distro's `certbot` package. No
-`python3-certbot-nginx`, no `python3-certbot-apache`.
+`--acme y` installs **one client and no webserver plugin**: `acme.sh` through
+its own installer script (pulling `curl` first if the box has none), or the
+distro's `certbot` package. No `python3-certbot-nginx`, no
+`python3-certbot-apache`.
 
 Site certificates are issued with `--authenticator webroot`, which needs no
 plugin — and neither does the legacy, checked against the ISPConfig `3.2dev`

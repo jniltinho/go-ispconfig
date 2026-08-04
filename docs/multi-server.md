@@ -67,18 +67,29 @@ is the usual first mistake:
   0, which is why a first install always logs
   `[postfix] skipped: mail role disabled`.
 
-A fresh `install` seeds its own row with `web_server = 1`, `dns_server = 1`,
-`db_server = 1`, `mail_server = 0` and `firewall_server = 0`
-(`internal/database/seed.go`). The *daemon* then loads its modules from those
-same flags, so the row has to agree with what you installed either way.
+**The base package set is the same on every node.** `packageSet()`
+(`internal/installer/powerdnsstep.go:38`) always installs nginx (Apache
+instead with `--web-server apache2`), bind9 (the PowerDNS set instead with
+`--dns-backend powerdns`), `mariadb-server` and `redis-server`. The answers
+decide whether those services get *configured*, not whether they get
+installed — a dedicated mail node still ends up with nginx and bind9 on disk,
+unconfigured. Only the mail packages are conditional, because only the mail
+steps install their own.
 
-| Node role | Install with | Row flags to set | What lands on the box |
+A fresh `install` seeds its row with `web_server = 1`, `dns_server = 1`,
+`db_server = 1`, `mail_server = 0`, `firewall_server = 0`
+(`internal/database/seed.go`) — **regardless of the answers you passed**.
+Nothing syncs the row with `--web n`, so on a single-purpose node you clear
+the flags yourself, or the daemon keeps loading modules for roles that host
+does not serve.
+
+| Node role | Install with | Row flags | Configured on the box |
 |---|---|---|---|
-| Web | `--web y --dns n` | `web_server = 1` | nginx (or Apache with `--web-server apache2`), `pure-ftpd-mysql`, `php*-fpm` when `--php-fpm=y` |
-| DNS | `--web n --dns y` | `dns_server = 1` | `bind9`, or the PowerDNS set with `--dns-backend powerdns` |
-| Mail | `--web n --dns n` | `mail_server = 1`, then re-run install | `postfix`, `postfix-mysql`, `dovecot-*`, `rspamd`, the vmail user — installed by the mail steps themselves |
-| Database | `--web n --dns n` | `db_server = 1` | `mariadb-server` (always installed) plus the `goisp_clientdb` admin account |
-| Firewall | any | `firewall_server = 1` | `ufw`, driven by the Firewall module |
+| Web | `--web y --dns n` | `web_server = 1`, others 0 | nginx (or Apache), `pure-ftpd-mysql`, `php*-fpm` when `--php-fpm=y` |
+| DNS | `--web n --dns y` | `dns_server = 1`, others 0 | bind9, or PowerDNS with `--dns-backend powerdns` |
+| Mail | `--web n --dns n` | `mail_server = 1`, others 0 | `postfix`, `postfix-mysql`, `dovecot-*`, `rspamd`, the vmail user — installed by the mail steps themselves |
+| Database | `--web n --dns n` | `db_server = 1`, others 0 | `mariadb-server` plus the `goisp_clientdb` admin account |
+| Firewall | any | `firewall_server = 1` | the UFW rule sets. **`ufw` itself is not installed** — `apt install ufw` first, the module only probes for it |
 
 So a mail node is set up in three moves:
 
@@ -86,17 +97,27 @@ So a mail node is set up in three moves:
 # 1. install — the mail steps skip, the seeded row has mail_server = 0
 go-ispconfig install --yes --hostname mail1.example.com --web n --dns n
 
-# 2. turn the role on for this node's row
-mysql dbispconfig -e "UPDATE server SET mail_server = 1 WHERE server_name = 'mail1.example.com'"
+# 2. fix this node's row: mail on, the roles it does not serve off
+mysql dbispconfig -e "UPDATE server SET mail_server = 1, web_server = 0, dns_server = 0 \
+  WHERE server_name = 'mail1.example.com'"
 
-# 3. re-run: now the mail steps install and configure postfix/dovecot/rspamd
-go-ispconfig install --yes --update
+# 3. re-run the FULL install — not --update, which re-renders base configs
+#    and units only and contains no mail step at all (UpdateSteps in steps.go)
+go-ispconfig install --yes --web n --dns n
 ```
 
-Every step is idempotent, so re-running after a role change is the supported
-way to add a role to an existing node — there is no `install --add-role`. On a
-node joined to a master, step 2 is done on the master's row for that node,
-from the panel or `/api/server`, not on a local database.
+Every step is idempotent, so a full re-run after a role change is the
+supported way to add a role to an existing node — there is no
+`install --add-role`. On a node joined to a master, step 2 is done on the
+master's row for that node, from the panel or `/api/server`, not on a local
+database.
+
+One asymmetry to know: `mail_server`, `dns_server`, `db_server` and
+`firewall_server` gate their modules in the daemon, but the **web module is
+loaded unconditionally** (`cmd/daemon.go:115`) — `web_server` only gates the
+cron module. A node with `web_server = 0` still has the web plugin loaded; it
+simply receives no web datalog rows, because the panel routes those by
+`server_id`.
 
 ## Adding a node
 
@@ -227,8 +248,10 @@ Consequences worth knowing before you rely on it:
 - the transfer is **BIND's**, not the panel's. A record change reaches the
   secondary via AXFR/NOTIFY after the primary's serial bumps, not through
   `sys_datalog`;
-- with the PowerDNS backend the slave-zone path does not apply — replication
-  there is PowerDNS's own (see [powerdns-module.md](powerdns-module.md));
+- the PowerDNS backend uses the same `dns_slave` rows, but a different agent:
+  the plugin writes a `domains` row of `type = SLAVE` with the master address
+  and calls `pdns_control retrieve`, instead of a `named.conf` block (see
+  [powerdns-module.md](powerdns-module.md));
 - deleting the primary zone leaves the slave row behind. Remove it yourself.
 
 ## What is not supported yet
