@@ -126,10 +126,23 @@ save or a retried POST journals the rows twice and the daemon applies them
 twice. Today that is masked because most applies are convergent, but it is luck,
 not design.
 
-The id the client sends (or the one serve mints and returns) is unique per
-request, so a write whose `session_id` already exists is a replay and is
-answered with the first outcome instead of journalling again. Small, and it
-closes a hole that predates this change.
+The id has to come **from the client** for this to work at all, and the two
+roles must not be conflated:
+
+- a **serve-minted** id correlates. It is unique per request by construction, so
+  a double-clicked save produces two different ids and deduplicates nothing;
+- a **client-supplied** `Idempotency-Key` header deduplicates, because the retry
+  carries the same value the first attempt did.
+
+So: mutating requests may send `Idempotency-Key`; serve uses it as the request
+id and answers a repeat with the first outcome instead of journalling again.
+Without the header serve mints an id, the response still carries it, and the
+request is correlatable but not idempotent — which is today's behaviour, not a
+regression.
+
+The browser sends it on form saves, where the double-click is real. An API
+client that wants exactly-once opts in the same way. Making serve mint it and
+calling that idempotency would have been a comfortable lie.
 
 ## D4. SSE, not WebSocket, not Inspector polling
 

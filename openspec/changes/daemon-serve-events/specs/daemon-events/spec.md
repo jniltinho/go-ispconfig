@@ -59,12 +59,18 @@ correlation survives a restart and needs no schema change.
 - **AND** names the row that failed, rather than collapsing the outcome to a
   single success or failure
 
-#### Scenario: The same request is submitted twice
+#### Scenario: The same request is submitted twice with an idempotency key
 
-- **WHEN** a save is double-clicked, or a POST is retried with the same request
-  id
+- **WHEN** a save is double-clicked, or a POST is retried, and both calls carry
+  the same client-supplied `Idempotency-Key`
 - **THEN** the rows are journalled once
 - **AND** the second call is answered with the outcome of the first
+
+#### Scenario: A repeated request carries no idempotency key
+
+- **WHEN** the same write is submitted twice without the header
+- **THEN** each call is journalled, as it is today
+- **AND** each carries its own request id, so both remain correlatable
 
 #### Scenario: The panel restarts mid-flight
 

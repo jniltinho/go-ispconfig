@@ -11,7 +11,7 @@
 - [ ] 1b.3 Every event the daemon publishes about a datalog row carries that `request_id` when the row has one. Test: one API call journalling three rows produces three events sharing one id.
 - [ ] 1b.4 Migration adding `KEY (session_id)` to `sys_datalog` — the table ships only `PRIMARY KEY (datalog_id)` and `KEY (server_id, status)` (`internal/database/ispconfig3.sql:1681`), so correlating without it full-scans an append-only table. A migration, **not** an edit to the vendored schema.
 - [ ] 1b.5 `GET /api/requests/<id>` (D3a): one grouped query over `session_id`, deriving `running` / `failed` / `ok` from the rows and the owning servers' cursors. This is the request-level object; it is a query, not a store. Test partial failure: two rows applied, one failed, reports `failed` and names the row.
-- [ ] 1b.6 Idempotency (D3b): a write whose request id was already journalled is answered with the first outcome instead of journalling again. Test a replayed POST — the double-clicked save is the real case.
+- [ ] 1b.6 Idempotency (D3b) on a **client-supplied** `Idempotency-Key` header: serve uses it as the request id and answers a repeat with the first outcome instead of journalling again. A serve-minted id cannot dedup — the retry would mint a second one — so without the header the request stays correlatable but not idempotent, which is today's behaviour. Tests: same key twice journals once; no key twice journals twice; the frontend sends the key on form saves.
 
 ## 2. The daemon publishes
 
