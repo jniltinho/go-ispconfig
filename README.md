@@ -4,161 +4,139 @@
 [![Release](https://img.shields.io/github/v/release/jniltinho/go-ispconfig)](https://github.com/jniltinho/go-ispconfig/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-Port of the [ISPConfig3](https://www.ispconfig.org/) hosting control panel to Go —
-a **single static binary** containing the web panel (Vue 3 + Tailwind, embedded),
-the REST API (Echo v5 + Swagger), the configuration daemon and the installer CLI.
-The panel is standalone: it serves HTTPS itself, no nginx/apache in front.
+**The ISPConfig3 hosting control panel, rewritten in Go as a single static binary.**
 
-It manages websites (nginx + PHP-FPM + SSL), DNS (Bind or PowerDNS), mail
-(Postfix/Dovecot/Rspamd), client databases, FTP/shell/jailkit accounts, cron
-jobs, the firewall, clients/resellers and server monitoring — and installs
-itself on Debian 11–13 / Ubuntu 22.04–24.04 with `go-ispconfig install`.
+One file — no PHP, no web server in front, no crontab entries. It manages
+websites, DNS, mail, databases, FTP and shell accounts, cron jobs and the
+firewall on Debian and Ubuntu servers, and installs the whole stack itself.
 
-## Why
+Already running ISPConfig3? Point it at your existing `dbispconfig` database
+and it adopts your data as-is — the schema is identical, table for table.
 
-- **Database 100% identical to ISPConfig3.** The original `ispconfig3.sql` DDL
-  is embedded in the binary; an existing `dbispconfig` database can be adopted
-  directly. Migrating clients from a PHP ISPConfig3 install is a first-class
-  feature — see [`docs/MIGRATION.md`](docs/MIGRATION.md).
-- **Same architecture, modern runtime.** The proven ISPConfig design is kept —
-  the panel never touches the OS; every change flows through `sys_datalog` and
-  is applied by a daemon — but the PHP runtime, system cron jobs and pidfile
-  locking are replaced by one supervised Go daemon with an internal scheduler
-  and an [asynq](https://github.com/hibiken/asynq) task queue (Redis/Valkey).
-- **Single binary.** Frontend, API, Swagger UI, SQL schema and `.master`
-  config templates are all embedded. Deploy = copy one file.
+![Panel dashboard](docs/screenshots/dashboard.png)
 
-## Status
+## Why switch
 
-Foundation (see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)):
-
-- Cobra CLI: `install`, `uninstall`, `serve`, `daemon`, `migrate`,
-  `migrate-from`, `templates`, `init`, `version`
-- Identical DB schema (embedded DDL, adopt-existing-DB detection) + GORM models
-- Auth: legacy crypt (`$6$`/`$1$`) + bcrypt, sessions, CSRF, brute-force lockout
-- riud permission model (admin/reseller/client) as a single GORM scope
-- sys_datalog engine: JSON diff writer, module/plugin registries, daemon with
-  per-row crash recovery, delayed service restarts, remote actions
-- asynq task queue: per-server queues, periodic jobs, instant datalog wake
-- `.master` template engine (golden-file tested against nginx/bind templates)
-- REST API with CRUD framework, tform-style validators, Swagger UI at `/swagger/`
-- Vue 3 + Tailwind v4 panel (login, layout, DataTable, TabbedForm, dashlets,
-  Chart.js metrics, i18n), embedded in the binary
-
-### Modules
-
-| Module | Scope | Docs |
-|---|---|---|
-| Web (nginx) | vhosts from the ISPConfig `.master` templates gated by `nginx -t` with rollback, PHP-FPM pools per site, SSL incl. Let's Encrypt (acme.sh/certbot) + daily renewal, web folders/folder users | [nginx-module.md](docs/nginx-module.md) |
-| DNS (Bind) | zones gated by `named-checkzone`, `named.conf.local` reconstruction, secondary zones, DNSSEC signing + daily re-sign, record editor for 18 types | [dns-module.md](docs/dns-module.md) |
-| DNS (PowerDNS) | alternative backend, same UI/API, gmysql zone sync; picked at install time with `--dns-backend powerdns` | [powerdns-module.md](docs/powerdns-module.md) |
-| Mail | Postfix/Dovecot maps, mailboxes, forwardings, transports, DKIM, Rspamd spamfilter and white/blacklists | [mail-module.md](docs/mail-module.md) |
-| Database | client MySQL databases and users, remote-access grants, `mysql_clientdb.conf` | [database-module.md](docs/database-module.md) |
-| FTP / shell | virtual PureFTPd accounts (MySQL auth, no OS users), shell users, jailkit chroots | [ftp-shell-module.md](docs/ftp-shell-module.md) |
-| Cron | site cron jobs run by the daemon's own scheduler — no system crontab | [cron-module.md](docs/cron-module.md) |
-| Firewall | per-server UFW rule sets | [firewall-module.md](docs/firewall-module.md) |
-| Clients | clients/resellers, limits, templates, messaging | [client-module.md](docs/client-module.md) |
-| Monitor | service/state/quota collectors, `monitor_data` history, dashboard dashlets and charts | [monitor-module.md](docs/monitor-module.md) |
-| Installer | `go-ispconfig install` for Debian 11–13 / Ubuntu 22.04–24.04, idempotent step pipeline, Vagrant test rig | [install.md](docs/install.md) |
-| Legacy migration | adopt an existing `dbispconfig`, or import from a running PHP ISPConfig3 over its remote API | [MIGRATION.md](docs/MIGRATION.md), [legacy-migration.md](docs/legacy-migration.md) |
-
-Remaining scope (XMPP, VM, Apache2 backend, APS, mailing lists) is in
-[`docs/ROADMAP.md`](docs/ROADMAP.md).
+| | |
+|---|---|
+| **One binary, ~51 MB** | Panel UI, REST API, Swagger, SQL schema and config templates all embedded. Deploy = copy one file. |
+| **No PHP runtime** | No PHP-FPM pool for the panel, no `php.ini` to tune, no PHP CVE to chase. Your *sites* still run whatever PHP they want. |
+| **Serves its own HTTPS** | No nginx/apache reverse proxy in front. Self-signed cert on first start, or bring your own. |
+| **No system crontab** | Every periodic job (SSL renewal, DNSSEC re-sign, monitoring, log rotation) runs in one supervised daemon. |
+| **Identical database** | Same 78-table ISPConfig3 schema. Adopt an existing install, or roll back to PHP if you change your mind. |
+| **Same proven design** | The panel never touches the OS directly — changes flow through `sys_datalog` and a daemon applies them, exactly like ISPConfig3. |
+| **Validated before apply** | vhosts are gated by `nginx -t` / `apachectl configtest`, zones by `named-checkzone`, with automatic rollback on failure. |
 
 ## Quick start
 
-### On a server (Debian 11–13 / Ubuntu 22.04–24.04)
-
-The installer brings its own dependencies (nginx, MariaDB, Redis, PHP-FPM,
-Bind or PowerDNS, PureFTPd) and leaves two systemd units behind — no crontab
-entries, all periodic work lives in the daemon:
+Debian 11–13 or Ubuntu 22.04–24.04, fresh server, as root:
 
 ```bash
-go-ispconfig install --yes --hostname srv1.example.com \
-  --admin-email admin@example.com --write-credentials
-# panel on https://<host>:8080/ — admin password printed once
+VER=0.3.0
+curl -fsSLO https://github.com/jniltinho/go-ispconfig/releases/download/v$VER/go-ispconfig_${VER}_amd64.deb
+dpkg -i go-ispconfig_${VER}_amd64.deb
+go-ispconfig install --yes --hostname srv1.example.com --admin-email you@example.com
+# panel is now on https://srv1.example.com:8080/ — admin password printed once
 ```
 
-Flags, files touched and the full step list: [`docs/install.md`](docs/install.md).
+The installer brings its own dependencies (nginx or apache2, MariaDB, Redis,
+PHP-FPM, Bind or PowerDNS, PureFTPd, Postfix, Dovecot, Rspamd, fail2ban) and
+leaves two systemd units behind. Tarball and RPM builds are on the
+[releases page](https://github.com/jniltinho/go-ispconfig/releases).
 
-### From source (development)
+## What you get
 
-Requirements: **MariaDB** and **Redis or Valkey** reachable from the host
-(the task queue degrades gracefully if Redis is down — datalog polling
-continues), plus Go >= 1.26 and Node >= 22 to build.
+| Area | What it manages |
+|---|---|
+| **Websites** | vhosts on nginx or apache2, PHP-FPM pool per site, aliases and subdomains, redirects, web folder protection |
+| **SSL** | Let's Encrypt via acme.sh or certbot, custom certificates, automatic daily renewal |
+| **DNS** | Bind or PowerDNS, zone wizard, 18 record types, secondary zones, DNSSEC signing and re-signing |
+| **Mail** | Postfix + Dovecot + Rspamd, mailboxes, aliases, forwardings, catchall, transports, relay, DKIM, per-domain spam policy, white/blacklists |
+| **Databases** | Client MySQL/MariaDB databases and users, remote-access grants, phpMyAdmin link |
+| **FTP / shell** | Virtual PureFTPd accounts (MySQL auth — no OS users), shell users, jailkit chroots |
+| **Cron** | Per-site cron jobs, run by the panel daemon's own scheduler |
+| **Security** | fail2ban jails managed from the panel with a live ban view and unban button, UFW firewall rules |
+| **Clients** | Clients and resellers, per-client limits, client templates, internal messaging |
+| **Monitoring** | Service state, disk and mail quotas, RAID, load/memory/network charts, log viewer |
+| **Multi-server** | Register several nodes, assign roles (web / mail / dns / db), datalog routed per server |
+
+## Compatibility
+
+| | Supported |
+|---|---|
+| **Distros** | Debian 11, 12, 13 · Ubuntu 22.04, 24.04 |
+| **Web server** | nginx · apache2 (`--web-server`) |
+| **DNS** | Bind9 · PowerDNS (`--dns-backend`) |
+| **Database** | MariaDB 10.6+ / MySQL 8 |
+| **Mail** | Postfix + Dovecot 2.3 and 2.4 + Rspamd |
+| **Architecture** | linux/amd64 |
+
+## Migrating from ISPConfig3 (PHP)
+
+Two paths, both first-class:
+
+**Same server, same database** — point the DSN at your existing `dbispconfig`.
+The schema check passes, no DDL runs, nothing is seeded. Your clients, sites,
+mailboxes and zones are there on first login.
+
+**Different server** — pull everything over the legacy panel's remote API:
 
 ```bash
-docker run -d --name mariadb-ispconfig -e MARIADB_ROOT_PASSWORD=root -p 3306:3306 mariadb:11
-docker run -d --name redis-ispconfig -p 6379:6379 redis:7-alpine
-
-make all                 # build frontend (web/dist) + Go binary (bin/go-ispconfig)
-./bin/go-ispconfig init      # generate config.toml (DB DSN, listen port, [queue])
-./bin/go-ispconfig migrate   # create schema (embedded ispconfig3.sql) + seed admin
-./bin/go-ispconfig serve     # panel + API + Swagger UI at /swagger/
-./bin/go-ispconfig daemon    # config daemon (root, applies the module configs)
-
-# Crank up logging without a rebuild (config: [log] level, default info)
-LOG_LEVEL=debug ./bin/go-ispconfig serve
+go-ispconfig migrate-from --url https://old-panel:8080 --user remote --dry-run
+go-ispconfig migrate-from --url https://old-panel:8080 --user remote
 ```
 
-`migrate` prints the generated admin password once. Pointing the DSN at an
-existing ISPConfig3 3.3.x database skips DDL and seeds nothing — your data is
-adopted as-is ([`docs/MIGRATION.md`](docs/MIGRATION.md)).
+`--dry-run` reports exactly what would be created before anything is written;
+the password is prompted, so it stays out of your shell history.
+Details and the rollback path: [docs/MIGRATION.md](docs/MIGRATION.md).
 
-TLS: `serve` generates a self-signed certificate under `<config-dir>/ssl/` on
-first start; set `server.tls_cert`/`server.tls_key` in `config.toml` to use
-your own.
+## How it works
 
-Swagger: the UI is mounted at `/swagger/` behind an admin session. The
-`[swagger]` section moves it (`path`), opens it to anonymous requests
-(`public`, development only) or removes the route (`disabled`).
+```
+  Browser ──► Panel (Go, HTTPS :8080)
+                 │  writes a JSON diff row
+                 ▼
+            sys_datalog  ◄── source of truth, in the database
+                 │  polled every 10s + instant wake via Redis
+                 ▼
+            Daemon (root)
+                 │  render template ─► validate ─► reload service
+                 ▼
+   nginx · apache2 · bind · powerdns · postfix · dovecot · pure-ftpd · fail2ban
+```
 
-### Health checks
+The panel process runs unprivileged and never touches the filesystem or a
+service. If the daemon is down, changes queue in `sys_datalog` and apply when
+it comes back. Full walkthrough in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-| Endpoint | Purpose |
-| --- | --- |
-| `GET /healthz` | Liveness for load balancers: `ok` in plain text, no dependency touched. |
-| `GET /api/health` | Cheap status + build identity + uptime. |
-| `GET /api/health?full=1` | Probes database, task queue, TLS certificate expiry and the daemon datalog backlog. |
+## Documentation
 
-Both are unauthenticated. `?full=1` answers `503` only when the database is
-unreachable; a failing queue, an expiring certificate or a stalled daemon
-report `"status": "degraded"` with `200`, so a degraded node stays in the
-pool instead of taking the panel offline.
+| | |
+|---|---|
+| [docs/README.md](docs/README.md) | **Technical deep dive** — modules, build, install, API, daemon, operations, security |
+| [docs/install.md](docs/install.md) | Installer flags, every step, every file touched |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Datalog engine, module/plugin registries, template system |
+| [docs/MIGRATION.md](docs/MIGRATION.md) | Migrating from PHP ISPConfig3 |
+| [docs/ROADMAP.md](docs/ROADMAP.md) | What is not built yet |
+| [AGENTS.md](AGENTS.md) | Developer runbook — environment, build, test, validation |
+
+## Contributing
+
+Issues and pull requests are welcome. Every module is specified before it is
+written: proposals live in [`openspec/changes/`](openspec/changes/) and the
+consolidated capabilities in [`openspec/specs/`](openspec/specs/). Read
+[AGENTS.md](AGENTS.md) first — it has the build and test commands, and the
+validation each change is expected to pass.
 
 ```bash
-curl -sk https://localhost:8080/healthz
-curl -sk 'https://localhost:8080/api/health?full=1' | jq
+make all      # build frontend + binary
+make test     # go test ./internal/...
+make lint     # golangci-lint
 ```
-
-## Development
-
-See [`AGENTS.md`](AGENTS.md) for the full environment/build/test/validation
-runbook. Highlights:
-
-```bash
-make lint            # golangci-lint (godoc on exported identifiers enforced)
-make test            # go test ./internal/...
-go test -tags=integration ./internal/...   # spins up throwaway MariaDB/Redis via docker
-make swagger         # regenerate Swagger docs after changing handlers
-cd frontend && npm run dev   # Vite dev server, /api proxied to :8080
-```
-
-Real VMs are one command away — the Vagrant rig installs the panel on
-`https://192.168.56.10:8080` and keeps a standing PHP ISPConfig3 lab on
-`https://192.168.56.20:8080` as the parity baseline (credentials are written
-per-VM by `--write-credentials`; see [`vagrant/README.md`](vagrant/README.md)):
-
-```bash
-make vagrant-up && make vagrant-test      # install + E2E on Ubuntu 24.04
-make vagrant-lab-up                       # standing legacy lab (parity source)
-```
-
-Every module is specified first: the consolidated capabilities live in
-[`openspec/specs/`](openspec/specs/) and the changes that produced them are
-archived under [`openspec/changes/archive/`](openspec/changes/archive/).
-Implementation always follows the corresponding change.
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE).
+
+go-ispconfig is an independent reimplementation and is not affiliated with or
+endorsed by the ISPConfig project.
