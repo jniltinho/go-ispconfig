@@ -8,8 +8,10 @@ import { useSitesStore, type ListResponse } from '../../stores/sites'
 import { api, ApiError } from '../../api'
 import UiAlert from '../../components/UiAlert.vue'
 import { useI18n } from '../../i18n'
+import { useDialogStore } from '../../stores/dialog'
 
 const { t } = useI18n()
+const dialog = useDialogStore()
 const router = useRouter()
 const store = useSitesStore()
 
@@ -54,7 +56,7 @@ function open(row: Row) {
 }
 
 async function remove(row: Row) {
-  if (!confirm(t('sites.confirm_delete'))) return
+  if (!(await dialog.confirm({ message: t('sites.confirm_delete') }))) return
   try {
     await api.delete(`/api/client-templates/${row.template_id}`)
   } catch (e) {

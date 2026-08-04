@@ -10,8 +10,10 @@ import { useAuthStore } from '../../stores/auth'
 import { api, ApiError } from '../../api'
 import { useI18n } from '../../i18n'
 import { formatTs } from './state'
+import { useDialogStore } from '../../stores/dialog'
 
 const { t } = useI18n()
+const dialog = useDialogStore()
 const store = useSitesStore()
 const auth = useAuthStore()
 
@@ -66,7 +68,7 @@ async function clearOne(row: Row) {
 }
 
 async function clearLevel() {
-  if (!confirm(t('monitor.confirm_clear_level'))) return
+  if (!(await dialog.confirm({ message: t('monitor.confirm_clear_level') }))) return
   await clear({ loglevel: Number(batchLevel.value) })
 }
 

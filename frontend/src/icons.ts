@@ -19,6 +19,7 @@ import {
   Users,
   Wrench,
   type LucideProps,
+  X,
 } from 'lucide-vue-next'
 import type { FunctionalComponent } from 'vue'
 
@@ -48,4 +49,5 @@ export const utilityIcons = {
   stats: BarChart3,
   loginAs: LogIn,
   calendar: Calendar,
+  close: X,
 } satisfies Record<string, ModuleIcon>

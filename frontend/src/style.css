@@ -63,6 +63,11 @@
      for anything reading the variable directly. */
   --radius: 0;
   --radius-*: initial;
+
+  /* Modal scrim behind a <dialog>. Dimming is what separates the dialog
+     from the page in the light scheme; on an already-dark page darkening
+     does nothing, so the dark value lightens instead. */
+  --color-scrim: rgb(0 0 0 / 0.5);
 }
 
 /* Dark scheme (add-panel-ui-theme D2): semantic variable re-assignment
@@ -89,6 +94,7 @@
   --color-thead: #1c394e;
   --color-dashlet: #1b2836;
   --color-text-muted: #9aa7b0;
+  --color-scrim: rgb(120 140 160 / 0.35);
   color-scheme: dark;
 }
 
