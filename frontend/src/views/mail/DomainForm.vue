@@ -59,9 +59,23 @@ async function generateKey() {
     setField('dkim_private', pair.dkim_private)
     setField('dkim_public', pair.dkim_public)
     setField('dkim', true)
+    suggested.value = buildRecord(readField('domain'), readField('dkim_selector'), pair.dkim_public)
   } catch (e) {
     error.value = e instanceof ApiError ? e.key : 'error.request_failed'
   }
+}
+
+// buildRecord mirrors mail.DKIMTXTValue/DKIMRecordName so the DNS-Record
+// shows up right after generating, before the record exists server-side
+// (legacy mail_domain_edit.htm getDKIM() does the same in JS).
+function buildRecord(domain: string, selector: string, pubPEM: string) {
+  if (!domain) return ''
+  const p = pubPEM.replace(/-----(BEGIN|END) PUBLIC KEY-----|\r|\n/g, '')
+  return `${selector || 'default'}._domainkey.${domain}. 3600 IN TXT "v=DKIM1; t=s; p=${p}"`
+}
+
+function readField(name: string) {
+  return document.querySelector<HTMLInputElement>(`#field-${name}`)?.value.trim() ?? ''
 }
 
 // setField writes into an EntityForm control via a real input event so

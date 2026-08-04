@@ -667,7 +667,7 @@
   "mail_domain_edit_title": "Mail Domain",
   "mail.dkim": "DKIM",
   "mail.dkim_generate": "Generate DKIM key",
-  "mail.dkim_suggested_txt": "Suggested DNS TXT record",
+  "mail.dkim_suggested_txt": "DNS-Record",
   "mail.dkim_auto_dns": "DNS was updated automatically in the managed zone.",
   "mail.dkim_manual_dns": "No managed DNS zone found — publish the record above manually.",
   "mail.no_policy": "- not enabled -",
