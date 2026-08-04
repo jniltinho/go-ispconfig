@@ -29,9 +29,15 @@ type Account struct {
 	key crypto.PrivateKey
 }
 
-func (a *Account) GetEmail() string                        { return a.Email }
+// GetEmail returns the account contact address (registration.User).
+func (a *Account) GetEmail() string { return a.Email }
+
+// GetRegistration returns the stored registration, nil before the first one.
 func (a *Account) GetRegistration() *registration.Resource { return a.Registration }
-func (a *Account) GetPrivateKey() crypto.PrivateKey        { return a.key }
+
+// GetPrivateKey returns the account key, which is what carries the CA's
+// rate-limit history for this node.
+func (a *Account) GetPrivateKey() crypto.PrivateKey { return a.key }
 
 // AccountDir is where this node's account lives. Keyed by server id because
 // the panel is per-server, which certbot has no concept of — the one

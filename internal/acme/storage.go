@@ -194,8 +194,10 @@ func writeFileAtomic(path string, data []byte, perm os.FileMode) error {
 	}
 	name := tmp.Name()
 	defer func() {
-		tmp.Close()
-		os.Remove(name)
+		// Both are cleanup after a successful rename has already moved the
+		// file, or after an error the caller is being told about.
+		_ = tmp.Close()
+		_ = os.Remove(name)
 	}()
 	if _, err := tmp.Write(data); err != nil {
 		return err
@@ -217,12 +219,12 @@ func writeFileAtomic(path string, data []byte, perm os.FileMode) error {
 // would leave a window with no certificate at all.
 func replaceSymlink(target, link string) error {
 	tmp := link + ".tmp"
-	os.Remove(tmp)
+	_ = os.Remove(tmp) // a leftover from an interrupted run
 	if err := os.Symlink(target, tmp); err != nil {
 		return err
 	}
 	if err := os.Rename(tmp, link); err != nil {
-		os.Remove(tmp)
+		_ = os.Remove(tmp)
 		return err
 	}
 	return nil

@@ -121,7 +121,7 @@ func TestRenewalIsAtomicForReaders(t *testing.T) {
 
 	f, err := os.Open(fullchain)
 	require.NoError(t, err)
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	require.NoError(t, s.Save("example.com", material("2"), []string{"example.com"}, ""))
 

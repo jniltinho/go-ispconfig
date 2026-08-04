@@ -4,8 +4,17 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 )
+
+// ledgerMu serialises the ledger's read-modify-write. The per-lineage locks
+// deliberately let Issue run in parallel for different sites, and every one of
+// them touches this one file — without this, two sites failing at the same
+// moment each read the ledger, each add their own entry, and the second write
+// drops the first. A lost failure is a site that retries immediately, which is
+// exactly the rate-limit burn the ledger exists to prevent.
+var ledgerMu sync.Mutex
 
 // Let's Encrypt's limits are account-wide and punitive — 5 failed validations
 // per hour per account/hostname, 50 certificates per domain per week — and an
@@ -59,6 +68,8 @@ func (c *Client) writeLedger(l map[string]failure) {
 // blocked reports whether this lineage is still inside its backoff, and until
 // when.
 func (c *Client) blocked(lineage string, now time.Time) (bool, time.Time) {
+	ledgerMu.Lock()
+	defer ledgerMu.Unlock()
 	f, ok := c.readLedger()[lineage]
 	if !ok || now.After(f.Until) {
 		return false, time.Time{}
@@ -69,6 +80,8 @@ func (c *Client) blocked(lineage string, now time.Time) (bool, time.Time) {
 // recordFailure extends the backoff for a lineage: 15 minutes, doubling,
 // capped at a day.
 func (c *Client) recordFailure(lineage string, now time.Time, cause string) {
+	ledgerMu.Lock()
+	defer ledgerMu.Unlock()
 	l := c.readLedger()
 	f := l[lineage]
 	f.Count++
@@ -85,6 +98,8 @@ func (c *Client) recordFailure(lineage string, now time.Time, cause string) {
 // clearFailure forgets a lineage's history after a success, so one bad day
 // does not slow down the next month.
 func (c *Client) clearFailure(lineage string) {
+	ledgerMu.Lock()
+	defer ledgerMu.Unlock()
 	l := c.readLedger()
 	if _, ok := l[lineage]; !ok {
 		return
