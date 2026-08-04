@@ -9,12 +9,12 @@
 
 ## 2. Main Config (`sys_ini`)
 
-- [ ] 2.1 Add `internal/api/systemconfig.go`: `GET|PUT /api/system/config[/:section]` over `sys_ini` row 1, reusing the locked-re-read + merge + datalog path of `serverConfigSaveHandler`. Gate every route with `admin_allow_system_config`.
-- [ ] 2.2 Add the static field table (Sites, Mail, Misc) served as `GET /api/meta/forms/system_config`, restricted to the keys the Go code reads.
-- [ ] 2.3 Add the staleness test: scan for `sections["…"]["…"]` reads of the global config and fail when a key has no rendered field.
-- [ ] 2.4 Validate the password policy on save (numeric, within the accepted maximum) and refuse one the panel cannot satisfy.
-- [ ] 2.5 Add the Vue `System → Main Config` view reusing `ServerConfigView`'s shape, plus route, sidebar entry and i18n keys.
-- [ ] 2.6 Integration test: raise `min_password_length`, confirm a shorter database-user password is refused by the API.
+- [x] 2.1 Add `internal/api/systemconfig.go`: `GET|PUT /api/system/config[/:section]` over `sys_ini` row 1, reusing the locked-re-read + merge + datalog path of `serverConfigSaveHandler`. Gate every route with `admin_allow_system_config`.
+- [x] 2.2 Add the static field table (Sites, Mail, Misc) served as `GET /api/meta/forms/system_config`, restricted to the keys the Go code reads.
+- [x] 2.3 Add the staleness test: scan for `sections["…"]["…"]` reads of the global config and fail when a key has no rendered field.
+- [x] 2.4 Validate the password policy on save (numeric, within the accepted maximum) and refuse one the panel cannot satisfy.
+- [x] 2.5 Add the Vue `System → Main Config` view reusing `ServerConfigView`'s shape, plus route, sidebar entry and i18n keys.
+- [x] 2.6 Integration test: raise `min_password_length`, confirm a shorter database-user password is refused by the API.
 
 ## 3. Remote Users — function groups
 

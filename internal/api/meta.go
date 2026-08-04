@@ -265,17 +265,23 @@ func formMetaHandler() echo.HandlerFunc {
 	return func(c *echo.Context) error {
 		sess := auth.FromContext(c)
 		admin := sess != nil && sess.Typ == "admin"
-		// server_config is not a CRUD entity — it is the per-server INI
+		// server_config and system_config are not CRUD entities — it is the per-server INI
 		// edited section by section through /servers/:id/config/:section —
 		// but the SPA renders it with the same metadata-driven form, so its
 		// shape is served from the same URL. Admin only, like every route
 		// that touches server.config; a client gets the unknown-entity 404
 		// rather than a 403 that would confirm the form exists.
-		if c.Param("entity") == "server_config" {
+		switch c.Param("entity") {
+		case "server_config":
 			if !admin {
 				return echo.NewHTTPError(http.StatusNotFound, "unknown entity")
 			}
 			return c.JSON(http.StatusOK, serverConfigForm())
+		case "system_config":
+			if !admin {
+				return echo.NewHTTPError(http.StatusNotFound, "unknown entity")
+			}
+			return c.JSON(http.StatusOK, systemConfigForm())
 		}
 		ent, ok := lookupEntity(c.Param("entity"))
 		if !ok {

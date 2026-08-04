@@ -146,6 +146,10 @@ func serverConfigSaveHandler(d *Deps) echo.HandlerFunc {
 		if !iniNameRe.MatchString(name) {
 			return echo.NewHTTPError(http.StatusBadRequest, "invalid section name")
 		}
+		// ParseINI lowercases section headers, so "Web" would merge into a
+		// section that never matches the parsed "[web]" and end up written as
+		// a second, shadowed block in the same blob.
+		name = strings.ToLower(name)
 		// Decoded straight off the request body, not via c.Bind: Echo's
 		// binder also folds path and query parameters into a map target,
 		// which would store "id" and "section" as config keys.
