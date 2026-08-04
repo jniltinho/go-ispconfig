@@ -95,12 +95,34 @@ func regex(pattern, errKey string) validator.Rule {
 	return validator.Rule{Type: "REGEX", Regex: pattern, ErrKey: errKey}
 }
 
+// alwaysHidden drops a field from form metadata for every request while
+// leaving defaults and API body writes intact (legacy template conditionals
+// that never render the control on the Website Domain tab).
+func alwaysHidden(*echo.Context) bool { return true }
+
 // --- web-domain entity (port of web_vhost_domain.tform.php) ---
 
 // webDomainEntity is the declarative definition of the web_domain vhost
 // form: tabs Domain, Redirect, SSL, Statistics, Backup and Options (Options
 // is admin-only, as in ISPConfig).
 func webDomainEntity() *Entity {
+	// Website Domain tab order mirrors web_vhost_domain_edit.htm for
+	// vhostdomain_type=domain. Child-only / never-rendered controls stay
+	// Hidden from SPA metadata. Apache-only Domain fields (suexec, perl,
+	// ruby, python) and Options directives stay in metadata; the SPA
+	// hides them from nginx servers via adjustForm parity (server_type
+	// from /meta/lookups/servers). type/parent/web_folder stay visible in
+	// metadata so the SPA can reveal them when editing a vhostsubdomain.
+	vhostTypeField := selectField("vhost_type", "vhost_type_txt", "VARCHAR", "name", []Option{
+		{Value: "name", Label: "Namebased"},
+		{Value: "ip", Label: "IP-Based"},
+	})
+	vhostTypeField.Hidden = alwaysHidden
+	leExcludeField := checkbox("ssl_letsencrypt_exclude", "ssl_letsencrypt_exclude_txt", "n")
+	leExcludeField.Hidden = alwaysHidden // child-domain form only
+	pagespeedField := checkbox("enable_pagespeed", "enable_pagespeed_txt", "n")
+	pagespeedField.Hidden = alwaysHidden // needs nginx_enable_pagespeed; not wired yet
+
 	return &Entity{
 		Name:        "web-domains",
 		Title:       "web_vhost_domain_edit_title",
@@ -131,10 +153,7 @@ func webDomainEntity() *Entity {
 						{Value: "vhostalias", Label: "type_vhostalias_txt"},
 					}),
 					selectField("parent_domain_id", "parent_domain_id_txt", "INTEGER", nil, nil),
-					selectField("vhost_type", "vhost_type_txt", "VARCHAR", "name", []Option{
-						{Value: "name", Label: "Namebased"},
-						{Value: "ip", Label: "IP-Based"},
-					}),
+					vhostTypeField,
 					text("web_folder", "web_folder_txt",
 						validator.Rule{Type: "CUSTOM", ErrKey: "web_folder_error_regex", Fn: checkWebFolder}),
 					intField("hd_quota", "hd_quota_txt", "-1",
@@ -145,6 +164,11 @@ func webDomainEntity() *Entity {
 						regex(`^(\-1|[0-9]{1,10})$`, "traffic_quota_error_regex")),
 					checkbox("cgi", "cgi_txt", "n"),
 					checkbox("ssi", "ssi_txt", "n"),
+					// Apache-only in the legacy template (.apache); SPA hides
+					// on nginx. Order matches web_vhost_domain_edit.htm.
+					checkbox("perl", "perl_txt", "n"),
+					checkbox("ruby", "ruby_txt", "n"),
+					checkbox("python", "python_txt", "n"),
 					checkbox("suexec", "suexec_txt", "y"),
 					{Name: "errordocs", Label: "errordocs_txt", Datatype: "INTEGER",
 						Formtype: "CHECKBOX", Default: "1",
@@ -156,21 +180,26 @@ func webDomainEntity() *Entity {
 					}),
 					checkbox("ssl", "ssl_txt", "n"),
 					checkbox("ssl_letsencrypt", "ssl_letsencrypt_txt", "n"),
-					checkbox("ssl_letsencrypt_exclude", "ssl_letsencrypt_exclude_txt", "n"),
-					// Only the nginx-scoped PHP modes are offered (design D5:
-					// the daemon renders php-fpm pools or no PHP at all).
+					leExcludeField,
+					// Full tform PHP list; SPA narrows to nginx (no/php-fpm)
+					// or apache modes from the selected server's server_type
+					// (legacy adjustForm / add-apache2-module proposal).
 					selectField("php", "php_txt", "VARCHAR", "php-fpm", []Option{
 						{Value: "no", Label: "disabled_txt"},
+						{Value: "fast-cgi", Label: "Fast-CGI"},
+						{Value: "cgi", Label: "CGI"},
+						{Value: "mod", Label: "Mod-PHP"},
+						{Value: "suphp", Label: "SuPHP"},
 						{Value: "php-fpm", Label: "PHP-FPM"},
 					}),
 					// ponytail: single "Default" option; per-server PHP
 					// versions get a lookup when multi-PHP support lands.
 					selectField("server_php_id", "server_php_id_txt", "INTEGER", "0",
 						[]Option{{Value: "0", Label: "Default"}}),
-					checkbox("perl", "perl_txt", "n"),
-					checkbox("ruby", "ruby_txt", "n"),
-					checkbox("python", "python_txt", "n"),
-					checkbox("enable_pagespeed", "enable_pagespeed_txt", "n"),
+					// Legacy "Web server config" (directive_snippets plugin).
+					selectField("directive_snippets_id", "directive_snippets_id_txt", "INTEGER", "0",
+						[]Option{{Value: "0", Label: "-"}}),
+					pagespeedField,
 					checkbox("active", "active_txt", "y"),
 				},
 			},

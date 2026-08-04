@@ -8,6 +8,7 @@ import (
 	"github.com/labstack/echo/v5"
 
 	"go-ispconfig/internal/auth"
+	"go-ispconfig/internal/getconf"
 	"go-ispconfig/internal/model"
 	"go-ispconfig/internal/repository"
 	"go-ispconfig/internal/validator"
@@ -209,14 +210,24 @@ func serverIPsLookupHandler(d *Deps) echo.HandlerFunc {
 	}
 }
 
-// serversLookupHandler returns active servers as {value,label} options for
-// SPA select overrides (server_id fields). Labels are hostnames, not i18n keys.
+// ServerLookupOption is one server_id select row plus the web server_type
+// from server.config (legacy ajax_get_json getservertype) so the Sites form
+// can mirror adjustForm (apache-only Domain fields, PHP mode list).
+type ServerLookupOption struct {
+	Value      string `json:"value" example:"1"`
+	Label      string `json:"label" example:"web1.example.com"`
+	ServerType string `json:"server_type" example:"nginx"`
+}
+
+// serversLookupHandler returns active servers as {value,label,server_type}
+// options for SPA select overrides (server_id fields). Labels are hostnames,
+// not i18n keys. server_type defaults to nginx when the INI key is empty.
 //
 //	@Summary		Server select options
-//	@Description	Active rows from the server table as value/label pairs for form server_id selects.
+//	@Description	Active rows from the server table as value/label pairs for form server_id selects, plus [web] server_type (nginx|apache) from server.config for Sites Domain-tab adjustForm parity.
 //	@Tags			meta
 //	@Produce		json
-//	@Success		200	{array}		Option
+//	@Success		200	{array}		ServerLookupOption
 //	@Failure		401	{object}	ErrorResponse
 //	@Router			/meta/lookups/servers [get]
 //	@Security		CookieAuth
@@ -235,11 +246,18 @@ func serversLookupHandler(d *Deps) echo.HandlerFunc {
 		if err != nil {
 			return err
 		}
-		out := make([]Option, 0, len(rows))
+		out := make([]ServerLookupOption, 0, len(rows))
 		for _, r := range rows {
-			out = append(out, Option{
-				Value: strconv.FormatUint(uint64(r.ServerID), 10),
-				Label: r.ServerName,
+			st := "nginx"
+			if cfg, err := getconf.GetServerConfig(d.DB.WithContext(c.Request().Context()), r.ServerID); err == nil {
+				if t := strings.TrimSpace(cfg.Web.ServerType); t != "" {
+					st = t
+				}
+			}
+			out = append(out, ServerLookupOption{
+				Value:      strconv.FormatUint(uint64(r.ServerID), 10),
+				Label:      r.ServerName,
+				ServerType: st,
 			})
 		}
 		return c.JSON(http.StatusOK, out)

@@ -4822,7 +4822,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Active rows from the server table as value/label pairs for form server_id selects.",
+                "description": "Active rows from the server table as value/label pairs for form server_id selects, plus [web] server_type (nginx|apache) from server.config for Sites Domain-tab adjustForm parity.",
                 "produces": [
                     "application/json"
                 ],
@@ -4836,7 +4836,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/api.Option"
+                                "$ref": "#/definitions/api.ServerLookupOption"
                             }
                         }
                     },
@@ -10276,6 +10276,23 @@ const docTemplate = `{
                 },
                 "server_id": {
                     "type": "integer"
+                }
+            }
+        },
+        "api.ServerLookupOption": {
+            "type": "object",
+            "properties": {
+                "label": {
+                    "type": "string",
+                    "example": "web1.example.com"
+                },
+                "server_type": {
+                    "type": "string",
+                    "example": "nginx"
+                },
+                "value": {
+                    "type": "string",
+                    "example": "1"
                 }
             }
         },
