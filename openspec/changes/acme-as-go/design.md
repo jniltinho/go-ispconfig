@@ -70,15 +70,66 @@ an external-DNS user actually appears.`
 
 ## D5. Storage, and the two things that must not be lost
 
-Certificates: `/var/lib/go-ispconfig/acme/certs/<main-domain>/` holding
-`cert.pem`, `chain.pem`, `fullchain.pem`, `key.pem` — the acme.sh layout, so
-`internal/apache2/ssl.go` and the nginx templates need a new path, not a new
-shape. Written temp-then-rename, key 0600.
+Certificates go where certbot puts them, because that is what an adopted
+install already has on disk and what third-party tooling, monitoring and every
+Let's Encrypt tutorial expects:
 
-Account: `/var/lib/go-ispconfig/acme/account.key` plus `account.json` (the
-registration URI and contact). Separate from the certificates on purpose —
-losing a certificate costs a re-issue, losing the account key costs the
-rate-limit history attached to it.
+```
+/etc/letsencrypt/
+├── live/<main-domain>/           symlinks into ../../archive/<main-domain>/
+│   ├── cert.pem  chain.pem  fullchain.pem  privkey.pem
+├── archive/<main-domain>/        every generation kept, N-suffixed
+│   ├── cert1.pem  chain1.pem  fullchain1.pem  privkey1.pem
+│   └── cert2.pem  …
+└── renewal/<main-domain>.conf    issuance metadata, INI, certbot-shaped
+```
+
+`live/` is a symlink farm into `archive/`, exactly as certbot does it: a renewal
+writes generation N+1 and repoints the four symlinks, so a reader that opens
+`live/…/fullchain.pem` never sees a half-written file and a bad renewal can be
+rolled back by repointing. Directories 0755, `archive/*/privkey*.pem` 0600,
+written temp-then-rename.
+
+`renewal/<domain>.conf` is not decoration — it is the **discovery contract**.
+ISPConfig does not glob `live/`; `get_certificate_list()`
+(`letsencrypt.inc.php:614`) walks the renewal directory, parses each `.conf` as
+`key = value` until the `[[webroot_map]]` marker, and takes the `cert`,
+`privkey`, `chain` and `fullchain` paths from it, discarding any candidate
+whose four files are not all readable. So the interop requirement is precise
+and testable: write those four keys with absolute paths, terminate before
+`[[webroot_map]]`, and the legacy panel's own discovery finds our certificates
+unmodified. A layout that merely looks like certbot's but omits the renewal
+file is invisible to it.
+
+The lineage name matters for the same reason. ISPConfig issues ECDSA
+certificates as `--cert-name <domain>_ecc` (`installer_base.lib.php:3454`), so
+an adopted host may already have both `<domain>` and `<domain>_ecc` lineages.
+Ours must pick the same name for the same key type or it will create a second,
+competing lineage next to the one already being renewed.
+
+Account keys are the one deliberate divergence:
+`/etc/letsencrypt/accounts/<server-id>/account.{key,json}`. Certbot has no
+multi-account concept and keys the directory by CA URL; this panel is
+per-server, and the account key is what carries the rate-limit history — losing
+a certificate costs a re-issue, losing the account key costs that history.
+
+**The vhosts do not change, and that is the point.** Both templates render
+`<docroot>/ssl/<domain>-le.crt|key|bundle`
+(`internal/nginx/le.go:242`, `internal/apache2/vhost.go:182`) — the ISPConfig
+layout. Those stay, as **symlinks into `live/`**, which is precisely what the
+legacy does on its certbot path: `letsencrypt.inc.php:496` calls `link_file()`
+for privkey, chain and fullchain after certbot writes them. Repointing the
+templates at `/etc/letsencrypt/live/` instead would rewrite every vhost on
+upgrade and break the acme.sh path, which installs *copies* at the site ssl
+path rather than symlinks (`letsencrypt.inc.php:478`). Writing certbot's layout
+and linking from the site ssl dir is what makes an adopted install zero-touch:
+the symlinks it already has keep resolving.
+
+The challenge webroot also stays at `/usr/local/ispconfig/interface/acme` —
+both vhost templates hardcode it (`nginx_vhost.conf.master:92`), and it is what
+the legacy passes as `--webroot-path`. Moving it to `/var/www/letsencrypt`
+would mean re-rendering every vhost to chase a path that is a per-site
+convention, not a certbot default.
 
 **Not in the database.** A private key in `sys_datalog`'s replication path would
 be handed to every node in a multi-server install.
@@ -133,6 +184,38 @@ a log line, which is what makes the backoff acceptable.
 
 The production directory URL appears in exactly one place, and a test asserts no
 test file mentions it.
+
+## D11. The installer stops shipping an ACME client
+
+An in-process client makes the external one dead weight, and this holds for
+either library — it is a consequence of "the daemon speaks ACME", not of which
+Go package it speaks it with.
+
+`acmeStep` goes away, and with it: the `--acme` / `--acme-client` answers, the
+`curl` pull that only exists to run acme.sh's installer, the `apt install
+certbot`, and the sudoers/service surface an external client would otherwise
+need. What is left is a Go dependency, resolved at build time, versioned in
+`go.mod` and auditable with `govulncheck` — none of which is true of 10k lines
+of POSIX shell fetched over `curl | sh`.
+
+Measured, so the trade is not argued from adjectives (`go list -deps` on a
+program importing only `lego`, `certificate`, `challenge/http01` and
+`registration`):
+
+| | External binary | New Go modules linked | Audit surface |
+|---|---|---|---|
+| `acme.sh` | yes, fetched by `curl \| sh` | 0 | ~10k lines of shell, unversioned |
+| `certbot` | yes, apt + Python runtime | 0 | ~50k lines Python + plugin venv |
+| `lego` core | **no** | 3 new (`go-jose/v4`, `cenkalti/backoff/v5`, `miekg/dns`) + lego itself; `x/crypto`, `x/net`, `x/text`, `x/sys` already direct deps | one module, pinned, `govulncheck`-visible |
+| `x/crypto/acme` | **no** | 0 — already a direct dependency | ditto, Go team maintained |
+
+The 231-module figure `go list -m all` prints for lego is the *requirement*
+graph: lego ships its 100+ DNS providers in one module, so every cloud SDK is
+required-but-not-linked. Importing only the core links 33 non-stdlib packages.
+Neither library needs anything on the box.
+
+Detection of an existing client stays as the D10 fallback, but nothing installs
+one any more. An operator who wants acme.sh keeps it — it is theirs.
 
 ## D10. Nothing already working breaks
 
