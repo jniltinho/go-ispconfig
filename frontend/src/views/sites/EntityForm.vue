@@ -56,9 +56,10 @@ const router = useRouter()
 interface ServerField {
   name: string
   label: string
-  type: 'text' | 'password' | 'textarea' | 'select' | 'checkbox'
+  type: 'text' | 'password' | 'textarea' | 'select' | 'checkbox' | 'legend'
   datatype: string
   formtype: string
+  collapsible?: boolean
   default?: unknown
   options?: { value: string; label: string }[]
 }
@@ -127,6 +128,9 @@ function toFormMetadata(meta: ServerMeta, values: Record<string, unknown> = {}):
             ? 'text'
             : field.type,
         readonly: props.readonlyFields?.includes(field.name) || undefined,
+        // LEGEND fields carry the collapse flag; TabbedForm folds the
+        // section that follows into a <details> (legacy #toggle-dkim).
+        collapsible: field.collapsible,
         label: t(field.label),
         options: override ?? field.options?.map((o) => ({ value: o.value, label: t(o.label) })),
         default:

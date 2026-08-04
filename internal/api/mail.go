@@ -66,8 +66,9 @@ func mailDomainEntity(d *Deps) *Entity {
 		Tabs: []Tab{{
 			Name:  "domain",
 			Label: "domain_txt",
+			// Field order mirrors mail_domain_edit.htm: server, client,
+			// domain, spamfilter, relay, active, local delivery, DKIM.
 			Fields: []Field{
-				clientGroupField(),
 				{
 					Name: "server_id", Label: "server_id_txt",
 					Datatype: "INTEGER", Formtype: "SELECT",
@@ -75,6 +76,7 @@ func mailDomainEntity(d *Deps) *Entity {
 						{Type: "ISPOSITIVE", ErrKey: "server_id_error_empty"},
 					},
 				},
+				clientGroupField(),
 				text("domain", "domain_txt",
 					validator.Rule{Type: "NOTEMPTY", ErrKey: "domain_error_empty"},
 					validator.Rule{Type: "CUSTOM", ErrKey: "domain_error_regex", Fn: checkIsDomain}),
@@ -83,19 +85,22 @@ func mailDomainEntity(d *Deps) *Entity {
 				// (mail_domain_edit onAfterInsert/onAfterUpdate).
 				{Name: "policy", Label: "spamfilter_txt", Datatype: "INTEGER",
 					Formtype: "SELECT", Default: "0", Virtual: true},
+				{Name: "relay_host", Label: "relay_host_txt", Datatype: "VARCHAR", Formtype: "TEXT", AdminOnly: true},
+				{Name: "relay_user", Label: "relay_user_txt", Datatype: "VARCHAR", Formtype: "TEXT", AdminOnly: true},
+				{Name: "relay_pass", Label: "relay_pass_txt", Datatype: "VARCHAR", Formtype: "PASSWORD", AdminOnly: true},
 				checkbox("active", "active_txt", "y"),
 				checkbox("local_delivery", "local_delivery_txt", "y"),
 				// Collapsed DKIM fieldset (legacy #toggle-dkim collapse).
 				{Name: "dkim_settings", Label: "dkim_settings_txt",
 					Formtype: "LEGEND", Collapsible: true, Virtual: true},
 				checkbox("dkim", "dkim_txt", "n"),
-				text("dkim_selector", "dkim_selector_txt",
-					validator.Rule{Type: "CUSTOM", ErrKey: "dkim_selector_error", Fn: checkDKIMSelector}),
+				{Name: "dkim_selector", Label: "dkim_selector_txt",
+					Datatype: "VARCHAR", Formtype: "TEXT", Default: "default",
+					Validators: []validator.Rule{
+						{Type: "CUSTOM", ErrKey: "dkim_selector_error", Fn: checkDKIMSelector},
+					}},
 				textarea("dkim_private", "dkim_private_txt"),
 				textarea("dkim_public", "dkim_public_txt"),
-				{Name: "relay_host", Label: "relay_host_txt", Datatype: "VARCHAR", Formtype: "TEXT", AdminOnly: true},
-				{Name: "relay_user", Label: "relay_user_txt", Datatype: "VARCHAR", Formtype: "TEXT", AdminOnly: true},
-				{Name: "relay_pass", Label: "relay_pass_txt", Datatype: "VARCHAR", Formtype: "PASSWORD", AdminOnly: true},
 			},
 		}},
 		Prepare:      mailDomainPrepare,
