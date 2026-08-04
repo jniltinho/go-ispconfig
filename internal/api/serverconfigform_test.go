@@ -28,11 +28,22 @@ func iniKeys(v any) map[string]bool {
 // getconf key would be a knob the applying plugins never read.
 func TestServerConfigFormMatchesGetconf(t *testing.T) {
 	want := map[string]map[string]bool{
+		"server":  iniKeys(getconf.ServerSection{}),
 		"web":     iniKeys(getconf.WebConfig{}),
 		"dns":     iniKeys(getconf.DNSConfig{}),
 		"mail":    iniKeys(getconf.MailConfig{}),
 		"getmail": iniKeys(getconf.GetmailConfig{}),
 		"jailkit": iniKeys(getconf.JailkitConfig{}),
+	}
+	// The [server] tab is the one place a rendered field may have no getconf
+	// key: ISPConfig3 writes network, backup and monit/munin settings there
+	// that this port does not act on, and hiding them is what made an adopted
+	// database look like it had lost them. They are allowed — but only by
+	// being named in serverCompatKeys, so nothing lands on the tab by
+	// accident (spec server-config-server-tab).
+	compat := map[string]map[string]bool{"server": {}}
+	for _, k := range serverCompatKeys {
+		compat["server"][k] = true
 	}
 
 	form := serverConfigForm()
@@ -43,15 +54,36 @@ func TestServerConfigFormMatchesGetconf(t *testing.T) {
 		require.True(t, ok, "tab %q has no matching getconf section", tab.Name)
 		seen := map[string]bool{}
 		for _, f := range tab.Fields {
-			assert.True(t, keys[f.Name], "%s.%s is rendered but getconf never decodes it", tab.Name, f.Name)
+			if f.Type == "legend" {
+				continue // structural, not a config key
+			}
+			assert.True(t, keys[f.Name] || compat[tab.Name][f.Name],
+				"%s.%s is rendered but getconf never decodes it and it is not in serverCompatKeys",
+				tab.Name, f.Name)
 			assert.False(t, seen[f.Name], "%s.%s rendered twice", tab.Name, f.Name)
 			seen[f.Name] = true
 		}
 		for key := range keys {
 			assert.True(t, seen[key], "%s.%s is decoded by getconf but has no form field", tab.Name, key)
 		}
+		for key := range compat[tab.Name] {
+			assert.True(t, seen[key], "%s.%s is listed as a compatibility field but is not rendered", tab.Name, key)
+		}
 		delete(want, tab.Name)
 	}
+}
+
+// TestServerCompatKeysAreNotDecoded pins the meaning of the two groups on the
+// Server tab: a key listed as compatibility-only must genuinely have no
+// consumer, or the tab would tell the operator it does nothing while the
+// daemon quietly reads it.
+func TestServerCompatKeysAreNotDecoded(t *testing.T) {
+	decoded := iniKeys(getconf.ServerSection{})
+	for _, k := range serverCompatKeys {
+		assert.False(t, decoded[k],
+			"%q is in serverCompatKeys but getconf decodes it — move it above the legend", k)
+	}
+	assert.NotEmpty(t, serverCompatKeys)
 }
 
 // TestServerConfigFormDefaultsAreSelectable guards against carrying over the

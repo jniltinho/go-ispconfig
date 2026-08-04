@@ -27,6 +27,8 @@ interface ServerField {
   formtype: string
   default?: unknown
   options?: { value: string; label: string }[]
+  /** collapsible folds the fields following a LEGEND into a <details>. */
+  collapsible?: boolean
 }
 interface ServerMeta {
   name: string
@@ -69,6 +71,7 @@ function toFormMetadata(meta: ServerMeta): FormMetadata {
         name: field.name,
         type: field.type,
         label: t(field.label),
+        collapsible: field.collapsible,
         options: field.options?.map((o) => ({ value: o.value, label: t(o.label) })),
       })),
     })),
@@ -83,6 +86,7 @@ function toFormValues(meta: ServerMeta, sections: Record<string, Record<string, 
   for (const tab of meta.tabs) {
     const section = sections[tab.name] ?? {}
     for (const field of tab.fields) {
+      if (field.type === 'legend') continue
       const raw = section[field.name] ?? String(field.default ?? '')
       values[field.name] = field.type === 'checkbox' ? raw === truthyOption(field) : raw
     }
@@ -99,6 +103,7 @@ function sectionPayload(
 ): Record<string, string> {
   const out: Record<string, string> = {}
   for (const field of tab.fields) {
+    if (field.type === 'legend') continue // structural, not a config key
     const v = values[field.name]
     if (v === undefined) continue
     out[field.name] = field.type === 'checkbox'

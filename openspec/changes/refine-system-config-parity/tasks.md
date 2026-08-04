@@ -1,10 +1,10 @@
 ## 1. Server Config — Server tab
 
-- [ ] 1.1 Add `getconf.ServerSection` decoding the two consumed keys (`ip_address`, `ssh_port`) and wire it into `GetServerConfig`; switch `internal/api/sitesdb.go` and `cmd/daemon.go` off `cfg.Raw["server"][…]`.
-- [ ] 1.2 Extend the form generator to emit the `server` tab: the 26 legacy fields in tform order plus `ssh_port`, split by a collapsible LEGEND into applied and compatibility groups, with labels from `en_server_config.lng`.
-- [ ] 1.3 Declare `serverCompatKeys` in `internal/api/serverconfigform.go` and extend `TestServerConfigFormMatchesGetconf`: every decoded key must be rendered, and every extra rendered key must be in that list.
-- [ ] 1.4 Validate `ssh_port` (1–65535) on save; keep the daemon's port-22 fallback for an unparseable stored value, with a test for both.
-- [ ] 1.5 Add the i18n labels and verify the tab against `.20` field by field (order, labels, select options).
+- [x] 1.1 Add `getconf.ServerSection` decoding the two consumed keys (`ip_address`, `ssh_port`) and wire it into `GetServerConfig`; switch `internal/api/sitesdb.go` and `cmd/daemon.go` off `cfg.Raw["server"][…]`.
+- [x] 1.2 Extend the form generator to emit the `server` tab: the 26 legacy fields in tform order plus `ssh_port`, split by a collapsible LEGEND into applied and compatibility groups, with labels from `en_server_config.lng`.
+- [x] 1.3 Declare `serverCompatKeys` in `internal/api/serverconfigform.go` and extend `TestServerConfigFormMatchesGetconf`: every decoded key must be rendered, and every extra rendered key must be in that list.
+- [x] 1.4 Validate `ssh_port` (1–65535) on save; keep the daemon's port-22 fallback for an unparseable stored value, with a test for both.
+- [x] 1.5 Add the i18n labels and verify the tab against `.20` field by field (order, labels, select options).
 - [ ] 1.6 Lab validation: set `ip_address`, create a client database, confirm the suggested host follows; set `ssh_port`, re-render the firewall, confirm the allow rule.
 
 ## 2. Main Config (`sys_ini`)

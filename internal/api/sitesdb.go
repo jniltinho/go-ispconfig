@@ -568,8 +568,8 @@ func mergeRemoteAccess(db *gorm.DB, body map[string]any, parent *model.WebDomain
 	dbServer := bodyInt(body, "server_id")
 	if parent != nil && parent.ServerID != 0 && int64(parent.ServerID) != dbServer {
 		webIP := ""
-		if cfg, err := getconf.GetServerConfig(db, parent.ServerID); err == nil && cfg.Raw["server"] != nil {
-			webIP = cfg.Raw["server"]["ip_address"]
+		if cfg, err := getconf.GetServerConfig(db, parent.ServerID); err == nil {
+			webIP = cfg.Server.IPAddress
 		}
 		if webIP != "" && !slices.Contains(defaults, webIP) {
 			defaults = append(defaults, webIP)

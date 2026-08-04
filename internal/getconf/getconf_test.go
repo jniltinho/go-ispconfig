@@ -155,3 +155,34 @@ func TestMailConfigDefaultsAndDecode(t *testing.T) {
 	assert.Equal(t, "dovecot", cfg.POP3IMAPDaemon, "default kept for absent key")
 	assert.Equal(t, "5000", cfg.MailuserUID)
 }
+
+// TestServerSectionDecode covers the two [server] keys this port acts on. The
+// section carries many more that only ISPConfig3's PHP daemon reads — those
+// stay in Raw and are surfaced by the panel as compatibility fields, so
+// decoding them here would blur the line the Server tab draws.
+func TestServerSectionDecode(t *testing.T) {
+	cfg := DefaultServerSection()
+	assert.Empty(t, cfg.IPAddress, "no address means no database host suggestion")
+	assert.Empty(t, cfg.SSHPort, "no port means the firewall keeps its own default")
+
+	raw := ParseINI("[server]\nip_address=10.0.0.5\nssh_port=2222\n" +
+		"backup_dir=/var/backup\nmonit_url=https://monit.example.com\n")
+	decodeSection(raw["server"], &cfg)
+	assert.Equal(t, "10.0.0.5", cfg.IPAddress)
+	assert.Equal(t, "2222", cfg.SSHPort)
+
+	// The compatibility keys are readable from Raw but never land on the
+	// decoded struct.
+	assert.Equal(t, "/var/backup", raw["server"]["backup_dir"])
+	assert.Equal(t, "https://monit.example.com", raw["server"]["monit_url"])
+}
+
+// TestServerSectionAbsent is the fresh-install case: a config with no [server]
+// section at all must decode to the zero value rather than fail.
+func TestServerSectionAbsent(t *testing.T) {
+	cfg := DefaultServerSection()
+	raw := ParseINI("[web]\nserver_type=nginx\n")
+	decodeSection(raw["server"], &cfg)
+	assert.Empty(t, cfg.IPAddress)
+	assert.Empty(t, cfg.SSHPort)
+}

@@ -166,6 +166,9 @@ func serverConfigSaveHandler(d *Deps) echo.HandlerFunc {
 				return echo.NewHTTPError(http.StatusBadRequest, "invalid config key "+k)
 			}
 		}
+		if err := validateConfigSection(name, body); err != nil {
+			return err
+		}
 
 		user := ""
 		if sess := auth.FromContext(c); sess != nil {
@@ -198,4 +201,26 @@ func serverConfigSaveHandler(d *Deps) echo.HandlerFunc {
 		}
 		return c.JSON(http.StatusOK, saved)
 	}
+}
+
+// validateConfigSection applies the per-field rules that the INI grammar
+// cannot express. Only the keys this port acts on are checked: a
+// compatibility field is written for ISPConfig3's benefit and validating it
+// here would mean guessing what the PHP daemon accepts.
+func validateConfigSection(section string, body ServerConfigSection) error {
+	if section != "server" {
+		return nil
+	}
+	// An out-of-range SSH port would be silently ignored by the firewall
+	// module (it falls back to 22), leaving the operator convinced they had
+	// changed something. Refuse it at the boundary instead.
+	if port, ok := body["ssh_port"]; ok && strings.TrimSpace(port) != "" {
+		n, err := strconv.Atoi(strings.TrimSpace(port))
+		if err != nil || n < 1 || n > 65535 {
+			return &ValidationError{Fields: map[string][]string{
+				"ssh_port": {"srvcfg_error_ssh_port"},
+			}}
+		}
+	}
+	return nil
 }

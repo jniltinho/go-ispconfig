@@ -347,10 +347,7 @@ func firewallSSHPort(_ context.Context, db *gorm.DB, serverID uint32) int {
 	if err != nil {
 		return firewall.DefaultSSHPort
 	}
-	raw := ""
-	if sec := cfg.Raw["server"]; sec != nil {
-		raw = sec["ssh_port"]
-	}
+	raw := cfg.Server.SSHPort
 	if raw == "" {
 		return firewall.DefaultSSHPort
 	}
