@@ -9,12 +9,16 @@
 
 ## 2. Main Config (`sys_ini`)
 
-- [ ] 2.1 Add `internal/api/systemconfig.go`: `GET|PUT /api/system/config[/:section]` over `sys_ini` row 1, reusing the locked-re-read + merge + datalog path of `serverConfigSaveHandler`. Gate every route with `admin_allow_system_config`.
-- [ ] 2.2 Add the static field table (Sites, Mail, Misc) served as `GET /api/meta/forms/system_config`, restricted to the keys the Go code reads.
-- [ ] 2.3 Add the staleness test: scan for `sections["…"]["…"]` reads of the global config and fail when a key has no rendered field.
-- [ ] 2.4 Validate the password policy on save (numeric, within the accepted maximum) and refuse one the panel cannot satisfy.
-- [ ] 2.5 Add the Vue `System → Main Config` view reusing `ServerConfigView`'s shape, plus route, sidebar entry and i18n keys.
-- [ ] 2.6 Integration test: raise `min_password_length`, confirm a shorter database-user password is refused by the API.
+- [x] 2.1 Add `internal/api/systemconfig.go`: `GET|PUT /api/system/config[/:section]` over `sys_ini` row 1, reusing the locked-re-read + merge + datalog path of `serverConfigSaveHandler`. Gate every route with `admin_allow_system_config`.
+- [x] 2.2 Add the static field table (Sites, Mail, Misc) served as `GET /api/meta/forms/system_config`, restricted to the keys the Go code reads.
+- [x] 2.3 Add the staleness test: scan for `sections["…"]["…"]` reads of the global config and fail when a key has no rendered field.
+- [x] 2.4 Validate the password policy on save (numeric, within the accepted maximum) and refuse one the panel cannot satisfy.
+- [x] 2.5 Add the Vue `System → Main Config` view reusing `ServerConfigView`'s shape, plus route, sidebar entry and i18n keys.
+- [x] 2.6 Integration test: raise `min_password_length`, confirm a shorter database-user password is refused by the API.
+
+## 2b. Follow-up found by seeding sys_ini
+
+- [ ] 2b.1 An admin creating a database user **without** `parent_domain_id` now fails with `database_user_error_regex`. Seeding `dbuser_prefix=c[CLIENTID]` made a latent path reachable: with no site to resolve the client from, `expandSitesPrefix` keeps the literal placeholder, and `c[CLIENTID]` contains `[`/`]`, which the name regex forbids. It matches ISPConfig (where the key is always populated), but the error blames the name the operator typed correctly. Return an actionable error naming the missing site instead — or resolve the client from `client_group_id` when it is given, which is the information the caller already supplied.
 
 ## 3. Remote Users — function groups
 

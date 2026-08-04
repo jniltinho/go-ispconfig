@@ -35,6 +35,7 @@ import MigrationWizard from './views/system/MigrationWizard.vue'
 import Fail2banView from './views/system/Fail2banView.vue'
 import ServerConfigView from './views/system/ServerConfigView.vue'
 import TokensView from './views/system/TokensView.vue'
+import MainConfigView from './views/system/MainConfigView.vue'
 import MonitorState from './views/monitor/MonitorState.vue'
 import MonitorData from './views/monitor/MonitorData.vue'
 import MonitorSysLog from './views/monitor/MonitorSysLog.vue'
@@ -626,6 +627,13 @@ export const router = createRouter({
           component: EntityForm,
           meta: { adminOnly: true },
           props: (route) => ({ entity: 'cp-users', apiBase: '/api/cp-users', backTo: '/system/cp-users', id: String(route.params.id) }),
+        },
+        {
+          // System → Main Config: the panel-wide INI in sys_ini.
+          path: 'system/main-config',
+          name: 'system-main-config',
+          component: MainConfigView,
+          meta: { adminOnly: true },
         },
         {
           // System → Remote Users: the API tokens automation authenticates with.

@@ -8547,6 +8547,131 @@ const docTemplate = `{
                 }
             }
         },
+        "/system/config": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns every parsed section of the sys_ini INI blob (sites, mail, misc, ...). Admin only, gated by the admin_allow_system_config security policy. Scope: system:read.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "Read the panel-wide configuration",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "object",
+                                "additionalProperties": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/system/config/{section}": {
+            "put": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Merges the submitted keys into the section, re-serialises the full INI and stores it in sys_ini, journalling the change. Keys of other sections are untouched; an empty body is refused so a broken form cannot blank a section. The password policy is validated: a minimum the panel could not satisfy is refused. Admin only, gated by admin_allow_system_config. Scope: system:write.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "Save one panel configuration section",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Section name (sites, mail, misc)",
+                        "name": "section",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Section key/value pairs",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Per-field validation errors (e.g. an unsatisfiable password policy)",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/system/migration/connect": {
             "post": {
                 "security": [

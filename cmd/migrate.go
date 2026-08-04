@@ -32,7 +32,20 @@ var migrateCmd = &cobra.Command{
 			return err
 		}
 		if !needSeed {
+			// The panel defaults still have to be filled when sys_ini is
+			// empty: installs created before the panel seeded that row never
+			// get another chance, and an empty dbname_prefix silently drops
+			// the prefix from every client database. No-op when the row
+			// already carries a configuration.
+			filled, err := database.EnsureSystemConfig(db)
+			if err != nil {
+				return err
+			}
 			fmt.Println("Existing ISPConfig schema detected and validated; no DDL executed, no seed data written.")
+			if filled {
+				fmt.Println("sys_ini was empty and has been filled with the panel defaults " +
+					"(database/FTP/shell prefixes, password policy).")
+			}
 			return nil
 		}
 		hostname, err := os.Hostname()

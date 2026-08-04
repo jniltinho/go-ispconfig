@@ -315,3 +315,44 @@ func toUint32(v any) uint32 {
 		return 0
 	}
 }
+
+// LogSysIni journals a change to the panel-wide INI in sys_ini (port of
+// interface/web/admin/system_config_edit.php:188, which calls
+// datalogUpdate('sys_ini', …)).
+//
+// Unlike a server.config change, nothing applies this row: sys_ini configures
+// the interface, not a node. It is written for the audit trail — who changed
+// the password policy, and when — which is why server_id is 0 and no queue
+// wake is issued. The daemon registers a no-op hook for the table so the row
+// is consumed quietly instead of logging "no table hook registered" on every
+// save. No row is written when the INI is unchanged; call it inside the
+// updating transaction.
+func LogSysIni(tx *gorm.DB, oldConfig, newConfig, username string) error {
+	if oldConfig == newConfig {
+		return nil
+	}
+	if username == "" {
+		username = "admin"
+	}
+	data, err := json.Marshal(Diff{
+		Old: map[string]any{"sysini_id": 1, "config": oldConfig},
+		New: map[string]any{"sysini_id": 1, "config": newConfig},
+	})
+	if err != nil {
+		return fmt.Errorf("datalog: encoding sys_ini diff: %w", err)
+	}
+	row := model.SysDatalog{
+		ServerID: 0,
+		DBTable:  "sys_ini",
+		DBIdx:    "sysini_id:1",
+		Action:   "u",
+		Tstamp:   int32(time.Now().Unix()), //nolint:gosec // unix seconds, positive and far from overflow
+		User:     username,
+		Data:     string(data),
+		Status:   "ok",
+	}
+	if err := tx.Create(&row).Error; err != nil {
+		return fmt.Errorf("datalog: inserting sys_datalog row for sys_ini: %w", err)
+	}
+	return nil
+}
