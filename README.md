@@ -117,6 +117,7 @@ it comes back. Full walkthrough in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 | [docs/install.md](docs/install.md) | Installer flags, every step, every file touched |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Datalog engine, module/plugin registries, template system |
 | [docs/multi-server.md](docs/multi-server.md) | Running several nodes off one panel and database |
+| [docs/api-tokens.md](docs/api-tokens.md) | Automating the panel: API tokens, scopes, JWT, curl examples |
 | [docs/MIGRATION.md](docs/MIGRATION.md) | Migrating from PHP ISPConfig3 |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | What is not built yet |
 | [AGENTS.md](AGENTS.md) | Developer runbook — environment, build, test, validation |

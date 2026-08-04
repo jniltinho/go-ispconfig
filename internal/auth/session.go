@@ -199,9 +199,45 @@ type SessionGetter interface {
 
 // Context keys used by Middleware.
 const (
-	ctxKeySession   = "auth.session"
-	ctxKeySessionID = "auth.session_id"
+	ctxKeySession    = "auth.session"
+	ctxKeySessionID  = "auth.session_id"
+	ctxKeyCredential = "auth.credential"
 )
+
+// Credential describes how a request authenticated. It is set by the API
+// token middleware; a nil value means the request authenticated with a
+// session (cookie or session-id bearer), which is the pre-token behaviour.
+type Credential struct {
+	// TokenID is the remote_user row that authenticated the request.
+	TokenID uint32
+	// Label is the human name of the token, for logs and errors.
+	Label string
+	// Scopes are the grants that must cover the route.
+	Scopes []string
+	// JWT marks a request authenticated by an exchanged JWT rather than by
+	// the token itself.
+	JWT bool
+}
+
+// SetSession attaches an authenticated session to the request context. It
+// exists so a credential resolved outside this package (an API token) can
+// execute as the sys_user that owns it, with every downstream permission
+// check unchanged.
+func SetSession(c *echo.Context, data *SessionData) {
+	c.Set(ctxKeySession, data)
+}
+
+// SetCredential records how the request authenticated.
+func SetCredential(c *echo.Context, cred *Credential) {
+	c.Set(ctxKeyCredential, cred)
+}
+
+// CredentialFromContext returns the API token credential of the request, or
+// nil when it authenticated with a session.
+func CredentialFromContext(c *echo.Context) *Credential {
+	cred, _ := c.Get(ctxKeyCredential).(*Credential)
+	return cred
+}
 
 // Middleware resolves the session from the request — session cookie for
 // browsers, "Authorization: Bearer <session id>" for API clients — and
@@ -214,6 +250,13 @@ const (
 func Middleware(store SessionGetter) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {
+			// An API token middleware mounted ahead of this one may already
+			// have authenticated the request. Re-resolving the bearer as a
+			// session id would only cost a query that cannot match, and the
+			// CSRF rule below must not apply to a header credential.
+			if FromContext(c) != nil {
+				return next(c)
+			}
 			id, fromCookie := requestSessionID(c.Request())
 			if id == "" {
 				return next(c)

@@ -34,6 +34,7 @@ import TemplateList from './views/dns/TemplateList.vue'
 import MigrationWizard from './views/system/MigrationWizard.vue'
 import Fail2banView from './views/system/Fail2banView.vue'
 import ServerConfigView from './views/system/ServerConfigView.vue'
+import TokensView from './views/system/TokensView.vue'
 import MonitorState from './views/monitor/MonitorState.vue'
 import MonitorData from './views/monitor/MonitorData.vue'
 import MonitorSysLog from './views/monitor/MonitorSysLog.vue'
@@ -584,7 +585,7 @@ export const router = createRouter({
               { key: 'active', label: 'srvcfg.col.active' },
             ],
             titleKey: 'srvcfg.list_title', addKey: '',
-            activeValue: '1', deletable: false,
+            activeValue: '1', noDelete: true,
           },
         },
         {
@@ -625,6 +626,13 @@ export const router = createRouter({
           component: EntityForm,
           meta: { adminOnly: true },
           props: (route) => ({ entity: 'cp-users', apiBase: '/api/cp-users', backTo: '/system/cp-users', id: String(route.params.id) }),
+        },
+        {
+          // System → Remote Users: the API tokens automation authenticates with.
+          path: 'system/remote-users',
+          name: 'system-remote-users',
+          component: TokensView,
+          meta: { adminOnly: true },
         },
         {
           path: 'system/server-ips',

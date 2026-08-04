@@ -80,6 +80,7 @@ func ErrorHandler() echo.HTTPErrorHandler {
 
 		var (
 			valErr   *ValidationError
+			scopeErr *ScopeError
 			limErr   interface{ LimitKey() string }
 			bindErr  *echo.BindingError
 			validate = errors.As(err, &valErr)
@@ -88,6 +89,14 @@ func ErrorHandler() echo.HTTPErrorHandler {
 		case validate:
 			status = http.StatusUnprocessableEntity
 			info = ErrorInfo{Key: "error.validation_failed", Fields: valErr.Fields}
+		case errors.As(err, &scopeErr):
+			// A valid credential that lacks the route's grant. Distinct from
+			// unauthenticated and from record permission denial so a caller
+			// can tell "wrong credential" from "insufficient grant".
+			status = http.StatusForbidden
+			info = ErrorInfo{Key: "error.missing_scope", Fields: map[string][]string{
+				"scope": {scopeErr.Scope()},
+			}}
 		case errors.As(err, &limErr):
 			status = http.StatusForbidden
 			info = ErrorInfo{Key: limErr.LimitKey()}

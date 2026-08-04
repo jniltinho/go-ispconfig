@@ -8962,6 +8962,295 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/tokens": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Every token with its label, owner, scopes, IP allow-list, expiry, last use and enabled state. The secret and its digest are never returned. Admin only, gated by the admin_allow_remote_users security policy. Scope: system:read.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "tokens"
+                ],
+                "summary": "List API tokens",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/api.TokenView"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Mints a token and returns the plaintext credential **once** — it is stored only as a SHA-256 digest and can never be retrieved again. At least one scope is required; scopes only ever narrow what the owner may already do. Admin only, gated by admin_allow_remote_users. Scope: system:write.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "tokens"
+                ],
+                "summary": "Create an API token",
+                "parameters": [
+                    {
+                        "description": "Token definition",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.TokenCreateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/api.TokenCreateResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Per-field validation errors",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/tokens/exchange": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Authenticated by an API token (not by a session): returns an HS256 JWT carrying the same owner and scopes, expiring after [auth] jwt_ttl (default 15 minutes, hard cap 1 hour, never beyond the token's own expiry). A JWT issued before the token was revoked stays valid until it expires.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "tokens"
+                ],
+                "summary": "Exchange an API token for a short-lived JWT",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.TokenExchangeResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Not authenticated by an API token, or the token is revoked or expired",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "No [auth] jwt_secret configured",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/tokens/scopes": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "The resource groups and actions of the scope grammar, for the token form. Scope: system:read.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "tokens"
+                ],
+                "summary": "List the scopes a token may be granted",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/tokens/{id}": {
+            "put": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Changes the label, scopes, IP allow-list, expiry or enabled state. The secret can never be changed — mint a new token instead. Revoking takes effect on the next request. Admin only, gated by admin_allow_remote_users. Scope: system:write.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "tokens"
+                ],
+                "summary": "Update, revoke or re-enable an API token",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Token id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Fields to change",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.TokenUpdateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.TokenView"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Removes the token irreversibly. Prefer revoking (PUT with enabled=false) when the credential may still be in use somewhere. Admin only, gated by admin_allow_remote_users. Scope: system:write.",
+                "tags": [
+                    "tokens"
+                ],
+                "summary": "Delete an API token",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Token id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Deleted"
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -9940,6 +10229,190 @@ const docTemplate = `{
                 "total": {
                     "description": "Total is the number of rows matching the filters.",
                     "type": "integer"
+                }
+            }
+        },
+        "api.TokenCreateRequest": {
+            "type": "object",
+            "properties": {
+                "allowed_ips": {
+                    "description": "AllowedIPs is an optional CSV of IPs/CIDRs.",
+                    "type": "string",
+                    "example": "10.0.0.0/8"
+                },
+                "expires_at": {
+                    "description": "ExpiresAt is an optional RFC3339 expiry.",
+                    "type": "string",
+                    "example": "2027-01-01T00:00:00Z"
+                },
+                "label": {
+                    "description": "Label names the token. Required.",
+                    "type": "string",
+                    "example": "terraform-prod"
+                },
+                "owner": {
+                    "description": "Owner is the sys_user login the token acts as. Defaults to the caller.",
+                    "type": "string",
+                    "example": "admin"
+                },
+                "scopes": {
+                    "description": "Scopes are the grants. At least one is required.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "api.TokenCreateResponse": {
+            "type": "object",
+            "properties": {
+                "allowed_ips": {
+                    "description": "AllowedIPs is the CSV of IPs/CIDRs the token may be used from; empty\nmeans any address.",
+                    "type": "string",
+                    "example": "10.0.0.0/8"
+                },
+                "enabled": {
+                    "description": "Enabled is false for a revoked token.",
+                    "type": "boolean"
+                },
+                "expires_at": {
+                    "description": "ExpiresAt is RFC3339, empty when the token never expires.",
+                    "type": "string"
+                },
+                "id": {
+                    "description": "ID is the token id, the public half of the credential.",
+                    "type": "integer",
+                    "example": 3
+                },
+                "label": {
+                    "description": "Label names the token (\"terraform-prod\").",
+                    "type": "string",
+                    "example": "terraform-prod"
+                },
+                "last_used_at": {
+                    "description": "LastUsedAt is RFC3339, empty when the token has never authenticated.",
+                    "type": "string"
+                },
+                "owner": {
+                    "description": "Owner is the sys_user login the token acts as.",
+                    "type": "string",
+                    "example": "admin"
+                },
+                "owner_id": {
+                    "description": "OwnerID is that user's sys_user id.",
+                    "type": "integer",
+                    "example": 1
+                },
+                "scopes": {
+                    "description": "Scopes are the granted ` + "`" + `\u003cresource\u003e:\u003caction\u003e` + "`" + ` strings.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "token": {
+                    "description": "Token is the full credential to send as ` + "`" + `Authorization: Bearer` + "`" + `.",
+                    "type": "string",
+                    "example": "goisp_3_Vd8…"
+                }
+            }
+        },
+        "api.TokenExchangeResponse": {
+            "type": "object",
+            "properties": {
+                "access_token": {
+                    "description": "AccessToken is the signed JWT.",
+                    "type": "string"
+                },
+                "expires_in": {
+                    "description": "ExpiresIn is the lifetime in seconds.",
+                    "type": "integer",
+                    "example": 900
+                },
+                "scopes": {
+                    "description": "Scopes are the grants the JWT carries, copied from the token.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "token_type": {
+                    "description": "TokenType is always \"Bearer\".",
+                    "type": "string",
+                    "example": "Bearer"
+                }
+            }
+        },
+        "api.TokenUpdateRequest": {
+            "type": "object",
+            "properties": {
+                "allowed_ips": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "expires_at": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "scopes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "api.TokenView": {
+            "type": "object",
+            "properties": {
+                "allowed_ips": {
+                    "description": "AllowedIPs is the CSV of IPs/CIDRs the token may be used from; empty\nmeans any address.",
+                    "type": "string",
+                    "example": "10.0.0.0/8"
+                },
+                "enabled": {
+                    "description": "Enabled is false for a revoked token.",
+                    "type": "boolean"
+                },
+                "expires_at": {
+                    "description": "ExpiresAt is RFC3339, empty when the token never expires.",
+                    "type": "string"
+                },
+                "id": {
+                    "description": "ID is the token id, the public half of the credential.",
+                    "type": "integer",
+                    "example": 3
+                },
+                "label": {
+                    "description": "Label names the token (\"terraform-prod\").",
+                    "type": "string",
+                    "example": "terraform-prod"
+                },
+                "last_used_at": {
+                    "description": "LastUsedAt is RFC3339, empty when the token has never authenticated.",
+                    "type": "string"
+                },
+                "owner": {
+                    "description": "Owner is the sys_user login the token acts as.",
+                    "type": "string",
+                    "example": "admin"
+                },
+                "owner_id": {
+                    "description": "OwnerID is that user's sys_user id.",
+                    "type": "integer",
+                    "example": 1
+                },
+                "scopes": {
+                    "description": "Scopes are the granted ` + "`" + `\u003cresource\u003e:\u003caction\u003e` + "`" + ` strings.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },
@@ -12627,7 +13100,7 @@ const docTemplate = `{
     },
     "securityDefinitions": {
         "BearerAuth": {
-            "description": "Session id as bearer token: \"Bearer \u003csession id\u003e\". No CSRF token required on this transport.",
+            "description": "Bearer credential, one of three forms: a session id from POST /api/login, an API token (goisp_\u003cid\u003e_\u003csecret\u003e) minted under System → Remote Users, or a JWT obtained from POST /api/tokens/exchange. No CSRF token is required on this transport. A token or JWT additionally needs the endpoint's scope (resource:action, e.g. sites:read) and can never exceed what its owning user may do.",
             "type": "apiKey",
             "name": "Authorization",
             "in": "header"
@@ -12648,7 +13121,7 @@ var SwaggerInfo = &swag.Spec{
 	BasePath:         "/api",
 	Schemes:          []string{},
 	Title:            "go-ispconfig API",
-	Description:      "REST API of go-ispconfig, the Go port of ISPConfig3. Authenticate via POST /api/login: browsers receive an HTTP-only session cookie (mutating requests then require the X-CSRF-Token header returned by login); non-browser clients present the same session id as a bearer token.",
+	Description:      "REST API of go-ispconfig, the Go port of ISPConfig3. Authenticate via POST /api/login: browsers receive an HTTP-only session cookie (mutating requests then require the X-CSRF-Token header returned by login); non-browser clients present the same session id as a bearer token. Automation should instead use an API token minted under System → Remote Users (see docs/api-tokens.md): it is long-lived, scoped, revocable, and presented on the same Authorization header.",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",
