@@ -128,12 +128,18 @@ func clientdbAdmin(st *State, root *gorm.DB) error {
 		}
 	}
 
+	return writeClientDBConf(path, user, pw)
+}
+
+// writeClientDBConf stores the client-DB credentials file. It goes through
+// writeFileBackup rather than os.WriteFile because this step runs before
+// configTomlStep: on a fresh machine ConfigDir does not exist yet, and the
+// bare write aborted the whole install with "no such file or directory".
+func writeClientDBConf(path, user, pw string) error {
 	content := fmt.Sprintf("clientdb_host = %q\nclientdb_port = 3306\nclientdb_user = %q\nclientdb_password = %q\n",
 		"localhost", user, pw)
-	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
-		return fmt.Errorf("writing %s: %w", path, err)
-	}
-	return nil
+	_, _, err := writeFileBackup(path, []byte(content), 0o600)
+	return err
 }
 
 // existingClientDBPassword returns the password already recorded in the

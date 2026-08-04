@@ -33,7 +33,10 @@ func integrationState(t *testing.T, addr, configDir string) *State {
 func TestMariaDBStepIntegration(t *testing.T) {
 	dsnPrefix, _ := database.StartMariaDB(t, "installer")
 	addr := strings.TrimSuffix(strings.SplitN(dsnPrefix, "(", 2)[1], ")")
-	configDir := t.TempDir()
+	// Deliberately absent: this step runs long before configTomlStep, so on a
+	// fresh machine /etc/go-ispconfig does not exist yet. Handing it an
+	// existing TempDir hid a bare os.WriteFile that aborted the whole install.
+	configDir := filepath.Join(t.TempDir(), "etc", "go-ispconfig")
 	ctx := context.Background()
 
 	// Fresh install: db + user + schema + seed.
@@ -41,6 +44,8 @@ func TestMariaDBStepIntegration(t *testing.T) {
 	require.NoError(t, mariadbStep{}.Run(ctx, st))
 	require.NotEmpty(t, st.DBPassword)
 	assert.NotEmpty(t, st.AdminPassword, "fresh install seeds the admin")
+	assert.FileExists(t, filepath.Join(configDir, "mysql_clientdb.conf"),
+		"the step must create its own parent directory")
 
 	var tables int64
 	require.NoError(t, st.DB.Raw(

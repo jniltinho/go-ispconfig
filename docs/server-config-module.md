@@ -113,9 +113,86 @@ Checked against `admin/lib/module.conf.php` on `192.168.56.20`:
 | Additional PHP Versions | not implemented (`server_php`) |
 | Directive Snippets | not implemented (`directive_snippets`) |
 | Firewall IPTables / Packet Filter / Port Forward | not implemented — the firewall module is UFW-only |
-| Interface Config | not implemented (`sys_ini`, the panel-wide INI) |
+| Interface Config | `/system/main-config` — the `sys_ini` keys this port reads (see below) |
 | Extension Installer, Remote Actions | not planned — no ISPConfig extension repo or PHP updater to drive |
 
 go-ispconfig adds two System entries the legacy panel has no equivalent for:
 **Fail2ban** (`/system/fail2ban`) and **Migrate from ISPConfig3**
 (`/system/migration`, see [legacy-migration.md](legacy-migration.md)).
+
+## Main Config (System → Main Config)
+
+The panel-wide INI in `sys_ini`, port of
+`interface/web/admin/system_config_edit.php`. Same section-per-tab editor and
+the same merge semantics as Server Config, pointed at a different row.
+
+| Tab | Keys | Read by |
+|---|---|---|
+| Sites | `dbname_prefix`, `dbuser_prefix`, `ftpuser_prefix`, `shelluser_prefix`, `phpmyadmin_url`, `default_dbserver`, `default_remote_dbserver`, `disable_client_remote_dbserver`, `ssh_authentication` | `internal/api/sitesdb.go`, `internal/api/sites_ftp_shell.go` |
+| Mail | `enable_welcome_mail`, `admin_mail`, `admin_name`, `show_per_domain_relay_options`, `rspamd_spam_tag_level`, `rspamd_spam_kill_level`, `rspamd_greylisting_level` | `internal/mail/welcome.go`, `internal/api/mail.go`, `internal/api/mailrspamd.go` |
+| Misc | `min_password_length`, `min_password_strength` | `internal/api/sitesdb.go` |
+
+The legacy screen renders 6 tabs and 79 fields. The rest configure a PHP
+interface that does not exist here — dashboard atom feeds, `use_combobox`,
+custom login text, maintenance mode — so an adopted database has nothing
+meaningful to show for them. Unlike the Server tab's compatibility fields,
+they do not describe the *server*, which is why they are omitted rather than
+shown behind a legend.
+
+`TestSysIniFormCoversEveryRead` is the guard: it scans the tree for `sys_ini`
+reads and fails when a key has no field on this form. It is a grep, and a new
+access shape could slip past it — that ceiling is stated in the test — but it
+already caught two keys (`ftpuser_prefix`, `shelluser_prefix`) that a manual
+sweep of the same code had missed.
+
+Two deliberate semantics, both matching the legacy panel:
+
+- **any key the INI grammar accepts may be written**, not just the rendered
+  ones. That is what lets an adopted ISPConfig3 database keep working; the
+  surface is admin-only behind `admin_allow_system_config`;
+- **a merge never removes a key.** Clearing a field stores an empty value and
+  the key stays in the blob.
+
+### Defaults come from the installer template, not the tform
+
+`system_config.tform.php` ships an empty default for every prefix and
+`min_password_length=5`. Those are **not** the values a real ISPConfig install
+carries — its installer writes `install/tpl/system.ini.master` over the empty
+`sys_ini` row (`installer_base.lib.php:431`), and that template says:
+
+| Key | Value |
+|---|---|
+| `dbname_prefix`, `dbuser_prefix` | `c[CLIENTID]` |
+| `ftpuser_prefix`, `shelluser_prefix` | `[CLIENTNAME]` |
+| `phpmyadmin_url` | `https://[SERVERNAME]:8081/phpmyadmin` |
+| `ssh_authentication` | *(empty)* |
+| `enable_welcome_mail` | `y` |
+| `show_per_domain_relay_options` | `n` |
+| `min_password_length` | `8` |
+| `min_password_strength` | `3` |
+
+Verified byte for byte against the live `sys_ini` of the lab panel at
+`192.168.56.20`. `internal/database/system_config.ini` seeds the same values,
+and `Seed()` writes it **only when the row is still empty**, so an adopted
+ISPConfig3 database keeps its own. Without that seed a fresh install had an
+empty `sys_ini`, and the divergence showed up in the data rather than in the
+UI: `dbname_prefix` is what makes a client database `c1_shop` instead of
+`shop`.
+
+`TestSysIniDefaultsMatchLegacyTemplate` pins the form defaults and
+`TestSeededSysIniMatchesFormDefaults` keeps the seed and the form from
+drifting apart — a form showing `c[CLIENTID]` over a database seeded with
+nothing would be a lie that only surfaces at the first client database.
+
+**`httpuser` and `httpgroup` do not exist in ISPConfig 3.3.1p1** (no hit
+anywhere in the 3.3.1p1 tree). The equivalent keys are `[web] user` and
+`[web] group` in `server.config`, defaulting to `www-data`, and they live on
+the Server Config Web tab. `mailuser_uid`, `mailuser_gid` and `mailuser_name`
+are likewise `server.config` `[mail]` keys, not `sys_ini` — already on the
+Server Config Mail tab with the legacy defaults `5000`, `5000` and `vmail`.
+
+The password policy is validated on save: a minimum length outside 1–64, or a
+strength outside 1–3, is refused with a field error rather than stored — the
+panel would otherwise hold a policy its own generated credentials could not
+satisfy. It takes effect immediately: raise the minimum and the next database
+user with a shorter password is refused by the API.
