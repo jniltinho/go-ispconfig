@@ -16,6 +16,10 @@
 - [x] 2.5 Add the Vue `System → Main Config` view reusing `ServerConfigView`'s shape, plus route, sidebar entry and i18n keys.
 - [x] 2.6 Integration test: raise `min_password_length`, confirm a shorter database-user password is refused by the API.
 
+## 2b. Follow-up found by seeding sys_ini
+
+- [ ] 2b.1 An admin creating a database user **without** `parent_domain_id` now fails with `database_user_error_regex`. Seeding `dbuser_prefix=c[CLIENTID]` made a latent path reachable: with no site to resolve the client from, `expandSitesPrefix` keeps the literal placeholder, and `c[CLIENTID]` contains `[`/`]`, which the name regex forbids. It matches ISPConfig (where the key is always populated), but the error blames the name the operator typed correctly. Return an actionable error naming the missing site instead — or resolve the client from `client_group_id` when it is given, which is the information the caller already supplied.
+
 ## 3. Remote Users — function groups
 
 - [ ] 3.1 Extract the 58 function groups from the seven `lib/remote.conf.php` files into a static Go table (label, module, function names, implied scopes); assert at build time that every implied scope is valid.

@@ -235,3 +235,40 @@ func TestSeededSysIniMatchesFormDefaults(t *testing.T) {
 			"internal/database/system_config.ini must seed %s with the same value the form defaults to", key)
 	}
 }
+
+// TestSeededSysIniKeysSurviveAFormSave is the invariant everything else rests
+// on. The seed writes keys the form does not render (webdavuser_prefix), and
+// the cross review flagged the risk that a section save would replace the
+// column rather than merge into it — which would drop them silently on the
+// first save an operator makes.
+func TestSeededSysIniKeysSurviveAFormSave(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join("..", "database", "system_config.ini"))
+	require.NoError(t, err)
+	sections := getconf.ParseINI(string(raw))
+	require.Contains(t, sections["sites"], "webdavuser_prefix",
+		"the seed is expected to carry a key the form does not render")
+
+	// Simulate what the handler does: merge the rendered [sites] fields over
+	// the parsed document, then re-serialise.
+	body := map[string]string{}
+	for _, tab := range systemConfigForm().Tabs {
+		if tab.Name != "sites" {
+			continue
+		}
+		for _, f := range tab.Fields {
+			def, _ := f.Default.(string)
+			body[f.Name] = def
+		}
+	}
+	for k, v := range body {
+		sections["sites"][k] = v
+	}
+	after := getconf.ParseINI(sections.String())
+
+	assert.Equal(t, "[CLIENTNAME]", after["sites"]["webdavuser_prefix"],
+		"a merge must preserve seeded keys the form does not render")
+	assert.Equal(t, "y", after["mail"]["enable_welcome_mail"],
+		"a save of [sites] must not touch [mail]")
+	assert.Equal(t, "8", after["misc"]["min_password_length"],
+		"a save of [sites] must not touch [misc]")
+}

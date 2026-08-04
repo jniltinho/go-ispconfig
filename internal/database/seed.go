@@ -91,14 +91,8 @@ func Seed(db *gorm.DB, hostname, adminPassword string) (string, error) {
 			return fmt.Errorf("creating local server row: %w", err)
 		}
 
-		// sys_ini row 1 ships in the dump with an empty config; fill it the
-		// way the PHP installer does. Only when it is still empty: an adopted
-		// ISPConfig3 database arrives with its own values and must keep them.
-		err := tx.Model(&model.SysIni{}).
-			Where("sysini_id = 1 AND (config IS NULL OR config = '')").
-			Update("config", defaultSystemConfig).Error
-		if err != nil {
-			return fmt.Errorf("seeding sys_ini config: %w", err)
+		if _, err := EnsureSystemConfig(tx); err != nil {
+			return err
 		}
 		return nil
 	})
@@ -106,6 +100,47 @@ func Seed(db *gorm.DB, hostname, adminPassword string) (string, error) {
 		return "", err
 	}
 	return adminPassword, nil
+}
+
+// EnsureSystemConfig fills sys_ini row 1 with the panel defaults when it is
+// still empty, inserting the row if it is missing entirely.
+//
+// It is deliberately separate from Seed and idempotent, because it has to run
+// on more than a fresh install: every go-ispconfig created before the panel
+// seeded this row has an empty sys_ini, and nothing would ever fill it —
+// `migrate` skips Seed once a schema exists. Those installs are the ones
+// silently creating client databases without the c[CLIENTID] prefix.
+//
+// The empty guard is what makes it safe to run every time: an adopted
+// ISPConfig3 database, or one an operator has already configured, keeps its
+// own values.
+// It reports whether it actually wrote, so a caller can tell the operator the
+// truth instead of "no seed data written" after having written some.
+func EnsureSystemConfig(db *gorm.DB) (bool, error) {
+	res := db.Model(&model.SysIni{}).
+		Where("sysini_id = ? AND (config IS NULL OR config = '')", 1).
+		Update("config", defaultSystemConfig)
+	if res.Error != nil {
+		return false, fmt.Errorf("seeding sys_ini config: %w", res.Error)
+	}
+	if res.RowsAffected > 0 {
+		return true, nil
+	}
+	// Zero rows means either "already configured" or "no row at all", and an
+	// UPDATE cannot tell them apart — checking is what stops the seed
+	// reporting success while having written nothing.
+	var n int64
+	if err := db.Model(&model.SysIni{}).Where("sysini_id = ?", 1).Count(&n).Error; err != nil {
+		return false, fmt.Errorf("checking sys_ini row: %w", err)
+	}
+	if n > 0 {
+		return false, nil // already carries a configuration; leave it alone
+	}
+	err := db.Create(&model.SysIni{SysIniID: 1, Config: defaultSystemConfig}).Error
+	if err != nil {
+		return false, fmt.Errorf("creating sys_ini row: %w", err)
+	}
+	return true, nil
 }
 
 // RandomPassword returns n characters from an unambiguous alphanumeric
