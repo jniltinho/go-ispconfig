@@ -9,6 +9,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 —
 
+## [0.5.0] — 2026-08-04
+
+**Configuration parity, checked against a live legacy panel.** The Server
+Config editor gained the tab the port was missing, and the panel-wide settings
+that until now could only be changed with SQL got a screen. The defaults behind
+them were taken from ISPConfig's own installer template rather than invented,
+so a fresh install generates the same prefixed names the PHP panel does.
+
+### Added
+
+- **System → Main Config** — the panel-wide `sys_ini` INI editor
+  (`system_config_edit.php`), three tabs (Sites, Mail, Misc) rendering only the
+  keys this port actually reads. A save merges its section back into the full
+  document, so keys the panel does not render survive the round trip, and the
+  change is journalled like the legacy `datalogUpdate('sys_ini', …)`
+- **Server tab in System → Server Config** — the per-server tab the generated
+  form was missing: `server` section keys (`ip_address`, `ssh_port`, timezone,
+  auto-update and monitoring settings), decoded through a typed
+  `getconf.ServerSection` instead of raw map indexing
+
+### Fixed
+
+- **Generated SELECT fields stored their labels, not their keys** — the
+  form generator read PHP `value` maps as lists, so `loglevel` saved `Warnings`
+  where the daemon expects `1`, and `backup_time` offered 96 options for 4
+  real values. The rule is the field's formtype: CHECKBOX is a list, everything
+  else is a key/label map. Two tests pin it
+- **Password and name prefixes were empty on a fresh install** — the defaults
+  came from `system_config.tform.php`, which ships blanks and
+  `min_password_length=5`. They now come from `install/tpl/system.ini.master`
+  byte for byte (`c[CLIENTID]`, `[CLIENTNAME]`, `8`, `3`) and are seeded, so a
+  database user created as `shopuser` is stored as `c1shopuser` as it is in
+  ISPConfig
+- **`sys_ini` was only filled on a fresh database** — `Seed()` runs on install,
+  so every existing install upgraded into an empty panel configuration.
+  `migrate` now fills it on both paths
+- **A from-zero install aborted in the MariaDB step** — it wrote
+  `mysql_clientdb.conf` into `/etc/go-ispconfig` before the config step created
+  that directory. Every fresh install on a clean host hit this
+
+### Documentation
+
+- `add-multiserver-mgmt` re-scoped against the shipped tree, with tasks
+- `refine-system-config-parity` proposal covering the gaps found against the
+  legacy panel at 192.168.56.20
+- `acme-as-go` proposal and decision record — wrap `go-acme/lego` rather than
+  port acme.sh, with the legacy's actual ACME behaviour documented
+- brand gopher icons regenerated from the 1024px source, transparency preserved
+
 ## [0.4.0] — 2026-08-04
 
 **The System module, and an API you can automate against.** Two System entries
