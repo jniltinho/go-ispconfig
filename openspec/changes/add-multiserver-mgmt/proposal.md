@@ -39,38 +39,62 @@ Reference PHP sources being ported (read-only under `base/ispconfig3_install/`):
 
 ## What Changes
 
-**Already exists in Go (kept, extended):**
-- `model.Server` including `Updated` (the cursor) and `MirrorServerID` (`internal/model/server.go:6-31`), `model.ServerIP` (`:35-51`), `model.ServerPHP` (`:55-78`).
-- `server_ip` entity CRUD (`internal/api/serverip.go:16-98`) and the read-only server picker (`internal/api/meta.go:188-196`).
-- Per-server config reads — `getconf.GetServerConfig(db, serverID)` (`internal/getconf/getconf.go:271-299`), already called with a server id from every module.
-- Per-server datalog cursor on `server.updated` and the `(server_id = ? OR server_id = 0)` filter (`internal/engine/daemon.go:208-279`); per-server remote actions (`:319`); per-server datalog pruning (`internal/engine/scheduler.go:174-190`).
-- Role-flag module gating in `cmd/daemon.go:83-167` and PowerDNS's `forThisServer()` payload gate (`internal/powerdns/plugin.go:79-84`).
+> **Re-scoped 2026-08-04.** This proposal was written when the port was
+> single-server by construction. Since then a good half of it shipped, so the
+> lists below were re-checked line by line against the tree at `v0.4.0` — what
+> was already delivered is recorded as such rather than left to mislead whoever
+> picks this up.
 
-**Missing — added by this change:**
-- **`server` CRUD API + panel UI**: create/edit/delete server rows, role flags, `active`, `mirror_server_id`, per-server IPs and `server_ip_map`. No such entity exists today; PHP has edit-only, we add create so a node can be pre-registered (`interface/web/admin/server_edit.php`).
-- **`server_config` API + UI**: read/write the `server.config` INI per server through a datalog row, port of `server_config_edit.php:136-181`. No Go equivalent exists.
-- **Slave install / join**: an installer mode that registers this node against a remote master (server row + `server_ip` rows on the master, mirrored locally), provisions the per-server MySQL account, and writes a slave `config.toml`. Port of `install.php:279-311` + `installer_base.lib.php:556-572`.
-- **`goispsrv<N>` MySQL account and grants**: the Go equivalent of `ispcsrv<N>` (`installer_base.lib.php:570,680-905`) — a least-privilege per-node master-DB user. Nothing like it exists; today the installer creates one all-privileges app user (`internal/installer/mariadb.go:53-64`).
-- **`dbmaster` — a second DB handle**: `[database] master_dsn` in `config.toml` plus a resolved "is this node the master" predicate, port of `app.inc.php:96-107,386,396`. Today there is exactly one handle.
-- **Explicit `server_id` in config**: replace hostname-guessing (`cmd/serve.go:160-178`) with a configured id, keeping the current behaviour as the single-server default.
-- **Datalog consumption against the master + local replication**: read `sys_datalog` from the master handle, `REPLACE INTO`/`DELETE FROM` the local mirror of the row, then dispatch — port of `modules.inc.php:150-193`. Today rows are consumed from the same DB they were written to.
-- **Cursor write-back to both DBs**: `server.updated` on local *and* master (`modules.inc.php:200,204`).
-- **Mirror support**: widen the datalog filter, rewrite `server_id` on mirrored payloads and expose a `Mirrored` flag so plugins can suppress once-per-cluster side effects (`modules.inc.php:104-143`); lift the `GuardServer` refusal (`internal/engine/daemon.go:92-94`).
-- **Per-server everything in the API**: every create/update that carries a `server_id` must validate the target server exists, is `active`, has the required role flag and is not a mirror; the one literal `server_id = 1` fallback (`internal/api/mail.go:220`) is removed.
-- **`server_ip_map` model + CRUD**: exists in the legacy schema and UI (`server_ip_map_edit.php`), absent in Go.
+**Already delivered (was listed as missing here, now in tree):**
 
-## Capabilities
+- **Explicit `server_id` in config** — `config.ServerID` exists and
+  `engine.ResolveServer` resolves the node's row from it, then by hostname,
+  then by "the single active row". There is no hostname-guessing left, and no
+  `GuardServer`: several active rows are supported, and a node refuses to start
+  only when it cannot tell which row is its own.
+- **`server` CRUD** — `serverEntity()` (`internal/api/servers.go`) with the role
+  flags, `active` and `mirror_server_id`, including the validation that refuses
+  an illegal mirror target.
+- **Per-server target validation** — `requireTargetServer(role)` is applied by
+  the entities that carry a `server_id`, so a create against an absent,
+  inactive or wrong-role server is refused. The literal `server_id = 1`
+  fallback is gone.
+- **`server_config` API + UI** — `GET|PUT /api/servers/:id/config[/:section]`
+  and the System → Server Config editor, delivering changes through a
+  `sys_datalog` row for `dbtable=server`. This is the whole
+  `server-config-sync` capability below; it is **done**.
+- Everything the original "already exists" list named — models, `server_ip`
+  CRUD, per-server `getconf`, the per-server datalog cursor and filter,
+  role-flag module gating.
 
-### New Capabilities
+**Still missing — the actual remaining scope of this change:**
 
-- `server-registry`: the `server` table as a first-class managed entity — CRUD API and panel UI for servers, role flags, `active`, `mirror_server_id`, `server_ip` and `server_ip_map`, plus the validation rules that make every other module's `server_id` field trustworthy.
-- `server-deploy`: joining a node to an existing installation — installer join mode, dual server-row registration, the per-node least-privilege master-DB account and its grants, slave `config.toml` (`server_id` + `master_dsn`), and the daemon's dual-DB datalog pull with local replication, cursor write-back and mirror handling.
-- `server-config-sync`: per-server `server.config` INI ownership — API + UI editor, datalog-driven delivery to the node, typed `getconf` reads keyed on the target `server_id`, and role-flag-driven module enablement on each node.
-
-### Modified Capabilities
-
-- `datalog-engine` (from `port-ispconfig3-to-go`): the consumer gains a master DB source, a local replication step before dispatch, dual cursor write-back and mirror `server_id` rewriting. The single-server path is preserved verbatim when no master DSN is configured.
-- `installer-cli` (from `add-installer-cli`): gains a join/slave mode and the per-node master-DB account provisioning; the existing single-server standard install is unchanged.
+- **`dbmaster` — a second DB handle**: `[database] master_dsn` in `config.toml`
+  plus a resolved "is this node the master" predicate, port of
+  `app.inc.php:96-107,386,396`. Today there is exactly one handle, so every
+  node must reach the master's database directly (see `docs/multi-server.md`).
+- **Datalog consumption against the master + local replication**: read
+  `sys_datalog` from the master handle, `REPLACE INTO`/`DELETE FROM` the local
+  mirror of the row, then dispatch — port of `modules.inc.php:150-193`.
+- **Cursor write-back to both DBs**: `server.updated` on local *and* master
+  (`modules.inc.php:200,204`).
+- **Slave install / join**: an installer mode that registers this node against a
+  remote master (server row + `server_ip` rows on the master, mirrored
+  locally), provisions the per-server MySQL account, and writes a slave
+  `config.toml`. Port of `install.php:279-311` +
+  `installer_base.lib.php:556-572`. Today the join is the manual four-step
+  procedure documented in `docs/multi-server.md`.
+- **`goispsrv<N>` MySQL account and grants**: the Go equivalent of `ispcsrv<N>`
+  (`installer_base.lib.php:570,680-905`) — a least-privilege per-node master-DB
+  user. Today every node uses the same all-privileges app user.
+- **Mirror support**: widen the datalog filter, rewrite `server_id` on mirrored
+  payloads and expose a `Mirrored` flag so plugins can suppress
+  once-per-cluster side effects (`modules.inc.php:104-143`).
+- **`server_ip_map` model + CRUD**: the model exists, nothing reads or writes
+  it.
+- **Server Services UI**: the role flags are editable through `/api/server`
+  only. Covered by `complete-system-module`; noted here because a cluster is
+  unusable without it.
 
 ## Impact
 
