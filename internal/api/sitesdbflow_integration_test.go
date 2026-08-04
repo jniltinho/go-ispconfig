@@ -151,8 +151,14 @@ func TestDatabaseEndToEndFlow(t *testing.T) {
 	var userRec map[string]any
 	require.NoError(t, json.Unmarshal(data, &userRec))
 	userID := userRec["database_user_id"].(float64)
+	// The seeded [sites] dbuser_prefix/dbname_prefix are c[CLIENTID], so the
+	// stored names carry the owning group's client id — assert against what
+	// the API returned rather than what was submitted.
+	dbUser := userRec["database_user"].(string)
+	require.NotContains(t, dbUser, "[", "the prefix template must be fully expanded")
 
 	var databaseID float64
+	var dbName string
 	t.Run("create → physical database + localhost grant", func(t *testing.T) {
 		status, data := call(t, srv, http.MethodPost, "/api/sites/databases", adminCk, adminCsrf,
 			map[string]any{"server_id": 1, "parent_domain_id": domainID,
@@ -161,11 +167,12 @@ func TestDatabaseEndToEndFlow(t *testing.T) {
 		var rec map[string]any
 		require.NoError(t, json.Unmarshal(data, &rec))
 		databaseID = rec["database_id"].(float64)
+		dbName = rec["database_name"].(string)
 
 		require.NoError(t, daemon.RunCycle(ctx))
-		assert.True(t, schemaExists("dbflow_db"), "daemon created the physical database")
-		assert.Contains(t, userHosts("dbflow_u"), "localhost")
-		assert.Contains(t, grantsOf("dbflow_u", "localhost"), "ALL PRIVILEGES ON `dbflow_db`.*")
+		assert.True(t, schemaExists(dbName), "daemon created the physical database")
+		assert.Contains(t, userHosts(dbUser), "localhost")
+		assert.Contains(t, grantsOf(dbUser, "localhost"), "ALL PRIVILEGES ON `"+dbName+"`.*")
 	})
 
 	t.Run("remote_ips update → grants for the new host", func(t *testing.T) {
@@ -175,8 +182,8 @@ func TestDatabaseEndToEndFlow(t *testing.T) {
 		require.Equal(t, http.StatusOK, status, "%s", data)
 
 		require.NoError(t, daemon.RunCycle(ctx))
-		assert.Contains(t, userHosts("dbflow_u"), "10.0.0.5")
-		assert.Contains(t, grantsOf("dbflow_u", "10.0.0.5"), "ALL PRIVILEGES ON `dbflow_db`.*")
+		assert.Contains(t, userHosts(dbUser), "10.0.0.5")
+		assert.Contains(t, grantsOf(dbUser, "10.0.0.5"), "ALL PRIVILEGES ON `"+dbName+"`.*")
 	})
 
 	t.Run("database delete → schema dropped, account gone", func(t *testing.T) {
@@ -185,8 +192,8 @@ func TestDatabaseEndToEndFlow(t *testing.T) {
 		require.Equal(t, http.StatusNoContent, status)
 
 		require.NoError(t, daemon.RunCycle(ctx))
-		assert.False(t, schemaExists("dbflow_db"), "daemon dropped the physical database")
-		assert.Empty(t, userHosts("dbflow_u"), "no other database needs the account")
+		assert.False(t, schemaExists(dbName), "daemon dropped the physical database")
+		assert.Empty(t, userHosts(dbUser), "no other database needs the account")
 	})
 
 	t.Run("user delete consumes cleanly", func(t *testing.T) {
@@ -194,6 +201,6 @@ func TestDatabaseEndToEndFlow(t *testing.T) {
 			fmt.Sprintf("/api/sites/database-users/%d", int(userID)), adminCk, adminCsrf, nil)
 		require.Equal(t, http.StatusNoContent, status)
 		require.NoError(t, daemon.RunCycle(ctx))
-		assert.Empty(t, userHosts("dbflow_u"))
+		assert.Empty(t, userHosts(dbUser))
 	})
 }

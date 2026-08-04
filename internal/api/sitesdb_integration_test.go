@@ -60,7 +60,7 @@ func TestSitesDatabaseAPI(t *testing.T) {
 		var rec map[string]any
 		require.NoError(t, json.Unmarshal(data, &rec))
 		databaseID = rec["database_id"].(float64)
-		require.Equal(t, "app_db", rec["database_name"], "no prefix configured")
+		require.Equal(t, "c1app_db", rec["database_name"], "seeded dbname_prefix c[CLIENTID] prepends the client id")
 		require.Equal(t, "mysql", rec["type"], "default applied")
 		require.Equal(t, "y", rec["active"], "default applied")
 		require.Equal(t, "n", rec["remote_access"], "tform default applied")
@@ -108,11 +108,10 @@ func TestSitesDatabaseAPI(t *testing.T) {
 		require.Equal(t, http.StatusUnprocessableEntity, status)
 		require.Contains(t, errKeyOf(t, data).Fields["remote_ips"], "database_remote_error_ips")
 
-		status, data = call(t, srv, http.MethodPost, "/api/sites/databases", env.aCookie, env.aCSRF,
-			map[string]any{"server_id": 1, "parent_domain_id": domainID, "database_name": "mysql",
-				"database_user_id": userID})
-		require.Equal(t, http.StatusUnprocessableEntity, status)
-		require.Contains(t, errKeyOf(t, data).Fields["database_name"], "database_name_error_blacklist")
+		// No blacklist case here: it compares the *prefixed* name, as
+		// database_edit.php:353 does, so with a prefix configured a client
+		// cannot reach a system database name at all ("mysql" is stored as
+		// "c1mysql"). TestDatabaseNameBlacklisted covers the guard directly.
 
 		// duplicate name on the same server
 		status, data = call(t, srv, http.MethodPost, "/api/sites/databases", env.aCookie, env.aCSRF,
@@ -171,7 +170,7 @@ func TestSitesDatabaseAPI(t *testing.T) {
 		require.Equal(t, http.StatusOK, status, "%s", data)
 		var rec map[string]any
 		require.NoError(t, json.Unmarshal(data, &rec))
-		require.Equal(t, "renamed_db", rec["database_name"])
+		require.Equal(t, "c1renamed_db", rec["database_name"])
 	})
 
 	t.Run("deactivating journals an update", func(t *testing.T) {
@@ -306,10 +305,8 @@ func TestSitesDatabaseUserAPI(t *testing.T) {
 		require.Equal(t, http.StatusUnprocessableEntity, status)
 		require.Contains(t, errKeyOf(t, data).Fields["database_password"], "database_password_error_empty")
 
-		status, data = call(t, srv, http.MethodPost, "/api/sites/database-users", env.aCookie, env.aCSRF,
-			map[string]any{"database_user": "root", "database_password": "Sup3r-Secret!"})
-		require.Equal(t, http.StatusUnprocessableEntity, status)
-		require.Contains(t, errKeyOf(t, data).Fields["database_user"], "database_user_error_blacklist")
+		// As above: dbuser_prefix makes "root" land as "c1root", so the
+		// blacklist is unreachable through the API once a prefix is set.
 	})
 
 	t.Run("empty update password leaves the hashes unchanged", func(t *testing.T) {
@@ -372,7 +369,7 @@ func TestSitesDatabaseUserAPI(t *testing.T) {
 		require.Equal(t, http.StatusNoContent, status)
 
 		var dbs []model.WebDatabase
-		require.NoError(t, db.Where("database_name = ?", "fanout_db").Find(&dbs).Error)
+		require.NoError(t, db.Where("database_name = ?", "c1fanout_db").Find(&dbs).Error)
 		require.Len(t, dbs, 1)
 		require.Nil(t, dbs[0].DatabaseUserID, "FK nulled on user delete")
 

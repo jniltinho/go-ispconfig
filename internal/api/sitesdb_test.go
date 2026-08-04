@@ -123,3 +123,29 @@ func TestCropName(t *testing.T) {
 	assert.Len(t, cropName(long, mysqlUserNameMax), 32)
 	assert.Equal(t, "c1_app", cropName("c1_app", mysqlDatabaseNameMax))
 }
+
+// TestConvertClientName pins tools_sites::convertClientName, the sanitiser the
+// legacy runs on a group name before it is prepended to a username. Reachable
+// only since the panel seeds a non-empty [sites] prefix.
+func TestConvertClientName(t *testing.T) {
+	tests := []struct{ in, want string }{
+		{"clienta", "clienta"},
+		{"Acme", "acme"},
+		{"Acme Ltd", "acmeltd"},        // spaces are dropped, not replaced
+		{"acme.ltd", "acme_ltd"},       // anything else becomes an underscore
+		{"a-b", "a_b"},
+		{"under_score", "under_score"}, // already allowed
+		{"", "default"},                // a nameless group must still namespace
+		{"   ", "default"},
+	}
+	for _, tc := range tests {
+		assert.Equal(t, tc.want, convertClientName(tc.in), "convertClientName(%q)", tc.in)
+	}
+}
+
+// A sanitised name must reach the expanded prefix, not just the helper.
+func TestExpandPrefixUsesSanitisedName(t *testing.T) {
+	got := expandPrefixPlaceholders("[CLIENTNAME]", convertClientName("Acme Ltd."), "3", 7)
+	assert.Equal(t, "acmeltd_", got, "a group name with a space and a dot must not reach a username raw")
+}
+

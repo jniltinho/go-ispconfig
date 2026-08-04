@@ -48,7 +48,7 @@ func TestSitesFTPUserAPI(t *testing.T) {
 		var rec map[string]any
 		require.NoError(t, json.Unmarshal(data, &rec))
 		ftpID = rec["ftp_user_id"].(float64)
-		require.Equal(t, "alice", rec["username"], "no prefix configured")
+		require.Equal(t, "clientaalice", rec["username"], "seeded ftpuser_prefix [CLIENTNAME] prepends the owning group name")
 		require.Equal(t, "y", rec["active"], "default applied")
 		require.EqualValues(t, -1, rec["quota_size"])
 		require.NotContains(t, rec, "password", "password redacted on read")
@@ -260,7 +260,7 @@ func TestSitesShellUserAPI(t *testing.T) {
 		var rec map[string]any
 		require.NoError(t, json.Unmarshal(data, &rec))
 		shellID = rec["shell_user_id"].(float64)
-		require.Equal(t, "alice", rec["username"])
+		require.Equal(t, "clientaalice", rec["username"], "shelluser_prefix applies")
 		require.Equal(t, "y", rec["active"])
 		require.Equal(t, "/bin/bash", rec["shell"])
 		require.NotContains(t, rec, "password")

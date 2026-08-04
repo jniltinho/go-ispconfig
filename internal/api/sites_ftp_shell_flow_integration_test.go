@@ -189,14 +189,20 @@ func TestFTPShellEndToEndFlow(t *testing.T) {
 		require.Equal(t, docroot, rec["dir"])
 		require.NotContains(t, rec, "password")
 
+		// The seeded [sites] shelluser_prefix is [CLIENTNAME], so the stored
+		// name is the owning group's name plus what was submitted — the
+		// legacy's behaviour, and what the OS account is created as.
+		stored := rec["username"].(string)
+		require.Equal(t, "adminflowshell", stored, "shelluser_prefix applies to the submitted name")
+
 		before := len(runner.all())
 		require.NoError(t, daemon.RunCycle(ctx))
 		cmds := runner.all()[before:]
 
-		homedir := filepath.Join(docroot, "home", "flowshell")
+		homedir := filepath.Join(docroot, "home", stored)
 		assert.Contains(t, cmds,
-			"useradd -d "+homedir+" -g client0 -o -s /bin/bash -u 5001 flowshell")
-		assert.Contains(t, runner.stdin["chpasswd"], "flowshell:")
+			"useradd -d "+homedir+" -g client0 -o -s /bin/bash -u 5001 "+stored)
+		assert.Contains(t, runner.stdin["chpasswd"], stored+":")
 		assert.DirExists(t, homedir)
 		assert.FileExists(t, filepath.Join(homedir, ".ssh", "authorized_keys"))
 		keys, err := os.ReadFile(filepath.Join(homedir, ".ssh", "authorized_keys"))
@@ -231,26 +237,28 @@ func TestFTPShellEndToEndFlow(t *testing.T) {
 		var rec map[string]any
 		require.NoError(t, json.Unmarshal(data, &rec))
 		require.Equal(t, "jailkit", rec["chroot"])
+		jkUser := rec["username"].(string)
+		require.Equal(t, "adminflowjk", jkUser, "shelluser_prefix applies here too")
 
 		before := len(runner.all())
 		require.NoError(t, daemon.RunCycle(ctx))
 		cmds := runner.all()[before:]
 
 		// Base parks the account on /bin/false until jailkit finishes.
-		homedir := filepath.Join(docroot, "home", "flowjk")
+		homedir := filepath.Join(docroot, "home", jkUser)
 		assert.Contains(t, cmds,
-			"useradd -d "+homedir+" -g client0 -o -s /bin/false -u 5001 flowjk",
+			"useradd -d "+homedir+" -g client0 -o -s /bin/false -u 5001 "+jkUser,
 			"base plugin runs first with locked shell")
 
 		var useraddIdx, jkInitIdx, unlockIdx = -1, -1, -1
 		for i, c := range cmds {
-			if strings.HasPrefix(c, "useradd ") && strings.HasSuffix(c, " flowjk") {
+			if strings.HasPrefix(c, "useradd ") && strings.HasSuffix(c, " "+jkUser) {
 				useraddIdx = i
 			}
 			if strings.HasPrefix(c, "jk_init ") && strings.Contains(c, docroot) {
 				jkInitIdx = i
 			}
-			if c == "usermod -U flowjk" {
+			if c == "usermod -U "+jkUser {
 				unlockIdx = i
 			}
 		}
