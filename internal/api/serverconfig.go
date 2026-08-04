@@ -123,7 +123,7 @@ func serverConfigSectionHandler(d *Deps) echo.HandlerFunc {
 // serverConfigSaveHandler implements PUT /api/servers/:id/config/:section.
 //
 //	@Summary		Save one configuration section
-//	@Description	Merges the submitted keys into the section, re-serialises the full INI and stores it, then journals a sys_datalog row for dbtable=server so the owning node applies it. Keys of other sections are untouched; an empty body is refused so a broken form cannot blank a section. Admin only.
+//	@Description	Merges the submitted keys into the section, re-serialises the full INI and stores it, then journals a sys_datalog row for dbtable=server so the owning node applies it. Keys of other sections are untouched; an empty body is refused so a broken form cannot blank a section. Keys this port acts on are validated (the [server] section's ssh_port must be a TCP port). Admin only.
 //	@Tags			servers
 //	@Accept			json
 //	@Produce		json
@@ -134,6 +134,7 @@ func serverConfigSectionHandler(d *Deps) echo.HandlerFunc {
 //	@Failure		400		{object}	ErrorResponse
 //	@Failure		403		{object}	ErrorResponse
 //	@Failure		404		{object}	ErrorResponse
+//	@Failure		422		{object}	ErrorResponse	"Per-field validation errors (e.g. an out-of-range ssh_port)"
 //	@Router			/servers/{id}/config/{section} [put]
 func serverConfigSaveHandler(d *Deps) echo.HandlerFunc {
 	return func(c *echo.Context) error {
@@ -165,6 +166,9 @@ func serverConfigSaveHandler(d *Deps) echo.HandlerFunc {
 			if !iniNameRe.MatchString(k) || strings.ContainsAny(v, "\r\n") {
 				return echo.NewHTTPError(http.StatusBadRequest, "invalid config key "+k)
 			}
+		}
+		if err := validateConfigSection(name, body); err != nil {
+			return err
 		}
 
 		user := ""
@@ -198,4 +202,26 @@ func serverConfigSaveHandler(d *Deps) echo.HandlerFunc {
 		}
 		return c.JSON(http.StatusOK, saved)
 	}
+}
+
+// validateConfigSection applies the per-field rules that the INI grammar
+// cannot express. Only the keys this port acts on are checked: a
+// compatibility field is written for ISPConfig3's benefit and validating it
+// here would mean guessing what the PHP daemon accepts.
+func validateConfigSection(section string, body ServerConfigSection) error {
+	if section != "server" {
+		return nil
+	}
+	// An out-of-range SSH port would be silently ignored by the firewall
+	// module (it falls back to 22), leaving the operator convinced they had
+	// changed something. Refuse it at the boundary instead.
+	if port, ok := body["ssh_port"]; ok && strings.TrimSpace(port) != "" {
+		n, err := strconv.Atoi(strings.TrimSpace(port))
+		if err != nil || n < 1 || n > 65535 {
+			return &ValidationError{Fields: map[string][]string{
+				"ssh_port": {"srvcfg_error_ssh_port"},
+			}}
+		}
+	}
+	return nil
 }

@@ -284,6 +284,7 @@ func DefaultJailkitConfig() JailkitConfig {
 // [web], [dns], [mail] and [jailkit] sections plus the raw section map for
 // keys not (yet) typed.
 type ServerConfig struct {
+	Server  ServerSection
 	Web     WebConfig
 	DNS     DNSConfig
 	Mail    MailConfig
@@ -291,6 +292,24 @@ type ServerConfig struct {
 	Jailkit JailkitConfig
 	Raw     Sections
 }
+
+// ServerSection is the decoded part of the `[server]` INI section — the keys
+// this port actually acts on. The section carries many more (network,
+// backups, monit/munin) that ISPConfig3's PHP server daemon reads and this one
+// does not; those stay in Raw and are surfaced by the panel as
+// compatibility fields, never decoded here (spec server-config-server-tab).
+type ServerSection struct {
+	// IPAddress is the node's primary address, used as the host suggestion
+	// when a client database is created (internal/api/sitesdb.go).
+	IPAddress string `ini:"ip_address"`
+	// SSHPort is the port the firewall opens for SSH. Empty or unparseable
+	// leaves the caller's default in place; it is not a fatal value.
+	SSHPort string `ini:"ssh_port"`
+}
+
+// DefaultServerSection is the zero value: an empty address (no suggestion)
+// and an empty port (the firewall keeps its own default of 22).
+func DefaultServerSection() ServerSection { return ServerSection{} }
 
 // ErrNotFound is returned when a requested server, sys_ini row or sys_config
 // entry does not exist.
@@ -311,11 +330,13 @@ func GetServerConfig(db *gorm.DB, serverID uint32) (*ServerConfig, error) {
 	raw := ParseINI(StripSlashes(server.Config))
 	cfg := &ServerConfig{
 		Raw:     raw,
+		Server:  DefaultServerSection(),
 		DNS:     DefaultDNSConfig(),
 		Mail:    DefaultMailConfig(),
 		Getmail: DefaultGetmailConfig(),
 		Jailkit: DefaultJailkitConfig(),
 	}
+	decodeSection(raw["server"], &cfg.Server)
 	decodeSection(raw["web"], &cfg.Web)
 	decodeSection(raw["dns"], &cfg.DNS)
 	decodeSection(raw["mail"], &cfg.Mail)

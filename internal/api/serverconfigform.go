@@ -20,6 +20,40 @@ func serverConfigForm() FormMeta {
 		Title: "srvcfg.title",
 		Tabs: []FormTabMeta{
 			{
+				Name:  "server",
+				Label: "srvcfg.tab.server",
+				Fields: []FormFieldMeta{
+					{Name: "ip_address", Label: "srvcfg.server.ip_address", Type: "text", Datatype: "VARCHAR", Formtype: "TEXT"},
+					{Name: "ssh_port", Label: "srvcfg.server.ssh_port", Type: "text", Datatype: "VARCHAR", Formtype: "TEXT"},
+					{Name: "server_compat", Label: "srvcfg.server.compat_legend", Type: "legend", Datatype: "VARCHAR", Formtype: "LEGEND", Collapsible: true},
+					{Name: "auto_network_configuration", Label: "srvcfg.server.auto_network_configuration", Type: "checkbox", Datatype: "VARCHAR", Formtype: "CHECKBOX", Options: []Option{{Value: "n", Label: "n"}, {Value: "y", Label: "y"}}},
+					{Name: "netmask", Label: "srvcfg.server.netmask", Type: "text", Datatype: "VARCHAR", Formtype: "TEXT"},
+					{Name: "v6_prefix", Label: "srvcfg.server.v6_prefix", Type: "text", Datatype: "VARCHAR", Formtype: "TEXT"},
+					{Name: "gateway", Label: "srvcfg.server.gateway", Type: "text", Datatype: "VARCHAR", Formtype: "TEXT"},
+					{Name: "firewall", Label: "srvcfg.server.firewall", Type: "select", Datatype: "VARCHAR", Formtype: "SELECT", Options: []Option{{Value: "bastille", Label: "bastille"}, {Value: "ufw", Label: "ufw"}}},
+					{Name: "hostname", Label: "srvcfg.server.hostname", Type: "text", Datatype: "VARCHAR", Formtype: "TEXT"},
+					{Name: "nameservers", Label: "srvcfg.server.nameservers", Type: "text", Datatype: "VARCHAR", Formtype: "TEXT"},
+					{Name: "loglevel", Label: "srvcfg.server.loglevel", Type: "select", Datatype: "INTEGER", Formtype: "SELECT", Options: []Option{{Value: "0", Label: "Debug"}, {Value: "1", Label: "Warnings"}, {Value: "2", Label: "Errors"}}},
+					{Name: "admin_notify_events", Label: "srvcfg.server.admin_notify_events", Type: "select", Datatype: "INTEGER", Formtype: "SELECT", Options: []Option{{Value: "3", Label: "no_notifications_txt"}, {Value: "0", Label: "Debug"}, {Value: "1", Label: "Warnings"}, {Value: "2", Label: "Errors"}}},
+					{Name: "backup_dir", Label: "srvcfg.server.backup_dir", Type: "text", Datatype: "VARCHAR", Formtype: "TEXT"},
+					{Name: "backup_tmp", Label: "srvcfg.server.backup_tmp", Type: "text", Datatype: "VARCHAR", Formtype: "TEXT"},
+					{Name: "backup_dir_is_mount", Label: "srvcfg.server.backup_dir_is_mount", Type: "checkbox", Datatype: "VARCHAR", Formtype: "CHECKBOX", Options: []Option{{Value: "n", Label: "n"}, {Value: "y", Label: "y"}}},
+					{Name: "backup_mode", Label: "srvcfg.server.backup_mode", Type: "select", Datatype: "VARCHAR", Formtype: "SELECT", Options: []Option{{Value: "userzip", Label: "backup_mode_userzip"}, {Value: "rootgz", Label: "backup_mode_rootgz"}, {Value: "borg", Label: "backup_mode_borg_txt"}}},
+					{Name: "backup_time", Label: "srvcfg.server.backup_time", Type: "select", Datatype: "VARCHAR", Formtype: "SELECT", Options: []Option{{Value: "0:00", Label: "0:00h"}, {Value: "0:15", Label: "0:15h"}, {Value: "0:30", Label: "0:30h"}, {Value: "0:45", Label: "0:45h"}, {Value: "1:00", Label: "1:00h"}, {Value: "1:15", Label: "1:15h"}, {Value: "1:30", Label: "1:30h"}, {Value: "1:45", Label: "1:45h"}, {Value: "2:00", Label: "2:00h"}, {Value: "2:15", Label: "2:15h"}, {Value: "2:30", Label: "2:30h"}, {Value: "2:45", Label: "2:45h"}, {Value: "3:00", Label: "3:00h"}, {Value: "3:15", Label: "3:15h"}, {Value: "3:30", Label: "3:30h"}, {Value: "3:45", Label: "3:45h"}, {Value: "4:00", Label: "4:00h"}, {Value: "4:15", Label: "4:15h"}, {Value: "4:30", Label: "4:30h"}, {Value: "4:45", Label: "4:45h"}, {Value: "5:00", Label: "5:00h"}, {Value: "5:15", Label: "5:15h"}, {Value: "5:30", Label: "5:30h"}, {Value: "5:45", Label: "5:45h"}, {Value: "6:00", Label: "6:00h"}, {Value: "6:15", Label: "6:15h"}, {Value: "6:30", Label: "6:30h"}, {Value: "6:45", Label: "6:45h"}, {Value: "7:00", Label: "7:00h"}, {Value: "7:15", Label: "7:15h"}, {Value: "7:30", Label: "7:30h"}, {Value: "7:45", Label: "7:45h"}, {Value: "8:00", Label: "8:00h"}, {Value: "8:15", Label: "8:15h"}, {Value: "8:30", Label: "8:30h"}, {Value: "8:45", Label: "8:45h"}, {Value: "9:00", Label: "9:00h"}, {Value: "9:15", Label: "9:15h"}, {Value: "9:30", Label: "9:30h"}, {Value: "9:45", Label: "9:45h"}, {Value: "10:00", Label: "10:00h"}, {Value: "10:15", Label: "10:15h"}, {Value: "10:30", Label: "10:30h"}, {Value: "10:45", Label: "10:45h"}, {Value: "11:00", Label: "11:00h"}, {Value: "11:15", Label: "11:15h"}, {Value: "11:30", Label: "11:30h"}, {Value: "11:45", Label: "11:45h"}, {Value: "12:00", Label: "12:00h"}, {Value: "12:15", Label: "12:15h"}, {Value: "12:30", Label: "12:30h"}, {Value: "12:45", Label: "12:45h"}, {Value: "13:00", Label: "13:00h"}, {Value: "13:15", Label: "13:15h"}, {Value: "13:30", Label: "13:30h"}, {Value: "13:45", Label: "13:45h"}, {Value: "14:00", Label: "14:00h"}, {Value: "14:15", Label: "14:15h"}, {Value: "14:30", Label: "14:30h"}, {Value: "14:45", Label: "14:45h"}, {Value: "15:00", Label: "15:00h"}, {Value: "15:15", Label: "15:15h"}, {Value: "15:30", Label: "15:30h"}, {Value: "15:45", Label: "15:45h"}, {Value: "16:00", Label: "16:00h"}, {Value: "16:15", Label: "16:15h"}, {Value: "16:30", Label: "16:30h"}, {Value: "16:45", Label: "16:45h"}, {Value: "17:00", Label: "17:00h"}, {Value: "17:15", Label: "17:15h"}, {Value: "17:30", Label: "17:30h"}, {Value: "17:45", Label: "17:45h"}, {Value: "18:00", Label: "18:00h"}, {Value: "18:15", Label: "18:15h"}, {Value: "18:30", Label: "18:30h"}, {Value: "18:45", Label: "18:45h"}, {Value: "19:00", Label: "19:00h"}, {Value: "19:15", Label: "19:15h"}, {Value: "19:30", Label: "19:30h"}, {Value: "19:45", Label: "19:45h"}, {Value: "20:00", Label: "20:00h"}, {Value: "20:15", Label: "20:15h"}, {Value: "20:30", Label: "20:30h"}, {Value: "20:45", Label: "20:45h"}, {Value: "21:00", Label: "21:00h"}, {Value: "21:15", Label: "21:15h"}, {Value: "21:30", Label: "21:30h"}, {Value: "21:45", Label: "21:45h"}, {Value: "22:00", Label: "22:00h"}, {Value: "22:15", Label: "22:15h"}, {Value: "22:30", Label: "22:30h"}, {Value: "22:45", Label: "22:45h"}, {Value: "23:00", Label: "23:00h"}, {Value: "23:15", Label: "23:15h"}, {Value: "23:30", Label: "23:30h"}, {Value: "23:45", Label: "23:45h"}}},
+					{Name: "backup_delete", Label: "srvcfg.server.backup_delete", Type: "checkbox", Datatype: "VARCHAR", Formtype: "CHECKBOX", Options: []Option{{Value: "n", Label: "n"}, {Value: "y", Label: "y"}}},
+					{Name: "sysbackup_copies", Label: "srvcfg.server.sysbackup_copies", Type: "text", Datatype: "VARCHAR", Formtype: "TEXT"},
+					{Name: "monit_url", Label: "srvcfg.server.monit_url", Type: "text", Datatype: "VARCHAR", Formtype: "TEXT"},
+					{Name: "monit_user", Label: "srvcfg.server.monit_user", Type: "text", Datatype: "VARCHAR", Formtype: "TEXT"},
+					{Name: "monit_password", Label: "srvcfg.server.monit_password", Type: "text", Datatype: "VARCHAR", Formtype: "TEXT"},
+					{Name: "munin_url", Label: "srvcfg.server.munin_url", Type: "text", Datatype: "VARCHAR", Formtype: "TEXT"},
+					{Name: "munin_user", Label: "srvcfg.server.munin_user", Type: "text", Datatype: "VARCHAR", Formtype: "TEXT"},
+					{Name: "munin_password", Label: "srvcfg.server.munin_password", Type: "text", Datatype: "VARCHAR", Formtype: "TEXT"},
+					{Name: "monitor_system_updates", Label: "srvcfg.server.monitor_system_updates", Type: "checkbox", Datatype: "VARCHAR", Formtype: "CHECKBOX", Options: []Option{{Value: "n", Label: "n"}, {Value: "y", Label: "y"}}},
+					{Name: "log_retention", Label: "srvcfg.server.log_retention", Type: "text", Datatype: "INTEGER", Formtype: "TEXT"},
+					{Name: "migration_mode", Label: "srvcfg.server.migration_mode", Type: "checkbox", Datatype: "VARCHAR", Formtype: "CHECKBOX", Options: []Option{{Value: "n", Label: "n"}, {Value: "y", Label: "y"}}},
+				},
+			},
+			{
 				Name:  "web",
 				Label: "srvcfg.tab.web",
 				Fields: []FormFieldMeta{
@@ -176,4 +210,38 @@ func serverConfigForm() FormMeta {
 			},
 		},
 	}
+}
+
+// serverCompatKeys are the [server] fields the Server tab renders for
+// ISPConfig3 compatibility: they round trip through the INI and are shown
+// to the operator, but nothing in this port reads them. Anything here is
+// deliberately NOT decoded by internal/getconf — that is the difference
+// between the two groups on the tab, and TestServerConfigFormMatchesGetconf
+// enforces that a rendered [server] field is in one group or the other.
+var serverCompatKeys = []string{
+	"auto_network_configuration",
+	"netmask",
+	"v6_prefix",
+	"gateway",
+	"firewall",
+	"hostname",
+	"nameservers",
+	"loglevel",
+	"admin_notify_events",
+	"backup_dir",
+	"backup_tmp",
+	"backup_dir_is_mount",
+	"backup_mode",
+	"backup_time",
+	"backup_delete",
+	"sysbackup_copies",
+	"monit_url",
+	"monit_user",
+	"monit_password",
+	"munin_url",
+	"munin_user",
+	"munin_password",
+	"monitor_system_updates",
+	"log_retention",
+	"migration_mode",
 }
