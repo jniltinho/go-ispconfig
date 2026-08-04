@@ -129,6 +129,41 @@ nginx/bind configs are validated (`nginx -t`, `named-checkconf`) before any
 reload; on validation failure the original file is restored and the step
 fails loudly.
 
+## ACME clients
+
+`--acme y` installs one client: `acme.sh` through its own installer script, or
+the distro's `certbot` package. With `--acme-client certbot` the webserver
+plugin matching `--web-server` comes along — `python3-certbot-nginx`, or
+`python3-certbot-apache` on the Apache path.
+
+**The panel itself never uses that plugin.** Site certificates are issued with
+`--authenticator webroot`, which needs no plugin, and this is what ISPConfig3
+does too (checked against the 3.3.1p1 tree):
+
+- the PHP installer **detects** a client rather than apt-installing one, and
+  only falls back to installing acme.sh when neither is present
+  (`installer_base.lib.php:3183`);
+- the panel certificate is issued with
+  `certonly … --authenticator webroot --webroot-path /usr/local/ispconfig/interface/acme`,
+  dropping to `--standalone` only on a host with no webserver
+  (`installer_base.lib.php:3464`);
+- site certificates take the same shared path — `letsencrypt.inc.php` builds
+  `certonly … --authenticator webroot --webroot-map {…}`, called by both the
+  apache2 and nginx plugins.
+
+A plugin rewrites the vhost to place its challenge, which the panel cannot
+allow for a site it manages: vhosts are rendered from templates and the next
+apply would overwrite the edit. The plugin is there for the one certificate the
+panel does *not* manage — its own — so that an operator replacing the
+self-signed panel certificate can run `certbot --nginx` without hunting for a
+package first.
+
+**Known gap:** issuance lives in `internal/nginx` only. Apache sites get
+renewal (`internal/apache2/le_renew.go` over the shared `internal/web` helper)
+but cannot *issue* from the panel yet — issue once by hand on an Apache host
+and the renewal job takes over. `openspec/changes/acme-as-go/` proposes
+replacing both paths with an in-process client.
+
 ## Deferred installer capabilities (other modules)
 
 The following configure steps are **not** part of the current

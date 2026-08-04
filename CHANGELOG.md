@@ -28,6 +28,11 @@ so a fresh install generates the same prefixed names the PHP panel does.
   form was missing: `server` section keys (`ip_address`, `ssh_port`, timezone,
   auto-update and monitoring settings), decoded through a typed
   `getconf.ServerSection` instead of raw map indexing
+- **`--acme-client certbot` also installs the matching webserver plugin** —
+  `python3-certbot-nginx`, or `python3-certbot-apache` with
+  `--web-server apache2`. The panel does not use it (site certificates are
+  issued with `--authenticator webroot`, as the legacy does); it is there for
+  the one certificate the panel does not manage, its own
 
 ### Fixed
 
@@ -54,8 +59,17 @@ so a fresh install generates the same prefixed names the PHP panel does.
 - `add-multiserver-mgmt` re-scoped against the shipped tree, with tasks
 - `refine-system-config-parity` proposal covering the gaps found against the
   legacy panel at 192.168.56.20
-- `acme-as-go` proposal and decision record — wrap `go-acme/lego` rather than
-  port acme.sh, with the legacy's actual ACME behaviour documented
+- `acme-as-go` proposal and decision record — issue certificates natively over
+  `golang.org/x/crypto/acme`, already a direct dependency, rather than porting
+  acme.sh or adding `go-acme/lego` for a DNS provider catalogue this panel does
+  not need (it *is* the DNS server), with the legacy's actual ACME behaviour
+  documented
+- `docs/multi-server.md` — what to install on each node (the `--web`/`--dns`
+  answers gate the web and DNS steps, the row's `mail_server` flag gates the
+  mail steps), per-role package tables, and how to run a real BIND secondary
+  across two DNS nodes
+- `docs/install.md` — the ACME section: which client and plugin the installer
+  puts on the box, and why issuance is webroot-only
 - brand gopher icons regenerated from the 1024px source, transparency preserved
 
 ## [0.4.0] — 2026-08-04
