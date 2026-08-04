@@ -36,14 +36,14 @@ var serveCmd = &cobra.Command{
 	Short:        "Start the panel web server (API + embedded SPA)",
 	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-			Level: slog.LevelInfo,
-		})))
-
 		cfg, err := config.Load()
 		if err != nil {
 			return err
 		}
+		slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+			Level: cfg.Log.Slog(),
+		})))
+
 		if port, _ := cmd.Flags().GetInt("port"); port != 0 {
 			cfg.Server.Port = port
 		}

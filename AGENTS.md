@@ -95,6 +95,7 @@ com usuário full-grant `goisp-lab`), dataset de fixtures idempotente
 | Screenshots | agent-browser → `docs/prints/` (validação humana); aprovados → `docs/screenshots/` |
 | Instalação | `make vagrant-up && make vagrant-test` (VM Ubuntu 24.04, roda `go-ispconfig install --yes` + smoke tests) |
 | API manual | Swagger UI em `/swagger/` |
+| Log de debug | `LOG_LEVEL=debug` (env, sem rebuild) ou `[log] level` no config.toml — vale para `serve` e `daemon` |
 | **Lab painel `.10`** | **Redeploy do binário na VM go-ispconfig (ver abaixo) — obrigatório em todo marco de módulo/UI** |
 
 ## Redeploy na VM lab `192.168.56.10` (obrigatório)

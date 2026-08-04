@@ -106,3 +106,8 @@ rehash_legacy = false
 # [database] with database name "powerdns" (PHP parity).
 # [powerdns]
 # dsn = "ispconfig:secret@tcp(127.0.0.1:3306)/powerdns?charset=utf8mb4&parseTime=True&loc=Local"
+
+# Logging verbosity: panic|error|warn|info|debug. Default info.
+# Override at runtime without editing this file: LOG_LEVEL=debug
+[log]
+level = "info"

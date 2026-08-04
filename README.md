@@ -96,6 +96,9 @@ make all                 # build frontend (web/dist) + Go binary (bin/go-ispconf
 ./bin/go-ispconfig migrate   # create schema (embedded ispconfig3.sql) + seed admin
 ./bin/go-ispconfig serve     # panel + API + Swagger UI at /swagger/
 ./bin/go-ispconfig daemon    # config daemon (root, applies the module configs)
+
+# Crank up logging without a rebuild (config: [log] level, default info)
+LOG_LEVEL=debug ./bin/go-ispconfig serve
 ```
 
 `migrate` prints the generated admin password once. Pointing the DSN at an

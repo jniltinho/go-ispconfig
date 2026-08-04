@@ -1,6 +1,7 @@
 package config
 
 import (
+	"log/slog"
 	"os"
 	"path/filepath"
 	"testing"
@@ -115,4 +116,39 @@ dsn = "ispconfig:secret@tcp(127.0.0.1:3306)/powerdns?parseTime=true"
 	cfg, err = Load()
 	require.NoError(t, err)
 	require.Equal(t, "root:root@tcp(db:3306)/powerdns", cfg.PowerDNS.DSN)
+}
+
+func TestLogLevel(t *testing.T) {
+	for _, tc := range []struct {
+		in   string
+		want slog.Level
+	}{
+		{"debug", slog.LevelDebug},
+		{"DEBUG", slog.LevelDebug},
+		{"warn", slog.LevelWarn},
+		{"error", slog.LevelError},
+		{"panic", slog.LevelError}, // slog has no panic level
+		{"", slog.LevelInfo},
+		{"nonsense", slog.LevelInfo},
+	} {
+		require.Equal(t, tc.want, LogConfig{Level: tc.in}.Slog(), "level %q", tc.in)
+	}
+}
+
+func TestLogLevelFromFileAndEnv(t *testing.T) {
+	t.Cleanup(viper.Reset)
+	viper.Reset()
+
+	require.NoError(t, Init(writeConfig(t, "[log]\nlevel = \"warn\"\n")))
+	cfg, err := Load()
+	require.NoError(t, err)
+	require.Equal(t, slog.LevelWarn, cfg.Log.Slog())
+
+	// Bare LOG_LEVEL wins over the file.
+	viper.Reset()
+	t.Setenv("LOG_LEVEL", "debug")
+	require.NoError(t, Init(writeConfig(t, "[log]\nlevel = \"warn\"\n")))
+	cfg, err = Load()
+	require.NoError(t, err)
+	require.Equal(t, slog.LevelDebug, cfg.Log.Slog())
 }

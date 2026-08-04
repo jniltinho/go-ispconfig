@@ -45,15 +45,15 @@ var daemonCmd = &cobra.Command{
 	Short:        "Start the config-apply daemon (sys_datalog consumer)",
 	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-			Level: slog.LevelInfo,
-		}))
-		slog.SetDefault(logger)
-
 		cfg, err := config.Load()
 		if err != nil {
 			return err
 		}
+		logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+			Level: cfg.Log.Slog(),
+		}))
+		slog.SetDefault(logger)
+
 		db, err := database.Open(cfg.Database.DSN)
 		if err != nil {
 			return err
