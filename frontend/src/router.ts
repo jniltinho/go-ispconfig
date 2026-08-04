@@ -33,6 +33,7 @@ import SlaveZoneList from './views/dns/SlaveZoneList.vue'
 import TemplateList from './views/dns/TemplateList.vue'
 import MigrationWizard from './views/system/MigrationWizard.vue'
 import Fail2banView from './views/system/Fail2banView.vue'
+import ServerConfigView from './views/system/ServerConfigView.vue'
 import MonitorState from './views/monitor/MonitorState.vue'
 import MonitorData from './views/monitor/MonitorData.vue'
 import MonitorSysLog from './views/monitor/MonitorSysLog.vue'
@@ -569,6 +570,29 @@ export const router = createRouter({
           props: { titleKey: 'sidebar.tools.resync' },
         },
         { path: 'system', name: 'system', component: ModulePlaceholder },
+        {
+          // Server Config: the server list picks the node, the form edits its
+          // server.config INI section by section (legacy admin/server_config_*).
+          path: 'system/server-config',
+          name: 'system-server-config',
+          component: MailList,
+          meta: { adminOnly: true },
+          props: {
+            apiBase: '/api/server', idField: 'server_id', formBase: '/system/server-config',
+            columns: [
+              { key: 'server_name', label: 'srvcfg.col.server' },
+              { key: 'active', label: 'srvcfg.col.active' },
+            ],
+            titleKey: 'srvcfg.list_title', addKey: '',
+            activeValue: '1', deletable: false,
+          },
+        },
+        {
+          path: 'system/server-config/:id(\\d+)',
+          name: 'system-server-config-edit',
+          component: ServerConfigView,
+          meta: { adminOnly: true },
+        },
         {
           path: 'system/server-ips',
           name: 'system-server-ips',
