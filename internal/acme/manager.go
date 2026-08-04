@@ -53,9 +53,7 @@ func (m *Manager) IssueForSite(domains []string, keyType, keyFile, crtFile, prov
 		provider = ChallengeHTTP
 	}
 
-	m.client.SetChallenge(provider, m.dns)
-
-	res, err := m.client.Issue(domains, keyType)
+	res, err := m.client.IssueWith(provider, m.dns, domains, keyType)
 	if err != nil {
 		m.state.RecordError(main, provider, err.Error())
 		return nil, err
@@ -112,8 +110,17 @@ func (m *Manager) RenewDue() (int, error) {
 		if provider == "" {
 			provider = ChallengeHTTP
 		}
-		m.client.SetChallenge(provider, m.dns)
-		if _, err := m.client.Issue(domains, keyTypeFromLineage(lineage)); err != nil {
+		// A wildcard can only ever be validated by dns-01. Falling back to
+		// http-01 because the state lost the provider would fail every night
+		// and spend a failed validation each time, which is how an account
+		// reaches the CA's rate limit without anyone noticing.
+		if provider == ChallengeHTTP && hasWildcard(domains) {
+			err := fmt.Errorf("acme: %s covers a wildcard and needs dns-01, but no provider is recorded", lineage)
+			m.state.RecordError(domains[0], provider, err.Error())
+			m.log.Warn("acme: renewal skipped", "lineage", lineage, "error", err)
+			continue
+		}
+		if _, err := m.client.IssueWith(provider, m.dns, domains, keyTypeFromLineage(lineage)); err != nil {
 			m.state.RecordError(domains[0], provider, err.Error())
 			m.log.Warn("acme: renewal failed", "lineage", lineage, "error", err)
 			continue
@@ -154,4 +161,14 @@ func keyTypeFromLineage(lineage string) string {
 		return "ecdsa"
 	}
 	return "rsa"
+}
+
+// hasWildcard reports whether any name on the certificate is a wildcard.
+func hasWildcard(domains []string) bool {
+	for _, d := range domains {
+		if strings.HasPrefix(d, "*.") {
+			return true
+		}
+	}
+	return false
 }

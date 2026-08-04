@@ -10,11 +10,12 @@ import (
 // (<docroot>/ssl/<domain>-le.{key,crt}), matching the legacy install-cert
 // layout both web plugins already read.
 func LinkSiteCerts(fullchain, privkey, keyFile, crtFile string) error {
-	for _, f := range []string{keyFile, crtFile} {
-		if err := removeLinkOnly(f); err != nil {
-			return err
-		}
-	}
+	// Never unlink first. Removing both and then creating them leaves a window
+	// with no certificate at all, and a failure between the two removals and
+	// the two symlinks leaves the site worse than before it was touched: the
+	// next reload finds a vhost pointing at nothing. Each link is replaced in
+	// place, through a temporary name and a rename, so the path either names
+	// the old target or the new one.
 	if err := linkFile(keyFile, privkey); err != nil {
 		return err
 	}
@@ -29,9 +30,7 @@ func linkFile(target, source string) error {
 			if existing, _ := os.Readlink(target); existing == source {
 				return nil
 			}
-			if err := os.Remove(target); err != nil {
-				return fmt.Errorf("acme: replacing link %s: %w", target, err)
-			}
+			// Replaced by the atomic swap below, not unlinked here.
 		} else {
 			backup := target + ".old." + time.Now().Format("20060102150405")
 			if err := copyFileMode(target, backup, 0o400); err != nil {
@@ -42,15 +41,8 @@ func linkFile(target, source string) error {
 			}
 		}
 	}
-	if err := os.Symlink(source, target); err != nil {
+	if err := replaceSymlink(source, target); err != nil {
 		return fmt.Errorf("acme: linking %s -> %s: %w", target, source, err)
-	}
-	return nil
-}
-
-func removeLinkOnly(target string) error {
-	if info, err := os.Lstat(target); err == nil && info.Mode()&os.ModeSymlink != 0 {
-		return os.Remove(target)
 	}
 	return nil
 }

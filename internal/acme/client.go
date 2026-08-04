@@ -50,9 +50,10 @@ type Client struct {
 	// challenge names the solver for the next issuance (http-01 or a dns provider).
 	challenge string
 
-	mu    sync.Mutex             // guards lego, and serialises registration
-	lego  *lego.Client           // built lazily: no network at construction
-	locks map[string]*sync.Mutex // per-lineage, so two applies of one site do not both call the CA
+	mu      sync.Mutex             // guards lego, and serialises registration
+	issueMu sync.Mutex             // serialises solver selection + obtain (see IssueWith)
+	lego    *lego.Client           // built lazily: no network at construction
+	locks   map[string]*sync.Mutex // per-lineage, so two applies of one site do not both call the CA
 }
 
 // New returns a Client. It touches neither the network nor the account
@@ -145,8 +146,25 @@ type Result struct {
 	Reused bool
 }
 
+// IssueWith selects the solver and issues under one lock, so a concurrent
+// issuance cannot change the solver between the two.
+//
+// SetChallenge mutates client-wide state and Issue reads it, so calling them
+// in sequence is a race the per-lineage locks do not cover: site A selects
+// http-01, site B selects dns-01 before A reaches Obtain, and A's certificate
+// is then validated with B's solver — which fails, or worse succeeds against
+// the wrong zone. Issuance is rare and network-bound, so serialising it
+// node-wide costs nothing worth measuring.
+func (c *Client) IssueWith(provider string, dns DNSProviderConfig, domains []string, keyType string) (*Result, error) {
+	c.issueMu.Lock()
+	defer c.issueMu.Unlock()
+	c.SetChallenge(provider, dns)
+	return c.Issue(domains, keyType)
+}
+
 // SetChallenge selects the solver for the next issuance and rebuilds the
-// lego client if the choice changed.
+// lego client if the choice changed. Prefer IssueWith: on its own this is
+// only safe when no other issuance can run concurrently.
 func (c *Client) SetChallenge(provider string, dns DNSProviderConfig) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
