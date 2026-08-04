@@ -103,9 +103,11 @@ var daemonCmd = &cobra.Command{
 		)
 		if webServerType == "apache" || webServerType == "apache2" {
 			apachePlugin = apache2.NewPlugin(db, services, runner, cfg.Templates.CustomDir, logger)
+			apachePlugin.SetServerID(srv.ServerID)
 			webPlugin = apachePlugin
 		} else {
 			nginxPlugin = nginx.NewPlugin(db, services, runner, cfg.Templates.CustomDir, logger)
+			nginxPlugin.SetServerID(srv.ServerID)
 			webPlugin = nginxPlugin
 		}
 		clientModule := clients.NewModule()

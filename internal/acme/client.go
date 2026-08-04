@@ -46,6 +46,9 @@ type Client struct {
 	cfg   Config
 	store *Store
 	log   *slog.Logger
+	dns   DNSProviderConfig
+	// challenge names the solver for the next issuance (http-01 or a dns provider).
+	challenge string
 
 	mu    sync.Mutex             // guards lego, and serialises registration
 	lego  *lego.Client           // built lazily: no network at construction
@@ -100,8 +103,9 @@ func (c *Client) client() (*lego.Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("acme: building client: %w", err)
 	}
-	if err := client.Challenge.SetHTTP01Provider(NewWebrootSolver(c.cfg.Webroot)); err != nil {
-		return nil, fmt.Errorf("acme: registering http-01 solver: %w", err)
+	dns := c.dns
+	if err := ConfigureChallenge(client, c.cfg.Webroot, dns, c.challenge); err != nil {
+		return nil, fmt.Errorf("acme: registering challenge solver: %w", err)
 	}
 
 	if acc.Registration == nil {
@@ -141,15 +145,28 @@ type Result struct {
 	Reused bool
 }
 
-// Issue obtains a certificate for domains, the first being the main one. It is
-// a precondition, not a cache: a stored certificate is reused only when it
-// covers the *same domain set* with more than 30 days left, so adding an alias
-// re-issues rather than silently serving a certificate missing it.
-func (c *Client) Issue(domains []string) (*Result, error) {
+// SetChallenge selects the solver for the next issuance and rebuilds the
+// lego client if the choice changed.
+func (c *Client) SetChallenge(provider string, dns DNSProviderConfig) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.challenge == provider && c.dns == dns {
+		return
+	}
+	c.challenge = provider
+	c.dns = dns
+	c.lego = nil
+}
+
+// Issue obtains a certificate for domains, the first being the main one.
+func (c *Client) Issue(domains []string, keyType string) (*Result, error) {
 	if len(domains) == 0 {
 		return nil, errors.New("acme: no domains")
 	}
-	lineage, err := Lineage(domains[0], c.cfg.KeyType)
+	if keyType == "" {
+		keyType = c.cfg.KeyType
+	}
+	lineage, err := Lineage(domains[0], keyType)
 	if err != nil {
 		return nil, err
 	}

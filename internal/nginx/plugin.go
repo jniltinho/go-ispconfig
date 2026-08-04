@@ -6,6 +6,7 @@ import (
 
 	"gorm.io/gorm"
 
+	"go-ispconfig/internal/acme"
 	"go-ispconfig/internal/engine"
 	"go-ispconfig/internal/getconf"
 )
@@ -37,6 +38,14 @@ type Plugin struct {
 	sslChangedDomain string
 	// leWebroot overrides the ACME challenge webroot in tests.
 	leWebroot string
+	// serverID is this node's server row (set by the daemon).
+	serverID uint32
+	// acmeMgr overrides the native ACME manager in tests.
+	acmeMgr *acme.Manager
+	// leIssue overrides issuance entirely in tests (returns ok, err).
+	leIssue func(mainDomain, keyFile, crtFile string) (bool, error)
+	// leHTTPGet overrides the reachability probe in tests.
+	leHTTPGet func(url string) (string, error)
 }
 
 // NewPlugin creates the nginx plugin. customTplDir may be empty (embedded
@@ -54,6 +63,9 @@ func NewPlugin(db *gorm.DB, services *engine.Services, runner engine.CommandRunn
 		logBaseDir:   DefaultLogBaseDir,
 	}
 }
+
+// SetServerID records this node's server id for ACME account paths.
+func (p *Plugin) SetServerID(id uint32) { p.serverID = id }
 
 // Name identifies the plugin in logs.
 func (*Plugin) Name() string { return "nginx" }

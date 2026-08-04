@@ -11,6 +11,7 @@ package apache2
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -20,6 +21,7 @@ import (
 
 	"gorm.io/gorm"
 
+	"go-ispconfig/internal/acme"
 	"go-ispconfig/internal/engine"
 	"go-ispconfig/internal/getconf"
 )
@@ -44,6 +46,13 @@ type Plugin struct {
 	logBaseDir string
 	// apacheVersion caches the `apache2ctl -v` probe (preset in tests).
 	apacheVersion string
+	// serverID is this node's server row (set by the daemon).
+	serverID uint32
+	// leWebroot overrides the ACME challenge webroot in tests.
+	leWebroot string
+	acmeMgr   *acme.Manager
+	leIssue   func(mainDomain, keyFile, crtFile string) (bool, error)
+	leHTTPGet func(url string) (string, error)
 }
 
 // NewPlugin creates the Apache plugin. customTplDir may be empty (embedded
@@ -61,6 +70,9 @@ func NewPlugin(db *gorm.DB, services *engine.Services, runner engine.CommandRunn
 		logBaseDir:   DefaultLogBaseDir,
 	}
 }
+
+// SetServerID records this node's server id for ACME account paths.
+func (p *Plugin) SetServerID(id uint32) { p.serverID = id }
 
 // Name identifies the plugin in logs.
 func (*Plugin) Name() string { return "apache2" }
@@ -130,6 +142,8 @@ func (p *Plugin) apply(ctx context.Context, action string, oldRow, newRow row) e
 		return err
 	}
 
+	leWarnings := p.maybeRequestLE(ctx, oldRow, newRow, cfg)
+
 	sslOn := newRow.str("ssl") == "y" && sslUsable(newRow)
 	crt, _, bundle := sslPaths(newRow)
 	in := vhostInput{
@@ -160,7 +174,10 @@ func (p *Plugin) apply(ctx context.Context, action string, oldRow, newRow row) e
 	if err := os.MkdirAll(filepath.Join(p.logBaseDir, domain), 0o755); err != nil {
 		return fmt.Errorf("apache2: creating log dir: %w", err)
 	}
-	return p.activate(ctx, cfg, domain, content, newRow.str("active") != "n")
+	if err := p.activate(ctx, cfg, domain, content, newRow.str("active") != "n"); err != nil {
+		return errors.Join(append(leWarnings, err)...)
+	}
+	return errors.Join(leWarnings...)
 }
 
 // webDomainDelete removes the vhost, its activation symlink and its pool.

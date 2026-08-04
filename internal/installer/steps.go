@@ -22,7 +22,6 @@ func InstallSteps() []Step {
 		dovecotStep{},
 		rspamdStep{},
 		getmailStep{},
-		acmeStep{},
 		systemdStep{},
 		summaryStep{},
 	}

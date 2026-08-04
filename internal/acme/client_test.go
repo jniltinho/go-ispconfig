@@ -45,7 +45,7 @@ func TestIssueReusesValidCertificate(t *testing.T) {
 	c := New(Config{Root: root, Webroot: t.TempDir(), CADirURL: "http://127.0.0.1:1/unused"})
 	selfSigned(t, c.store, "example.com", []string{"example.com", "www.example.com"}, 90*24*time.Hour)
 
-	res, err := c.Issue([]string{"example.com", "www.example.com"})
+	res, err := c.Issue([]string{"example.com", "www.example.com"}, "rsa")
 	require.NoError(t, err, "must not have called the CA")
 	assert.True(t, res.Reused)
 	assert.Equal(t, "example.com", res.Lineage)
@@ -59,7 +59,7 @@ func TestIssueReIssuesWhenDomainSetChanges(t *testing.T) {
 
 	// The CA is unreachable, so a re-issue attempt is observable as an error
 	// rather than as a silent reuse.
-	_, err := c.Issue([]string{"example.com", "new.example.com"})
+	_, err := c.Issue([]string{"example.com", "new.example.com"}, "rsa")
 	require.Error(t, err, "an added alias must reach the CA")
 }
 
@@ -69,7 +69,7 @@ func TestIssueReIssuesInsideRenewWindow(t *testing.T) {
 	c := New(Config{Root: t.TempDir(), Webroot: t.TempDir(), CADirURL: "http://127.0.0.1:1/unused"})
 	selfSigned(t, c.store, "example.com", []string{"example.com"}, 10*24*time.Hour)
 
-	_, err := c.Issue([]string{"example.com"})
+	_, err := c.Issue([]string{"example.com"}, "rsa")
 	require.Error(t, err, "a certificate inside the window must reach the CA")
 }
 
@@ -126,10 +126,10 @@ func TestSplitChain(t *testing.T) {
 func TestBackoffRefusesLocallyAfterFailure(t *testing.T) {
 	c := New(Config{Root: t.TempDir(), Webroot: t.TempDir(), CADirURL: "http://127.0.0.1:1/unused"})
 
-	_, err := c.Issue([]string{"example.com"})
+	_, err := c.Issue([]string{"example.com"}, "rsa")
 	require.Error(t, err, "the CA is unreachable")
 
-	_, err = c.Issue([]string{"example.com"})
+	_, err = c.Issue([]string{"example.com"}, "rsa")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not retrying until",
 		"the second attempt is refused locally, without reaching the CA")
