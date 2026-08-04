@@ -283,12 +283,12 @@ func formMetaHandler() echo.HandlerFunc {
 					typ = strings.ToLower(f.Formtype)
 				}
 				fields = append(fields, FormFieldMeta{
-					Name:       f.Name,
-					Label:      f.Label,
-					Type:       typ,
-					Datatype:   f.Datatype,
-					Formtype:   f.Formtype,
-					Default:    f.Default,
+					Name:        f.Name,
+					Label:       f.Label,
+					Type:        typ,
+					Datatype:    f.Datatype,
+					Formtype:    f.Formtype,
+					Default:     f.Default,
 					Options:     f.Options,
 					Validators:  f.Validators,
 					Collapsible: f.Collapsible,
