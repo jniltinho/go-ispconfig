@@ -132,13 +132,13 @@ func TestConvertClientName(t *testing.T) {
 	tests := []struct{ in, want string }{
 		{"clienta", "clienta"},
 		{"Acme", "acme"},
-		{"Acme Ltd", "acmeltd"},        // spaces are dropped, not replaced
-		{"acme.ltd", "acme_ltd"},       // anything else becomes an underscore
+		{"Acme Ltd", "acmeltd"},  // spaces are dropped, not replaced
+		{"acme.ltd", "acme_ltd"}, // anything else becomes an underscore
 		{"a-b", "a_b"},
 		{"under_score", "under_score"}, // already allowed
 		{"", "default"},                // a nameless group must still namespace
 		{"   ", "default"},
-		{"café", "caf__"},              // PHP indexes bytes: two for the accent
+		{"café", "caf__"}, // PHP indexes bytes: two for the accent
 	}
 	for _, tc := range tests {
 		assert.Equal(t, tc.want, convertClientName(tc.in), "convertClientName(%q)", tc.in)
@@ -160,4 +160,3 @@ func TestUnresolvedPrefixIsDropped(t *testing.T) {
 	assert.Equal(t, "", expandSitesPrefix(context.Background(), nil, nil, "", nil),
 		"an empty template stays empty")
 }
-
