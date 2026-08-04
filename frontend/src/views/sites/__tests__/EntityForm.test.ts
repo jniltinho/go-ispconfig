@@ -305,6 +305,39 @@ describe('EntityForm', () => {
     expect(select.findAll('option').map((o) => o.text())).toEqual(['—', 'ACME :: Ada (alpha1)'])
   })
 
+  // Regression: an empty client-groups list used to skip the override and
+  // fall back to a text input showing the raw default "0".
+  it('keeps the leading — option when client-groups is empty', async () => {
+    const withClient = {
+      ...meta,
+      tabs: [
+        {
+          ...meta.tabs[0],
+          fields: [
+            {
+              name: 'client_group_id',
+              label: 'client_txt',
+              type: 'select',
+              datatype: 'INTEGER',
+              formtype: 'SELECT',
+              default: '0',
+            },
+            ...meta.tabs[0].fields,
+          ],
+        },
+      ],
+    }
+    fetchMock.mockResolvedValueOnce(res(200, withClient)).mockResolvedValueOnce(res(200, []))
+
+    const wrapper = mount(EntityForm, { props: domainProps })
+    await flushPromises()
+
+    const select = wrapper.find('select#field-client_group_id')
+    expect(select.exists()).toBe(true)
+    expect(select.findAll('option').map((o) => o.text())).toEqual(['—'])
+    expect(wrapper.find('input#field-client_group_id').exists()).toBe(false)
+  })
+
   it('forwards the collapsible flag of a LEGEND so the section folds', async () => {
     const withLegend = {
       ...meta,
