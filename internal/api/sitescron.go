@@ -218,15 +218,15 @@ func sitesCronOwnerLimit(ctx context.Context, db *gorm.DB, parent *model.WebDoma
 	if parent == nil || parent.SysGroupID == 0 || parent.SysGroupID == 1 {
 		return "", true
 	}
-	cli, err := sitesCronClientByGroup(ctx, db, parent.SysGroupID)
+	cli, err := clientByGroup(ctx, db, parent.SysGroupID)
 	if err != nil || cli == nil || cli.LimitCronType == "" {
 		return "", true
 	}
 	return cli.LimitCronType, false
 }
 
-// sitesCronClientByGroup loads the client row owning a sys_group (nil if none).
-func sitesCronClientByGroup(ctx context.Context, db *gorm.DB, groupID uint32) (*model.Client, error) {
+// clientByGroup loads the client row owning a sys_group (nil if none).
+func clientByGroup(ctx context.Context, db *gorm.DB, groupID uint32) (*model.Client, error) {
 	if groupID == 0 || groupID == 1 {
 		return nil, nil
 	}
@@ -253,7 +253,7 @@ func sitesCronEnforceLimits(ctx context.Context, db *gorm.DB, id *repository.Ide
 	if id == nil || id.IsAdmin() {
 		return nil
 	}
-	cli, err := sitesCronClientByGroup(ctx, db, id.DefaultGroup)
+	cli, err := clientByGroup(ctx, db, id.DefaultGroup)
 	if err != nil {
 		return err
 	}

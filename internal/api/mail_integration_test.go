@@ -184,6 +184,60 @@ func TestMailDomainAPI(t *testing.T) {
 		assert.Equal(t, pol.ID, user.PolicyID)
 	})
 
+	t.Run("relay fields need show_per_domain_relay_options", func(t *testing.T) {
+		// Default: the option is off, so the form omits the fields and a
+		// body carrying them writes nothing (mail_domain_edit.htm gate).
+		status, data := call(t, srv, http.MethodGet, "/api/meta/forms/domains", cookie, "", nil)
+		require.Equal(t, http.StatusOK, status, "%s", data)
+		assert.NotContains(t, string(data), "relay_host", "relay fields hidden while the option is off")
+
+		status, data = call(t, srv, http.MethodPost, "/api/mail/domains", cookie, csrf,
+			map[string]any{"server_id": 1, "domain": "norelay.example", "active": "y",
+				"relay_host": "smtp.smarthost.net", "relay_pass": "s3cr3t"})
+		require.Equal(t, http.StatusCreated, status, "%s", data)
+		var off map[string]any
+		require.NoError(t, json.Unmarshal(data, &off))
+		var offRow model.MailDomain
+		require.NoError(t, db.Take(&offRow, int(off["domain_id"].(float64))).Error)
+		assert.Empty(t, offRow.RelayHost, "relay host ignored while the option is off")
+		assert.Empty(t, offRow.RelayPass)
+
+		require.NoError(t, db.Exec(
+			"INSERT INTO sys_ini (sysini_id, config) VALUES (1, ?) ON DUPLICATE KEY UPDATE config = VALUES(config)",
+			"[mail]\nshow_per_domain_relay_options=y\n").Error)
+
+		status, data = call(t, srv, http.MethodGet, "/api/meta/forms/domains", cookie, "", nil)
+		require.Equal(t, http.StatusOK, status, "%s", data)
+		assert.Contains(t, string(data), "relay_host", "relay fields shown once the option is on")
+	})
+
+	t.Run("relay host/user/password round-trip, password never returned", func(t *testing.T) {
+		status, data := call(t, srv, http.MethodPost, "/api/mail/domains", cookie, csrf,
+			map[string]any{"server_id": 1, "domain": "relayed.example", "active": "y",
+				"relay_host": "smtp.smarthost.net", "relay_user": "ruser", "relay_pass": "s3cr3t"})
+		require.Equal(t, http.StatusCreated, status, "%s", data)
+		var rec map[string]any
+		require.NoError(t, json.Unmarshal(data, &rec))
+		relayID := int(rec["domain_id"].(float64))
+		assert.Equal(t, "smtp.smarthost.net", rec["relay_host"])
+		assert.Equal(t, "ruser", rec["relay_user"])
+		assert.NotContains(t, rec, "relay_pass", "relay password redacted in responses")
+
+		var row model.MailDomain
+		require.NoError(t, db.Take(&row, relayID).Error)
+		assert.Equal(t, "s3cr3t", row.RelayPass, "relay password stored")
+
+		// An update that omits relay_pass (the form sends no value for an
+		// untouched password field) keeps the stored one.
+		status, data = call(t, srv, http.MethodPut, fmt.Sprintf("/api/mail/domains/%d", relayID), cookie, csrf,
+			map[string]any{"server_id": 1, "domain": "relayed.example", "active": "y",
+				"relay_host": "smtp2.smarthost.net", "relay_user": "ruser"})
+		require.Equal(t, http.StatusOK, status, "%s", data)
+		require.NoError(t, db.Take(&row, relayID).Error)
+		assert.Equal(t, "smtp2.smarthost.net", row.RelayHost)
+		assert.Equal(t, "s3cr3t", row.RelayPass, "untouched password preserved")
+	})
+
 	t.Run("DKIM TXT published when a managed zone exists", func(t *testing.T) {
 		soa := model.DNSSoa{
 			SysUserID: 1, SysGroupID: 1, SysPermUser: "riud", SysPermGroup: "riud",

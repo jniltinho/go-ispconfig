@@ -278,6 +278,9 @@ func formMetaHandler() echo.HandlerFunc {
 				if f.AdminOnly && !admin {
 					continue
 				}
+				if f.Hidden != nil && f.Hidden(c) {
+					continue
+				}
 				typ, ok := formTypes[f.Formtype]
 				if !ok {
 					typ = strings.ToLower(f.Formtype)

@@ -48,6 +48,10 @@ type Field struct {
 	// Collapsible marks a LEGEND field whose section the SPA renders
 	// folded (legacy collapse fieldsets, e.g. the DKIM block).
 	Collapsible bool `json:"collapsible,omitempty"`
+	// Hidden drops the field from the form metadata of a request when it
+	// reports true — the port of the per-request template conditionals
+	// (e.g. show_per_domain_relay_options around the relay inputs).
+	Hidden func(c *echo.Context) bool `json:"-"`
 }
 
 // Option is one selectable value of a SELECT or CHECKBOX field.

@@ -85,9 +85,12 @@ func mailDomainEntity(d *Deps) *Entity {
 				// (mail_domain_edit onAfterInsert/onAfterUpdate).
 				{Name: "policy", Label: "spamfilter_txt", Datatype: "INTEGER",
 					Formtype: "SELECT", Default: "0", Virtual: true},
-				{Name: "relay_host", Label: "relay_host_txt", Datatype: "VARCHAR", Formtype: "TEXT", AdminOnly: true},
-				{Name: "relay_user", Label: "relay_user_txt", Datatype: "VARCHAR", Formtype: "TEXT", AdminOnly: true},
-				{Name: "relay_pass", Label: "relay_pass_txt", Datatype: "VARCHAR", Formtype: "PASSWORD", AdminOnly: true},
+				// The relay inputs only render when the global [mail]
+				// show_per_domain_relay_options is on and the session may use
+				// them (mail_domain_edit.htm tmpl_if pair).
+				{Name: "relay_host", Label: "relay_host_txt", Datatype: "VARCHAR", Formtype: "TEXT", Hidden: relayHidden(d)},
+				{Name: "relay_user", Label: "relay_user_txt", Datatype: "VARCHAR", Formtype: "TEXT", Hidden: relayHidden(d)},
+				{Name: "relay_pass", Label: "relay_pass_txt", Datatype: "VARCHAR", Formtype: "PASSWORD", Hidden: relayHidden(d)},
 				checkbox("active", "active_txt", "y"),
 				checkbox("local_delivery", "local_delivery_txt", "y"),
 				// Collapsed DKIM fieldset (legacy #toggle-dkim collapse).
@@ -185,9 +188,42 @@ func checkDKIMSelector(_ *validator.Context, value string) string {
 // selector, validates any supplied private key and generates a DKIM key
 // pair when DKIM is enabled without one (port of the mail_domain_edit
 // create_dkim + tform filters).
-func mailDomainPrepare(c *echo.Context, d *Deps, _ *repository.Identity, body map[string]any) error {
+// relayAllowed ports the mail_domain_edit.php relay gate: the per-domain
+// relay host/user/password exist only when the panel-wide [mail]
+// show_per_domain_relay_options is 'y', and then only for admins or
+// clients whose limit_relayhost is 'y'.
+func relayAllowed(ctx context.Context, d *Deps, id *repository.Identity) bool {
+	if id == nil || d.DB == nil {
+		return false
+	}
+	sections, err := getconf.GetGlobalConfig(d.DB.WithContext(ctx))
+	if err != nil || sections["mail"]["show_per_domain_relay_options"] != "y" {
+		return false
+	}
+	if id.IsAdmin() {
+		return true
+	}
+	cli, err := clientByGroup(ctx, d.DB, id.DefaultGroup)
+	return err == nil && cli != nil && cli.LimitRelayhost == "y"
+}
+
+// relayHidden is the form-metadata side of relayAllowed.
+func relayHidden(d *Deps) func(*echo.Context) bool {
+	return func(c *echo.Context) bool {
+		return !relayAllowed(c.Request().Context(), d, identity(c))
+	}
+}
+
+func mailDomainPrepare(c *echo.Context, d *Deps, id *repository.Identity, body map[string]any) error {
 	if err := requireTargetServer("mail_server")(c, d, body); err != nil {
 		return err
+	}
+	// A hidden field is not writable either: without the gate the relay
+	// columns keep whatever the row already holds.
+	if !relayAllowed(c.Request().Context(), d, id) {
+		delete(body, "relay_host")
+		delete(body, "relay_user")
+		delete(body, "relay_pass")
 	}
 	if dom, ok := body["domain"].(string); ok && dom != "" {
 		dom = strings.ToLower(strings.TrimSuffix(dom, "."))
