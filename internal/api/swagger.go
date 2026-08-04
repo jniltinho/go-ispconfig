@@ -1,6 +1,7 @@
 package api
 
 import (
+	"fmt"
 	"io/fs"
 	"mime"
 	"net/http"
@@ -12,6 +13,7 @@ import (
 	"github.com/swaggo/swag"
 
 	"go-ispconfig/internal/auth"
+	"go-ispconfig/internal/config"
 
 	// Register the generated OpenAPI spec (make swagger) with the swag
 	// runtime so ReadDoc can serve it.
@@ -19,10 +21,10 @@ import (
 )
 
 // swaggerInitializer points the embedded Swagger UI at the generated spec
-// instead of the default petstore example.
+// instead of the default petstore example (%s is the mount prefix).
 const swaggerInitializer = `window.onload = function() {
   window.ui = SwaggerUIBundle({
-    url: "/swagger/doc.json",
+    url: "%s/doc.json",
     dom_id: "#swagger-ui",
     deepLinking: true,
     presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
@@ -31,22 +33,39 @@ const swaggerInitializer = `window.onload = function() {
 };
 `
 
-// RegisterSwagger serves the embedded Swagger UI at /swagger/ (design D11):
-// static assets from the swaggo/files embed, the generated spec at
-// /swagger/doc.json. echo-swagger targets Echo v4, so the UI is wired
-// directly on v5 here. Unless public (config server.swagger_public, meant
-// for development), the UI and spec require an admin session — the spec
-// enumerates the whole attack surface and stays off the anonymous internet.
-func RegisterSwagger(e *echo.Echo, sessions auth.SessionGetter, public bool) {
+// swaggerPath normalizes the configured mount prefix: exactly one leading
+// slash, no trailing slash, "/swagger" when unset.
+func swaggerPath(p string) string {
+	p = "/" + strings.Trim(strings.TrimSpace(p), "/")
+	if p == "/" {
+		return "/swagger"
+	}
+	return p
+}
+
+// RegisterSwagger serves the embedded Swagger UI under cfg.Path (default
+// /swagger, design D11): static assets from the swaggo/files embed, the
+// generated spec at <path>/doc.json. echo-swagger targets Echo v4, so the
+// UI is wired directly on v5 here. cfg.Disabled drops the route entirely;
+// unless cfg.Public (meant for development), the UI and spec require an
+// admin session — the spec enumerates the whole attack surface and stays
+// off the anonymous internet.
+func RegisterSwagger(e *echo.Echo, sessions auth.SessionGetter, cfg config.SwaggerConfig) {
+	if cfg.Disabled {
+		return
+	}
+	base := swaggerPath(cfg.Path)
+	initializer := fmt.Sprintf(swaggerInitializer, base)
+
 	var mw []echo.MiddlewareFunc
-	if !public {
+	if !cfg.Public {
 		mw = []echo.MiddlewareFunc{auth.Middleware(sessions), auth.RequireAuth(), requireAdmin}
 	}
-	e.GET("/swagger", func(c *echo.Context) error {
-		return c.Redirect(http.StatusMovedPermanently, "/swagger/")
+	e.GET(base, func(c *echo.Context) error {
+		return c.Redirect(http.StatusMovedPermanently, base+"/")
 	}, mw...)
-	e.GET("/swagger/*", func(c *echo.Context) error {
-		name := strings.TrimPrefix(c.Request().URL.Path, "/swagger/")
+	e.GET(base+"/*", func(c *echo.Context) error {
+		name := strings.TrimPrefix(c.Request().URL.Path, base+"/")
 		switch name {
 		case "", "index.html":
 			name = "index.html"
@@ -57,7 +76,7 @@ func RegisterSwagger(e *echo.Echo, sessions auth.SessionGetter, public bool) {
 			}
 			return c.Blob(http.StatusOK, "application/json; charset=utf-8", []byte(doc))
 		case "swagger-initializer.js":
-			return c.Blob(http.StatusOK, "application/javascript; charset=utf-8", []byte(swaggerInitializer))
+			return c.Blob(http.StatusOK, "application/javascript; charset=utf-8", []byte(initializer))
 		}
 		data, err := fs.ReadFile(swaggerFiles.FS, name)
 		if err != nil {

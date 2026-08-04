@@ -33,6 +33,27 @@ func TestDefaults(t *testing.T) {
 	require.Equal(t, 10, cfg.Daemon.TickSeconds)
 	require.False(t, cfg.Auth.RehashLegacy)
 	require.Contains(t, cfg.Database.DSN, "dbispconfig")
+	require.Equal(t, SwaggerConfig{Path: "/swagger"}, cfg.Swagger)
+}
+
+func TestSwaggerSection(t *testing.T) {
+	t.Run("explicit values", func(t *testing.T) {
+		t.Cleanup(viper.Reset)
+		viper.Reset()
+		require.NoError(t, Init(writeConfig(t, "[swagger]\ndisabled = true\npath = \"/docs\"\n")))
+		cfg, err := Load()
+		require.NoError(t, err)
+		require.Equal(t, SwaggerConfig{Disabled: true, Path: "/docs"}, cfg.Swagger)
+	})
+
+	t.Run("deprecated server.swagger_public still applies", func(t *testing.T) {
+		t.Cleanup(viper.Reset)
+		viper.Reset()
+		require.NoError(t, Init(writeConfig(t, "[server]\nswagger_public = true\n")))
+		cfg, err := Load()
+		require.NoError(t, err)
+		require.True(t, cfg.Swagger.Public)
+	})
 }
 
 func TestFileOverridesDefaults(t *testing.T) {

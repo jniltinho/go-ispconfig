@@ -67,6 +67,9 @@ func NewClient(cfg config.QueueConfig, log *slog.Logger) *Client {
 // Close releases the underlying Redis connections.
 func (c *Client) Close() error { return c.c.Close() }
 
+// Ping checks the Redis/Valkey connection, for the health endpoint.
+func (c *Client) Ping() error { return c.c.Ping() }
+
 // Enqueue puts a task on serverID's queue. Passed options are appended after
 // the queue routing, so callers may add uniqueness, retry limits or
 // deadlines; asynq's default retry/backoff policy applies otherwise.
