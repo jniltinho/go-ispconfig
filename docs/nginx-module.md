@@ -158,3 +158,21 @@ The end-to-end behavior of steps 4–10 is already pinned by the automated
 integration suite (`internal/nginx/nginx_integration_test.go`, run with
 `go test -tags=integration ./internal/nginx/`) against docker MariaDB/Redis
 with a faked OS seam; the VM pass validates the real nginx/php-fpm binaries.
+
+## Sites Domain form (nginx vs Apache)
+
+The Vue Web Domain form ports `web_vhost_domain_edit.htm` + the legacy
+`adjustForm()` AJAX (`getservertype`). `/api/meta/lookups/servers` returns
+each server's `[web] server_type` so the SPA can switch controls when the
+Server select changes:
+
+| | nginx | Apache |
+|---|---|---|
+| PHP modes | `no`, `php-fpm` | + `fast-cgi`, `cgi`, `mod`, `suphp` |
+| Domain checkboxes | CGI, SSI, Own Error-Documents | + Perl, Ruby, Python, SuEXEC |
+| Options tab | `nginx_directives` | `apache_directives` |
+| PHP Version | shown for `php-fpm` / `fast-cgi` | same |
+
+Website create still hides Type / Parent / Web folder (legacy separate
+Subdomain/Aliasdomain menus). Child-only `ssl_letsencrypt_exclude` and
+PageSpeed stay out of the metadata until those flows are wired.

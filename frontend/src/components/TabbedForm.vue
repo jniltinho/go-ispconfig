@@ -16,6 +16,8 @@ export interface FormField {
   readonly?: boolean
   /** collapsible folds the legend's section into a <details> (DKIM block). */
   collapsible?: boolean
+  /** suffix is a trailing unit label (legacy input-group-addon, e.g. MB). */
+  suffix?: string
 }
 
 /** Section is a legend and the fields following it, up to the next legend. */
@@ -121,6 +123,33 @@ watch(
   { deep: true },
 )
 
+// When hideFields/resolveSelectOptions rewrites metadata, seed defaults for
+// fields that just became visible (e.g. PHP Version after switching to php-fpm)
+// and coerce select values that left the option list (nginx adjustForm drops
+// apache-only PHP modes → php-fpm).
+watch(
+  () => props.metadata,
+  (meta) => {
+    for (const tab of meta.tabs) {
+      for (const field of tab.fields) {
+        if (field.type === 'legend') continue
+        if (values[field.name] === undefined) {
+          values[field.name] =
+            props.modelValue?.[field.name] ??
+            field.default ??
+            (field.type === 'checkbox' ? false : '')
+        }
+        if (field.type === 'select' && field.options?.length) {
+          const cur = String(values[field.name] ?? '')
+          if (!field.options.some((o) => o.value === cur)) {
+            values[field.name] = String(field.default ?? field.options[0].value)
+          }
+        }
+      }
+    }
+  },
+)
+
 // When server validation errors arrive, stay on (or jump to) the first tab
 // holding an offending field so the inline message is visible.
 watch(
@@ -215,15 +244,26 @@ watch(
               {{ field.label }}
             </label>
             <div class="flex-1">
-              <input
+              <div
                 v-if="field.type === 'text' || field.type === 'password'"
-                :id="`field-${field.name}`"
-                v-model="values[field.name] as string"
-                :type="field.type"
-                :disabled="field.readonly"
-                class="w-full border border-border bg-surface px-2 py-1 text-sm outline-none focus:border-link disabled:bg-bg disabled:text-text/60"
-                :class="{ 'border-danger-border': errors?.[field.name]?.length }"
-              />
+                class="flex"
+              >
+                <input
+                  :id="`field-${field.name}`"
+                  v-model="values[field.name] as string"
+                  :type="field.type"
+                  :disabled="field.readonly"
+                  class="w-full border border-border bg-surface px-2 py-1 text-sm outline-none focus:border-link disabled:bg-bg disabled:text-text/60"
+                  :class="{
+                    'border-danger-border': errors?.[field.name]?.length,
+                    'border-r-0': field.suffix,
+                  }"
+                />
+                <span
+                  v-if="field.suffix"
+                  class="inline-flex items-center border border-border bg-bg px-2 py-1 text-sm text-text/70"
+                >{{ field.suffix }}</span>
+              </div>
               <textarea
                 v-else-if="field.type === 'textarea'"
                 :id="`field-${field.name}`"

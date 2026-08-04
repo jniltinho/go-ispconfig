@@ -42,6 +42,12 @@ const props = defineProps<{
     values: Record<string, unknown>,
   ) => { value: string; label: string }[] | undefined
   /**
+   * hideFields returns field names to omit from the rendered form for the
+   * current values (legacy template conditionals the metadata API cannot
+   * express per keystroke, e.g. PHP Version only when PHP is php-fpm).
+   */
+  hideFields?: (values: Record<string, unknown>) => string[]
+  /**
    * validate runs client-side before the save call and, when it returns
    * field errors, blocks the request (mirrors the API rules for instant
    * feedback; the API stays the authority).
@@ -90,7 +96,7 @@ function refreshMetadata() {
 
 function onValuesChange(values: Record<string, unknown>) {
   liveValues.value = values
-  if (props.resolveSelectOptions) refreshMetadata()
+  if (props.resolveSelectOptions || props.hideFields) refreshMetadata()
 }
 
 /** truthyOption returns the checkbox value meaning "checked" ('y', '1', …). */
@@ -106,13 +112,14 @@ function falsyOption(field: ServerField): string {
 // toFormMetadata translates labels/options through i18n and converts
 // defaults to the client control types (checkbox booleans, string values).
 function toFormMetadata(meta: ServerMeta, values: Record<string, unknown> = {}): FormMetadata {
+  const hidden = new Set(props.hideFields?.(values) ?? [])
   return {
     tabs: meta.tabs.map((tab) => ({
       name: tab.name,
       label: t(tab.label),
       // Skip server-only columns (empty label) e.g. dual-hash password_sha2.
       fields: tab.fields
-        .filter((field) => field.label !== '')
+        .filter((field) => field.label !== '' && !hidden.has(field.name))
         .map((field) => {
         const dynamic = props.resolveSelectOptions?.(field.name, values)
         const override = dynamic ?? resolvedOverrides.value[field.name]
@@ -131,6 +138,8 @@ function toFormMetadata(meta: ServerMeta, values: Record<string, unknown> = {}):
         // LEGEND fields carry the collapse flag; TabbedForm folds the
         // section that follows into a <details> (legacy #toggle-dkim).
         collapsible: field.collapsible,
+        // Quota fields use the legacy MB addon (web_vhost_domain_edit.htm).
+        suffix: field.name === 'hd_quota' || field.name === 'traffic_quota' ? 'MB' : undefined,
         label: t(field.label),
         options: override ?? field.options?.map((o) => ({ value: o.value, label: t(o.label) })),
         default:
@@ -240,6 +249,23 @@ onMounted(async () => {
     // form) resolve against the server the user actually sees.
     for (const [name, opts] of Object.entries(resolvedOverrides.value)) {
       if (initial.value[name] === undefined && opts.length) initial.value[name] = opts[0].value
+    }
+    // Seed metadata defaults into the create payload so hideFields /
+    // resolveSelectOptions see the same values TabbedForm will render
+    // (otherwise php stays unset and PHP Version stays hidden on first paint).
+    // Skip empty-label server-only columns (same filter as toFormMetadata).
+    if (!props.id) {
+      for (const tab of meta.tabs) {
+        for (const field of tab.fields) {
+          if (field.label === '' || initial.value[field.name] !== undefined) continue
+          if (field.type === 'checkbox') {
+            initial.value[field.name] =
+              String(field.default ?? '') === truthyOption(field)
+          } else if (field.default != null) {
+            initial.value[field.name] = String(field.default)
+          }
+        }
+      }
     }
     liveValues.value = { ...initial.value }
     metadata.value = toFormMetadata(meta, liveValues.value)

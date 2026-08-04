@@ -68,6 +68,40 @@ func TestWebDomainEntityDeclaresKnownColumnsOnly(t *testing.T) {
 	}
 }
 
+// TestWebDomainDomainTabParity locks the Website Domain tab against the
+// legacy web_vhost_domain_edit.htm field set for vhostdomain_type=domain
+// on nginx (no apache-only / child-only controls in the metadata).
+func TestWebDomainDomainTabParity(t *testing.T) {
+	ent := webDomainEntity()
+	require.NotEmpty(t, ent.Tabs)
+	domain := ent.Tabs[0]
+	require.Equal(t, "domain", domain.Name)
+
+	var visible []string
+	hidden := map[string]bool{}
+	for _, f := range domain.Fields {
+		if f.Hidden != nil && f.Hidden(nil) {
+			hidden[f.Name] = true
+			continue
+		}
+		visible = append(visible, f.Name)
+	}
+	require.Equal(t, []string{
+		"server_id", "client_group_id", "ip_address", "ipv6_address", "domain",
+		"type", "parent_domain_id", "web_folder",
+		"hd_quota", "traffic_quota", "cgi", "ssi",
+		"perl", "ruby", "python", "suexec",
+		"errordocs", "subdomain",
+		"ssl", "ssl_letsencrypt", "php", "server_php_id", "directive_snippets_id",
+		"active",
+	}, visible)
+	for _, name := range []string{
+		"vhost_type", "ssl_letsencrypt_exclude", "enable_pagespeed",
+	} {
+		require.True(t, hidden[name], "expected %s hidden from Domain tab metadata", name)
+	}
+}
+
 func TestWebDomainDefaults(t *testing.T) {
 	h := dryDomainHandlers(t)
 	ctx := context.Background()
