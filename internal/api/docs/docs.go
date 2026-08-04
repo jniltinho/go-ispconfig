@@ -4815,6 +4815,43 @@ const docTemplate = `{
                 }
             }
         },
+        "/meta/lookups/spamfilter-policies": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Readable rows from spamfilter_policy as value/label pairs for the mail domain Spamfilter select.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "meta"
+                ],
+                "summary": "Spamfilter policy select options",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/api.Option"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/monitor/data": {
             "get": {
                 "security": [
@@ -9237,6 +9274,10 @@ const docTemplate = `{
         "api.FormFieldMeta": {
             "type": "object",
             "properties": {
+                "collapsible": {
+                    "description": "Collapsible marks a legend whose section renders folded.",
+                    "type": "boolean"
+                },
                 "datatype": {
                     "description": "Datatype is the tform datatype (INTEGER, VARCHAR, ...).",
                     "type": "string"

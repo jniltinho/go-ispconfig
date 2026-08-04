@@ -14,6 +14,15 @@ export interface FormField {
   default?: unknown
   /** readonly renders the field disabled (e.g. server-managed serial). */
   readonly?: boolean
+  /** collapsible folds the legend's section into a <details> (DKIM block). */
+  collapsible?: boolean
+}
+
+/** Section is a legend and the fields following it, up to the next legend. */
+interface Section {
+  legend?: FormField
+  collapsible: boolean
+  fields: FormField[]
 }
 
 export interface FormTab {
@@ -66,6 +75,20 @@ function fieldLabel(name: string): string {
 }
 
 const errorList = () => Object.entries(props.errors ?? {}).filter(([, msgs]) => msgs.length > 0)
+
+// sections splits a tab at its legends so a collapsible legend can fold the
+// fields that follow it (legacy collapse fieldsets).
+function sections(tab: FormTab): Section[] {
+  const out: Section[] = [{ collapsible: false, fields: [] }]
+  for (const field of tab.fields) {
+    if (field.type === 'legend') {
+      out.push({ legend: field, collapsible: field.collapsible === true, fields: [] })
+    } else {
+      out[out.length - 1].fields.push(field)
+    }
+  }
+  return out.filter((s) => s.legend || s.fields.length)
+}
 
 watch(
   values,
@@ -138,15 +161,28 @@ watch(
           role="tabpanel"
           class="mx-auto max-w-xl space-y-2"
         >
-          <template v-for="field in tab.fields" :key="field.name">
+          <!-- One block per legend; a collapsible legend folds into <details> -->
+          <component
+            :is="section.collapsible ? 'details' : 'div'"
+            v-for="(section, si) in sections(tab)"
+            :key="si"
+            class="space-y-2"
+          >
+            <summary
+              v-if="section.collapsible"
+              class="cursor-pointer border-b border-border pb-1 text-sm font-bold text-text"
+            >
+              {{ section.legend?.label }}
+            </summary>
             <!-- Fieldset legend as a sub-heading (original trait) -->
             <p
-              v-if="field.type === 'legend'"
+              v-else-if="section.legend"
               class="border-b border-border pb-1 text-sm font-bold text-text"
             >
-              {{ field.label }}
+              {{ section.legend.label }}
             </p>
-            <div v-else class="flex items-start gap-3">
+            <template v-for="field in section.fields" :key="field.name">
+            <div class="flex items-start gap-3">
             <label
               :for="`field-${field.name}`"
               class="w-44 shrink-0 pt-1 text-right text-sm font-semibold after:content-[':']"
@@ -200,10 +236,14 @@ watch(
               </p>
             </div>
             </div>
-          </template>
+            </template>
+          </component>
         </div>
       </template>
     </div>
+
+    <!-- Form-scoped extras (e.g. the DKIM generate panel) above the actions -->
+    <slot name="extra" />
 
     <!-- Save / Cancel -->
     <div class="flex justify-end gap-2 border-t border-border bg-bg px-4 py-2">

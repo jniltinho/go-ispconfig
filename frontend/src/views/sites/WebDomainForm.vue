@@ -42,27 +42,7 @@ function ipOptions(field: string, values: Record<string, unknown>): Opt[] | unde
 
 onMounted(async () => {
   const o: Record<string, Opt[]> = {}
-  try {
-    const servers = await api.get<Opt[]>('/api/meta/lookups/servers')
-    if (servers?.length) {
-      o.server_id = servers.map((s) => ({ value: String(s.value), label: String(s.label) }))
-    }
-  } catch {
-    // Fall back to free-text server_id when the lookup is unavailable.
-  }
-  try {
-    const groups = await api.get<Opt[]>('/api/meta/lookups/client-groups')
-    if (groups?.length) {
-      // Leading "no client" entry matches the entity default 0 (legacy
-      // <option value='0'>); picking it leaves the current owner untouched.
-      o.client_group_id = [
-        { value: '0', label: '—' },
-        ...groups.map((g) => ({ value: String(g.value), label: String(g.label) })),
-      ]
-    }
-  } catch {
-    // client_group_id is admin-only; non-admins never see the field.
-  }
+  // server_id and client_group_id are auto-resolved by EntityForm.
   try {
     serverIPs.value = await api.get<ServerIPRow[]>('/api/meta/lookups/server-ips')
   } catch {

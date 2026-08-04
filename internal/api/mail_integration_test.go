@@ -131,6 +131,59 @@ func TestMailDomainAPI(t *testing.T) {
 		assert.Contains(t, rec["dkim_public"], "PUBLIC KEY")
 	})
 
+	t.Run("spamfilter policy round-trips through spamfilter_users", func(t *testing.T) {
+		pol := model.SpamfilterPolicy{
+			SysUserID: 1, SysGroupID: 1, SysPermUser: "riud", SysPermGroup: "riud",
+			PolicyName: "Non-paying customer",
+		}
+		require.NoError(t, db.Create(&pol).Error)
+
+		// The lookup feeds the form select and must be reachable even though
+		// the policies entity itself is admin-only.
+		status, data := call(t, srv, http.MethodGet, "/api/meta/lookups/spamfilter-policies", cookie, "", nil)
+		require.Equal(t, http.StatusOK, status, "%s", data)
+		assert.Contains(t, string(data), "Non-paying customer")
+
+		// Create with a policy: the row lands in spamfilter_users under the
+		// "@domain" pseudo-address, not on mail_domain.
+		status, data = call(t, srv, http.MethodPost, "/api/mail/domains", cookie, csrf,
+			map[string]any{"server_id": 1, "domain": "spam.example", "active": "y", "policy": pol.ID})
+		require.Equal(t, http.StatusCreated, status, "%s", data)
+		var created map[string]any
+		require.NoError(t, json.Unmarshal(data, &created))
+		spamID := int(created["domain_id"].(float64))
+
+		var user model.SpamfilterUser
+		require.NoError(t, db.Where("email = ?", "@spam.example").Take(&user).Error)
+		assert.Equal(t, pol.ID, user.PolicyID)
+		assert.Equal(t, "@spam.example", user.Fullname)
+		assert.EqualValues(t, 5, user.Priority)
+
+		// The virtual field is read back on get, so the form preselects it.
+		status, data = call(t, srv, http.MethodGet, fmt.Sprintf("/api/mail/domains/%d", spamID), cookie, "", nil)
+		require.Equal(t, http.StatusOK, status, "%s", data)
+		var got map[string]any
+		require.NoError(t, json.Unmarshal(data, &got))
+		assert.EqualValues(t, pol.ID, got["policy"])
+
+		// Clearing it back to "- not enabled -" updates the same row.
+		status, data = call(t, srv, http.MethodPut, fmt.Sprintf("/api/mail/domains/%d", spamID), cookie, csrf,
+			map[string]any{"server_id": 1, "domain": "spam.example", "active": "y", "policy": 0})
+		require.Equal(t, http.StatusOK, status, "%s", data)
+		require.NoError(t, db.Where("email = ?", "@spam.example").Take(&user).Error)
+		assert.EqualValues(t, 0, user.PolicyID)
+
+		// A rename carries the pseudo-address over instead of orphaning it.
+		status, data = call(t, srv, http.MethodPut, fmt.Sprintf("/api/mail/domains/%d", spamID), cookie, csrf,
+			map[string]any{"server_id": 1, "domain": "spam2.example", "active": "y", "policy": pol.ID})
+		require.Equal(t, http.StatusOK, status, "%s", data)
+		var n int64
+		require.NoError(t, db.Model(&model.SpamfilterUser{}).Where("email = ?", "@spam.example").Count(&n).Error)
+		assert.EqualValues(t, 0, n, "old pseudo-address gone")
+		require.NoError(t, db.Where("email = ?", "@spam2.example").Take(&user).Error)
+		assert.Equal(t, pol.ID, user.PolicyID)
+	})
+
 	t.Run("DKIM TXT published when a managed zone exists", func(t *testing.T) {
 		soa := model.DNSSoa{
 			SysUserID: 1, SysGroupID: 1, SysPermUser: "riud", SysPermGroup: "riud",

@@ -9,6 +9,7 @@ import (
 
 	"go-ispconfig/internal/auth"
 	"go-ispconfig/internal/model"
+	"go-ispconfig/internal/repository"
 	"go-ispconfig/internal/validator"
 )
 
@@ -32,6 +33,8 @@ type FormFieldMeta struct {
 	Options []Option `json:"options,omitempty"`
 	// Validators are the declarative rules the API enforces.
 	Validators []validator.Rule `json:"validators,omitempty"`
+	// Collapsible marks a legend whose section renders folded.
+	Collapsible bool `json:"collapsible,omitempty"`
 }
 
 // FormTabMeta is one tab in a form metadata response.
@@ -75,6 +78,38 @@ func registerMetaRoutes(g *echo.Group, d *Deps) {
 	g.GET("/meta/lookups/servers", serversLookupHandler(d))
 	g.GET("/meta/lookups/client-groups", clientGroupsLookupHandler(d))
 	g.GET("/meta/lookups/server-ips", serverIPsLookupHandler(d))
+	g.GET("/meta/lookups/spamfilter-policies", spamfilterPoliciesLookupHandler(d))
+}
+
+// spamfilterPoliciesLookupHandler returns the readable spamfilter policies
+// as {value,label} options for the mail domain Spamfilter select. The
+// policies entity is admin-only, but a client still has to see the
+// policies it may assign (legacy getAuthSQL('r') datasource).
+//
+//	@Summary		Spamfilter policy select options
+//	@Description	Readable rows from spamfilter_policy as value/label pairs for the mail domain Spamfilter select.
+//	@Tags			meta
+//	@Produce		json
+//	@Success		200	{array}		Option
+//	@Failure		401	{object}	ErrorResponse
+//	@Router			/meta/lookups/spamfilter-policies [get]
+//	@Security		CookieAuth
+//	@Security		BearerAuth
+func spamfilterPoliciesLookupHandler(d *Deps) echo.HandlerFunc {
+	return func(c *echo.Context) error {
+		var rows []model.SpamfilterPolicy
+		err := d.DB.WithContext(c.Request().Context()).Model(&model.SpamfilterPolicy{}).
+			Scopes(repository.WithPerm(identity(c), repository.PermRead)).
+			Select("id", "policy_name").Order("policy_name").Find(&rows).Error
+		if err != nil {
+			return err
+		}
+		out := make([]Option, 0, len(rows))
+		for _, r := range rows {
+			out = append(out, Option{Value: strconv.FormatUint(uint64(r.ID), 10), Label: r.PolicyName})
+		}
+		return c.JSON(http.StatusOK, out)
+	}
 }
 
 // clientGroupRow is one row of the client-groups lookup join.
@@ -248,14 +283,15 @@ func formMetaHandler() echo.HandlerFunc {
 					typ = strings.ToLower(f.Formtype)
 				}
 				fields = append(fields, FormFieldMeta{
-					Name:       f.Name,
-					Label:      f.Label,
-					Type:       typ,
-					Datatype:   f.Datatype,
-					Formtype:   f.Formtype,
-					Default:    f.Default,
-					Options:    f.Options,
-					Validators: f.Validators,
+					Name:        f.Name,
+					Label:       f.Label,
+					Type:        typ,
+					Datatype:    f.Datatype,
+					Formtype:    f.Formtype,
+					Default:     f.Default,
+					Options:     f.Options,
+					Validators:  f.Validators,
+					Collapsible: f.Collapsible,
 				})
 			}
 			meta.Tabs = append(meta.Tabs, FormTabMeta{Name: tab.Name, Label: tab.Label, Fields: fields})

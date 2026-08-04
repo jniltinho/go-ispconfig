@@ -267,4 +267,71 @@ describe('EntityForm', () => {
     expect(wrapper.text()).toContain('Invalid redirect path')
     expect(push).not.toHaveBeenCalled()
   })
+
+  // Regression: a bare client_group_id SELECT used to fall back to a free-text
+  // input on every form but the web domain one, so the mail domain create form
+  // had no client picker at all.
+  it('auto-loads the client-groups lookup into a bare client_group_id select', async () => {
+    const withClient = {
+      ...meta,
+      tabs: [
+        {
+          ...meta.tabs[0],
+          fields: [
+            {
+              name: 'client_group_id',
+              label: 'client_txt',
+              type: 'select',
+              datatype: 'INTEGER',
+              formtype: 'SELECT',
+              default: '0',
+            },
+            ...meta.tabs[0].fields,
+          ],
+        },
+      ],
+    }
+    fetchMock
+      .mockResolvedValueOnce(res(200, withClient))
+      .mockResolvedValueOnce(res(200, [{ value: '3', label: 'ACME :: Ada (alpha1)' }]))
+
+    const wrapper = mount(EntityForm, { props: domainProps })
+    await flushPromises()
+
+    expect(fetchMock.mock.calls[1][0]).toBe('/api/meta/lookups/client-groups')
+    const select = wrapper.find('select#field-client_group_id')
+    expect(select.exists()).toBe(true)
+    // Leading "not assigned" entry matches the entity default 0.
+    expect(select.findAll('option').map((o) => o.text())).toEqual(['—', 'ACME :: Ada (alpha1)'])
+  })
+
+  it('forwards the collapsible flag of a LEGEND so the section folds', async () => {
+    const withLegend = {
+      ...meta,
+      tabs: [
+        {
+          ...meta.tabs[0],
+          fields: [
+            ...meta.tabs[0].fields,
+            {
+              name: 'dkim_settings',
+              label: 'dkim_settings_txt',
+              type: 'legend',
+              datatype: 'VARCHAR',
+              formtype: 'LEGEND',
+              collapsible: true,
+            },
+          ],
+        },
+      ],
+    }
+    fetchMock.mockResolvedValueOnce(res(200, withLegend))
+
+    const wrapper = mount(EntityForm, { props: domainProps })
+    await flushPromises()
+
+    const details = wrapper.find('details')
+    expect(details.exists()).toBe(true)
+    expect(details.find('summary').text()).toBe('DomainKeys Identified Mail (DKIM)')
+  })
 })

@@ -1,8 +1,10 @@
 <script setup lang="ts">
-// Mail domain form: the metadata-driven EntityForm plus the DKIM
-// controls (generate key, public key read-only, suggested DNS TXT,
-// auto-publish indicator). The generate button fills the private/public
-// fields; on save the API reconciles DNS and returns dns_published.
+// Mail domain form: the metadata-driven EntityForm plus the Spamfilter
+// policy options and the DKIM controls (generate key, suggested DNS TXT,
+// auto-publish indicator). The DKIM panel renders inside the form, above
+// the Save/Cancel bar, next to the collapsed DKIM fieldset. The generate
+// button fills the private/public fields; on save the API reconciles DNS
+// and returns dns_published.
 import { onMounted, ref } from 'vue'
 import EntityForm from '../sites/EntityForm.vue'
 import UiAlert from '../../components/UiAlert.vue'
@@ -12,19 +14,38 @@ import { useI18n } from '../../i18n'
 const props = defineProps<{ id?: string }>()
 const { t } = useI18n()
 
+type Opt = { value: string; label: string }
+
 const suggested = ref('')
 const dnsPublished = ref<boolean | null>(null)
 const error = ref('')
+const overrides = ref<Record<string, Opt[]>>({})
+const ready = ref(false)
 
 onMounted(async () => {
-  if (!props.id) return
   try {
-    const rec = await api.get<Record<string, unknown>>(`/api/mail/domains/${props.id}`)
-    suggested.value = String(rec.suggested_record ?? '')
-    if (typeof rec.dns_published === 'boolean') dnsPublished.value = rec.dns_published
+    const policies = await api.get<Opt[]>('/api/meta/lookups/spamfilter-policies')
+    // Leading "- not enabled -" entry matches the entity default 0
+    // (legacy <option value='0'>{no_policy}</option>).
+    overrides.value = {
+      policy: [
+        { value: '0', label: t('mail.no_policy') },
+        ...(policies ?? []).map((p) => ({ value: String(p.value), label: String(p.label) })),
+      ],
+    }
   } catch {
-    // Non-fatal: the form still loads via EntityForm.
+    // Policy select falls back to a free-text id when unavailable.
   }
+  if (props.id) {
+    try {
+      const rec = await api.get<Record<string, unknown>>(`/api/mail/domains/${props.id}`)
+      suggested.value = String(rec.suggested_record ?? '')
+      if (typeof rec.dns_published === 'boolean') dnsPublished.value = rec.dns_published
+    } catch {
+      // Non-fatal: the form still loads via EntityForm.
+    }
+  }
+  ready.value = true
 })
 
 // generateKey asks the API for a fresh pair and injects it into the form
@@ -38,9 +59,23 @@ async function generateKey() {
     setField('dkim_private', pair.dkim_private)
     setField('dkim_public', pair.dkim_public)
     setField('dkim', true)
+    suggested.value = buildRecord(readField('domain'), readField('dkim_selector'), pair.dkim_public)
   } catch (e) {
     error.value = e instanceof ApiError ? e.key : 'error.request_failed'
   }
+}
+
+// buildRecord mirrors mail.DKIMTXTValue/DKIMRecordName so the DNS-Record
+// shows up right after generating, before the record exists server-side
+// (legacy mail_domain_edit.htm getDKIM() does the same in JS).
+function buildRecord(domain: string, selector: string, pubPEM: string) {
+  if (!domain) return ''
+  const p = pubPEM.replace(/-----(BEGIN|END) PUBLIC KEY-----|\r|\n/g, '')
+  return `${selector || 'default'}._domainkey.${domain}. 3600 IN TXT "v=DKIM1; t=s; p=${p}"`
+}
+
+function readField(name: string) {
+  return document.querySelector<HTMLInputElement>(`#field-${name}`)?.value.trim() ?? ''
 }
 
 // setField writes into an EntityForm control via a real input event so
@@ -62,38 +97,44 @@ function setField(name: string, value: string | boolean) {
 </script>
 
 <template>
-  <div>
-    <EntityForm entity="domains" api-base="/api/mail/domains" back-to="/mail" :id="id" />
+  <EntityForm
+    v-if="ready"
+    entity="domains"
+    api-base="/api/mail/domains"
+    back-to="/mail"
+    :id="id"
+    :option-overrides="overrides"
+  >
+    <template #extra>
+      <section class="border-t border-border px-4 py-3" data-test="dkim-panel">
+        <UiAlert v-if="error" variant="danger" class="mb-3" :messages="[t(error)]" />
+        <button type="button" class="btn px-3 py-1.5" data-test="dkim-generate" @click="generateKey">
+          {{ t('mail.dkim_generate') }}
+        </button>
 
-    <section class="mt-6 max-w-2xl border border-border bg-surface p-4" data-test="dkim-panel">
-      <h2 class="mb-2 text-base font-bold">{{ t('mail.dkim') }}</h2>
-      <UiAlert v-if="error" variant="danger" class="mb-3" :messages="[t(error)]" />
-      <button type="button" class="btn px-3 py-1.5" data-test="dkim-generate" @click="generateKey">
-        {{ t('mail.dkim_generate') }}
-      </button>
+        <div v-if="suggested" class="mt-3">
+          <label class="mb-1 block text-sm font-bold">{{ t('mail.dkim_suggested_txt') }}</label>
+          <pre
+            class="overflow-x-auto whitespace-pre-wrap break-all border border-border bg-bg p-2 text-xs"
+            data-test="dkim-suggested"
+          >{{ suggested }}</pre>
+        </div>
 
-      <div v-if="suggested" class="mt-3">
-        <label class="mb-1 block text-sm font-bold">{{ t('mail.dkim_suggested_txt') }}</label>
-        <pre
-          class="overflow-x-auto whitespace-pre-wrap break-all border border-border bg-bg p-2 text-xs"
-          data-test="dkim-suggested"
-        >{{ suggested }}</pre>
-      </div>
-
-      <p
-        v-if="dnsPublished === true"
-        class="mt-3 border border-border bg-info px-3 py-2 text-sm"
-        data-test="dkim-auto-dns"
-      >
-        {{ t('mail.dkim_auto_dns') }}
-      </p>
-      <p
-        v-else-if="dnsPublished === false && suggested"
-        class="mt-3 text-sm text-text/70"
-        data-test="dkim-manual-dns"
-      >
-        {{ t('mail.dkim_manual_dns') }}
-      </p>
-    </section>
-  </div>
+        <p
+          v-if="dnsPublished === true"
+          class="mt-3 border border-border bg-info px-3 py-2 text-sm"
+          data-test="dkim-auto-dns"
+        >
+          {{ t('mail.dkim_auto_dns') }}
+        </p>
+        <p
+          v-else-if="dnsPublished === false && suggested"
+          class="mt-3 text-sm text-text/70"
+          data-test="dkim-manual-dns"
+        >
+          {{ t('mail.dkim_manual_dns') }}
+        </p>
+      </section>
+    </template>
+  </EntityForm>
 </template>

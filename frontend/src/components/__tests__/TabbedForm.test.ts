@@ -94,4 +94,43 @@ describe('TabbedForm', () => {
       (wrapper.find('[data-test="form-cancel"]').element as HTMLButtonElement).disabled,
     ).toBe(true)
   })
+
+  it('folds a collapsible legend and the fields after it into a closed <details>', () => {
+    const wrapper = mount(TabbedForm, {
+      props: {
+        metadata: {
+          tabs: [
+            {
+              name: 'main',
+              label: 'Main',
+              fields: [
+                { name: 'domain', type: 'text', label: 'Domain' },
+                { name: 'dkim_settings', type: 'legend', label: 'DKIM', collapsible: true },
+                { name: 'dkim_selector', type: 'text', label: 'Selector' },
+              ],
+            },
+          ],
+        } as FormMetadata,
+      },
+    })
+    const details = wrapper.find('details')
+    expect(details.exists()).toBe(true)
+    expect((details.element as HTMLDetailsElement).open).toBe(false)
+    expect(details.find('summary').text()).toBe('DKIM')
+    // Only the fields after the legend are folded; the rest stays visible.
+    expect(details.find('#field-dkim_selector').exists()).toBe(true)
+    expect(details.find('#field-domain').exists()).toBe(false)
+    expect(wrapper.find('#field-domain').exists()).toBe(true)
+  })
+
+  it('renders the extra slot above the action bar', () => {
+    const wrapper = mount(TabbedForm, {
+      props: { metadata },
+      slots: { extra: '<p data-test="dkim-panel">panel</p>' },
+    })
+    const html = wrapper.html()
+    expect(html.indexOf('data-test="dkim-panel"')).toBeLessThan(
+      html.indexOf('data-test="form-cancel"'),
+    )
+  })
 })
