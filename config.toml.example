@@ -32,9 +32,9 @@ https = true
 # a startup error.
 tls_cert = ""
 tls_key  = ""
-# Serve the Swagger UI (/swagger) without authentication. Default false:
-# the UI and the OpenAPI spec require an admin session.
-swagger_public = false
+# Deprecated, use [swagger] below: swagger_public = true still maps to
+# swagger.public with a warning at startup.
+#swagger_public = false
 # CIDRs of reverse proxies allowed to set X-Forwarded-For/X-Forwarded-Proto.
 # Requests from these addresses use the forwarded client IP for login lockout
 # and the forwarded proto for the Secure cookie flag. Empty = headers ignored.
@@ -106,6 +106,15 @@ rehash_legacy = false
 # [database] with database name "powerdns" (PHP parity).
 # [powerdns]
 # dsn = "ispconfig:secret@tcp(127.0.0.1:3306)/powerdns?charset=utf8mb4&parseTime=True&loc=Local"
+
+[swagger]
+# Remove the Swagger route from the router entirely.
+disabled = false
+# Serve the UI and the OpenAPI spec without an admin session. Default
+# false: the spec enumerates the whole attack surface.
+public = false
+# URL prefix the UI is mounted under.
+path = "/swagger"
 
 # Logging verbosity: panic|error|warn|info|debug. Default info.
 # Override at runtime without editing this file: LOG_LEVEL=debug

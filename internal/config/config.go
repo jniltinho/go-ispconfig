@@ -25,6 +25,7 @@ type Config struct {
 	Log       LogConfig       `toml:"log" mapstructure:"log"`
 	Templates TemplatesConfig `toml:"templates" mapstructure:"templates"`
 	Mail      MailConfig      `toml:"mail" mapstructure:"mail"`
+	Swagger   SwaggerConfig   `toml:"swagger" mapstructure:"swagger"`
 	// PowerDNS holds optional overrides for the PowerDNS gmysql connection
 	// when dns_backend=powerdns (default: same host as [database] with
 	// database name "powerdns").
@@ -53,6 +54,19 @@ type MailConfig struct {
 	SMTPPass string `toml:"smtp_pass" mapstructure:"smtp_pass"`
 	// From is the envelope/header sender of panel emails.
 	From string `toml:"from" mapstructure:"from"`
+}
+
+// SwaggerConfig is the [swagger] section controlling the embedded Swagger
+// UI route.
+type SwaggerConfig struct {
+	// Disabled removes the Swagger route from the router entirely.
+	Disabled bool `toml:"disabled" mapstructure:"disabled"`
+	// Public serves the UI and the OpenAPI spec without an admin session
+	// (development convenience). Default false: the spec enumerates the
+	// whole attack surface and stays off the anonymous internet.
+	Public bool `toml:"public" mapstructure:"public"`
+	// Path is the URL prefix the UI is mounted under, default "/swagger".
+	Path string `toml:"path" mapstructure:"path"`
 }
 
 // TemplatesConfig controls the ".master" template override directory
@@ -87,9 +101,8 @@ type ServerConfig struct {
 	HTTPS   bool   `toml:"https" mapstructure:"https"`
 	TLSCert string `toml:"tls_cert" mapstructure:"tls_cert"`
 	TLSKey  string `toml:"tls_key" mapstructure:"tls_key"`
-	// SwaggerPublic serves /swagger without authentication (dev
-	// convenience). Default false: the Swagger UI and spec require an
-	// admin session.
+	// SwaggerPublic is the deprecated spelling of swagger.public; Load
+	// copies a true value over and logs a warning.
 	SwaggerPublic bool `toml:"swagger_public" mapstructure:"swagger_public"`
 	// TrustedProxies lists CIDRs of reverse proxies allowed to set
 	// X-Forwarded-For/X-Forwarded-Proto. Requests arriving from these
@@ -173,6 +186,9 @@ func setDefaults() {
 	viper.SetDefault("server.tls_cert", "")
 	viper.SetDefault("server.tls_key", "")
 	viper.SetDefault("server.swagger_public", false)
+	viper.SetDefault("swagger.disabled", false)
+	viper.SetDefault("swagger.public", false)
+	viper.SetDefault("swagger.path", "/swagger")
 	viper.SetDefault("server.trusted_proxies", []string{})
 	viper.SetDefault("database.dsn", "root:@tcp(127.0.0.1:3306)/dbispconfig?charset=utf8mb4&parseTime=True&loc=Local")
 	viper.SetDefault("database.clientdb_conf", "/etc/go-ispconfig/mysql_clientdb.conf")
@@ -236,6 +252,10 @@ func Load() (*Config, error) {
 	cfg := &Config{}
 	if err := viper.Unmarshal(cfg); err != nil {
 		return nil, fmt.Errorf("unmarshaling config: %w", err)
+	}
+	if cfg.Server.SwaggerPublic && !cfg.Swagger.Public {
+		slog.Warn("config: server.swagger_public is deprecated, use swagger.public")
+		cfg.Swagger.Public = true
 	}
 	return cfg, nil
 }

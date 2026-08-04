@@ -3111,6 +3111,40 @@ const docTemplate = `{
                 }
             }
         },
+        "/health": {
+            "get": {
+                "description": "Status, build identity and uptime. With ?full=1 it also probes the database, the task queue, the TLS certificate expiry and the daemon datalog backlog; the response is 503 only when the database is unreachable, a failing queue/certificate/daemon reports \"degraded\" with 200. No authentication required.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "meta"
+                ],
+                "summary": "Health check",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "1 to run the dependency probes",
+                        "name": "full",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.HealthStatus"
+                        }
+                    },
+                    "503": {
+                        "description": "Database unreachable",
+                        "schema": {
+                            "$ref": "#/definitions/api.HealthStatus"
+                        }
+                    }
+                }
+            }
+        },
         "/login": {
             "post": {
                 "description": "Verifies sys_user credentials (bcrypt or legacy ISPConfig3 crypt hashes) with brute-force lockout, creates a sys_session and returns the CSRF token and session id. The session id is also set as an HTTP-only cookie; non-browser clients may present it as a bearer token instead. With stay_logged_in the session lives 30 days (sliding) instead of the 1-hour idle TTL.",
@@ -8947,6 +8981,23 @@ const docTemplate = `{
                 }
             }
         },
+        "api.CheckResult": {
+            "type": "object",
+            "properties": {
+                "detail": {
+                    "type": "string"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "latency_ms": {
+                    "type": "integer"
+                },
+                "ok": {
+                    "type": "boolean"
+                }
+            }
+        },
         "api.CronRunItem": {
             "type": "object",
             "properties": {
@@ -9353,6 +9404,36 @@ const docTemplate = `{
                 },
                 "name": {
                     "description": "Name identifies the tab.",
+                    "type": "string"
+                }
+            }
+        },
+        "api.HealthStatus": {
+            "type": "object",
+            "properties": {
+                "build_date": {
+                    "type": "string"
+                },
+                "checks": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/api.CheckResult"
+                    }
+                },
+                "git_commit": {
+                    "type": "string"
+                },
+                "server_time": {
+                    "type": "string"
+                },
+                "status": {
+                    "description": "Status is ok, degraded (a non-critical check failed) or fail (the\ndatabase is unreachable).",
+                    "type": "string"
+                },
+                "uptime_sec": {
+                    "type": "integer"
+                },
+                "version": {
                     "type": "string"
                 }
             }

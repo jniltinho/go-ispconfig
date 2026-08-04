@@ -109,6 +109,28 @@ TLS: `serve` generates a self-signed certificate under `<config-dir>/ssl/` on
 first start; set `server.tls_cert`/`server.tls_key` in `config.toml` to use
 your own.
 
+Swagger: the UI is mounted at `/swagger/` behind an admin session. The
+`[swagger]` section moves it (`path`), opens it to anonymous requests
+(`public`, development only) or removes the route (`disabled`).
+
+### Health checks
+
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /healthz` | Liveness for load balancers: `ok` in plain text, no dependency touched. |
+| `GET /api/health` | Cheap status + build identity + uptime. |
+| `GET /api/health?full=1` | Probes database, task queue, TLS certificate expiry and the daemon datalog backlog. |
+
+Both are unauthenticated. `?full=1` answers `503` only when the database is
+unreachable; a failing queue, an expiring certificate or a stalled daemon
+report `"status": "degraded"` with `200`, so a degraded node stays in the
+pool instead of taking the panel offline.
+
+```bash
+curl -sk https://localhost:8080/healthz
+curl -sk 'https://localhost:8080/api/health?full=1' | jq
+```
+
 ## Development
 
 See [`AGENTS.md`](AGENTS.md) for the full environment/build/test/validation

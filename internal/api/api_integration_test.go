@@ -79,7 +79,7 @@ func TestAPISmoke(t *testing.T) {
 	e.Use(echoMiddleware.Recover())
 	deps := &api.Deps{DB: db, Sessions: auth.NewStore(db, 0), Config: &config.Config{}}
 	require.NoError(t, api.Register(e, deps))
-	api.RegisterSwagger(e, deps.Sessions, deps.Config.Server.SwaggerPublic)
+	api.RegisterSwagger(e, deps.Sessions, deps.Config.Swagger)
 	srv := httptest.NewServer(e)
 	defer srv.Close()
 

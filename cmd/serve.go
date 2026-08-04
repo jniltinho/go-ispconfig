@@ -64,7 +64,8 @@ var serveCmd = &cobra.Command{
 		// the daemon's tick polling remains the fallback consumer.
 		queueClient := queue.NewClient(cfg.Queue, slog.Default())
 		defer queueClient.Close() //nolint:errcheck // best-effort close on shutdown
-		if localServer, err := engine.ResolveServer(db, cfg.ServerID); err != nil {
+		localServer, err := engine.ResolveServer(db, cfg.ServerID)
+		if err != nil {
 			slog.Warn("could not resolve local server row, datalog ready notifications disabled",
 				"error", err)
 		} else {
@@ -101,13 +102,15 @@ var serveCmd = &cobra.Command{
 		if err := api.Register(e, deps); err != nil {
 			return fmt.Errorf("registering API: %w", err)
 		}
-		api.RegisterSwagger(e, deps.Sessions, cfg.Server.SwaggerPublic)
-
-		e.GET("/api/health", func(c *echo.Context) error {
-			return c.JSON(http.StatusOK, map[string]string{
-				"status":  "ok",
-				"version": Version,
-			})
+		api.RegisterSwagger(e, deps.Sessions, cfg.Swagger)
+		api.RegisterHealth(e, api.Health{
+			DB:        db,
+			Server:    localServer, // nil when unresolved: daemon check skipped
+			PingQueue: queueClient.Ping,
+			TLSCert:   certFile,
+			Version:   Version,
+			BuildDate: BuildDate,
+			GitCommit: GitCommit,
 		})
 
 		distFS, err := fs.Sub(globalFS, "web/dist")
