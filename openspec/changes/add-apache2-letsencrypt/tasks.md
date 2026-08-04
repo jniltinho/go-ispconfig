@@ -19,8 +19,18 @@
 ## 4. Lab
 
 - [ ] 4.1 Create the `apache-test` node (`vagrant up apache-test`) — it is `not created` today, which is why this gap went unnoticed.
-- [ ] 4.2 Issue a real certificate for a site on that node with each client (acme.sh and certbot) and confirm the vhost serves it, not the self-signed pair.
-- [ ] 4.3 Run the renewal job on the same node and confirm it now has something to renew.
+- [ ] 4.2 **No real certificate is issued in the lab** — `192.168.56.0/24` is
+  NAT'd and http-01 needs an inbound connection from the CA to port 80 of the
+  name being certified. Staging is not a workaround; it validates the same way.
+  What this node proves instead, with no CA involved:
+  - place a file by hand under `AcmeWebroot/.well-known/acme-challenge/` and
+    `curl http://<site>/.well-known/acme-challenge/<name>` from the host — the
+    Apache vhost must serve it. A missing alias is the failure this catches,
+    and it is the one that breaks issuance before certbot is ever reached;
+  - with a stub runner (task 3.4), assert the argv each client would receive.
+  Real issuance is a deploy-time check on a public VPS, tracked in 5.1.
+- [ ] 4.3 Run the renewal job on the node against hand-placed `-le.crt`/`-le.key`
+  files and confirm it picks them up and reloads Apache.
 
 ## 5. Documentation
 

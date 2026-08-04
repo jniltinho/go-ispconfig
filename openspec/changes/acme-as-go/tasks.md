@@ -34,7 +34,20 @@
 
 ## 6. Validation
 
-- [ ] 6.1 Unit tests against a stubbed directory (solvers, storage, locking, backoff); the no-production-URL assertion of D9.
-- [ ] 6.2 Staging integration test behind `GOISP_ACME_STAGING=1`.
-- [ ] 6.3 Lab pass on `192.168.56.10` (nginx) and an Apache node against staging.
+- [ ] 6.1 Unit tests against `tester.MockACMEServer().BuildHTTPS(t)` — lego ships
+  its own stub directory (`platform/tester/api.go`: `GET /dir` + `HEAD /nonce`
+  over `httptest.NewTLSServer`, extended per test with `.Route(...)`), which is
+  how lego tests its own http-01 solver in `challenge/http01/http_challenge_test.go`.
+  No network, no pebble, no CA. Covers solvers, storage, locking, backoff and
+  the no-production-URL assertion of D9.
+- [ ] 6.2 Staging integration test behind `GOISP_ACME_STAGING=1`, **skipped by
+  default**. It needs a publicly reachable host — see 6.3.
+- [ ] 6.3 The lab cannot validate issuance at all. `192.168.56.0/24` is NAT'd,
+  and staging is not a workaround: `acme-staging-v02` validates http-01 by
+  connecting *inbound* to port 80 of the name being certified, exactly like
+  production. What the lab does prove, and what 6.3 is: the challenge file
+  lands under the webroot with the right path and body, and both vhosts serve
+  `/.well-known/acme-challenge/<token>` over plain HTTP — asserted with `curl`
+  against a hand-placed file, no CA involved. Real issuance is a deploy-time
+  check on a public VPS, not a lab task.
 - [ ] 6.4 Cross-review with qwen3.8-max before the PR.

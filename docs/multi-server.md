@@ -33,10 +33,12 @@ The resolved row then drives everything else:
   and advances `server.updated` on that row only, so nodes never consume each
   other's work (`server_id = 0` means "every server", e.g. a global config
   change);
-- **module loading is gated by the row's role flags** — `web_server`,
-  `mail_server`, `dns_server`, `db_server`, `firewall_server`. A node with
-  `mail_server = 0` never loads the mail plugin, so it cannot write Postfix
-  config even if a mail event reaches it;
+- **module loading is gated by the row's role flags** — `mail_server`,
+  `dns_server`, `db_server`, `firewall_server`. A node with `mail_server = 0`
+  never loads the mail plugin, so it cannot write Postfix config even if a
+  mail event reaches it. The web module is the exception: it loads
+  unconditionally, and `web_server` gates only the cron module (see
+  [What to install on each node](#what-to-install-on-each-node));
 - `server.config` is per row, so each node has its own paths, PHP settings and
   DNS backend (see [server-config-module.md](server-config-module.md)).
 
@@ -253,6 +255,34 @@ Consequences worth knowing before you rely on it:
   and calls `pdns_control retrieve`, instead of a `named.conf` block (see
   [powerdns-module.md](powerdns-module.md));
 - deleting the primary zone leaves the slave row behind. Remove it yourself.
+
+## Production prereqs for Let's Encrypt
+
+Issuance is the one feature a private lab cannot validate. `http-01` works by
+the CA opening a connection **to** the name being certified, so a node on
+`192.168.56.0/24` — or behind any NAT — fails validation no matter how the
+panel is configured. The staging directory
+(`acme-staging-v02.api.letsencrypt.org`) is not a workaround: it validates
+exactly the same way, it only spends no rate limit.
+
+Before ticking "Let's Encrypt" on a site, the node needs:
+
+| | Why |
+|---|---|
+| A **public IP** on the node that serves the site | the CA connects to it directly |
+| Authoritative **DNS** for the name pointing at that IP, propagated | the CA resolves the name before connecting; a stale record fails validation |
+| **Port 80 open** inbound, to that node | http-01 is plain HTTP — 443 alone is not enough, and a redirect to HTTPS is followed but the certificate must already be valid |
+| The vhost serving `/.well-known/acme-challenge/` from the ACME webroot | the panel's templates do this; a hand-edited vhost may not |
+
+If port 80 cannot be opened — a node reachable only over a VPN, or a wildcard
+certificate, which http-01 cannot issue at all — the alternative is `dns-01`
+with an API token for the zone's provider (Route 53, Cloudflare, …). Not wired
+up in this port yet; `openspec/changes/acme-as-go/` covers it.
+
+Multi-server note: the certificate is issued **on the node that serves the
+site**, by that node's daemon, using that node's IP. A web node behind a load
+balancer must have port 80 forwarded to it specifically, not to the balancer,
+or the challenge lands on the wrong machine.
 
 ## What is not supported yet
 
