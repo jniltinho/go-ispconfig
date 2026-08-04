@@ -71,7 +71,7 @@ describe('DomainForm DKIM panel', () => {
     await flushPromises()
 
     expect(wrapper.find('[data-test="dkim-suggested"]').text()).toBe(
-      'default._domainkey.linuxpro.com.br. 3600 IN TXT "v=DKIM1; t=s; p=MIIBIjANBgkqAQAB"',
+      'default._domainkey.linuxpro.com.br. 3600   IN\tTXT\t"v=DKIM1; t=s; p=MIIBIjANBgkqAQAB"',
     )
     wrapper.unmount()
   })

@@ -130,7 +130,7 @@ func mailDomainDecorate() func(ctx context.Context, db *gorm.DB, items []map[str
 			if it["dkim"] == "y" {
 				name := mail.DKIMRecordName(fmt.Sprint(it["dkim_selector"]), fmt.Sprint(it["domain"]))
 				data := mail.DKIMTXTValue(fmt.Sprint(it["dkim_public"]))
-				it["suggested_record"] = name + ` 3600 IN TXT "` + data + `"`
+				it["suggested_record"] = mail.DKIMSuggestedRecord(name, data)
 				it["dns_published"] = false
 				names = append(names, name)
 			}
