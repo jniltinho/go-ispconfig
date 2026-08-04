@@ -129,6 +129,48 @@ nginx/bind configs are validated (`nginx -t`, `named-checkconf`) before any
 reload; on validation failure the original file is restored and the step
 fails loudly.
 
+## ACME clients
+
+`--acme y` installs **one client and nothing else**: `acme.sh` through its own
+installer script, or the distro's `certbot` package. No
+`python3-certbot-nginx`, no `python3-certbot-apache`.
+
+Site certificates are issued with `--authenticator webroot`, which needs no
+plugin — and neither does the legacy, checked against the ISPConfig `3.2dev`
+tree in `base/ispconfig3_install/`:
+
+- the PHP installer **detects** a client rather than apt-installing one, and
+  only falls back to installing acme.sh when neither is present
+  (`installer_base.lib.php:3183`);
+- the panel certificate is issued with
+  `certonly … --authenticator webroot --webroot-path /usr/local/ispconfig/interface/acme`,
+  dropping to `--standalone` only on a host with no webserver
+  (`installer_base.lib.php:3464`);
+- site certificates take the same shared path — `letsencrypt.inc.php` builds
+  `certonly … --authenticator webroot --webroot-map {…}`, called by both the
+  apache2 and nginx plugins.
+
+Webroot is the right authenticator for a site the panel manages: a plugin
+writes its own `ssl_certificate` and redirect directives into the vhost, and
+those are exactly the lines the next apply overwrites, because vhosts are
+rendered from templates. Webroot only drops a challenge file under
+`/usr/local/ispconfig/interface/acme` and touches no config.
+
+The plugin would not help with the panel's own certificate either:
+`go-ispconfig-serve` terminates TLS itself on port 8080 and reads the cert from
+`/etc/go-ispconfig/`, with no nginx or Apache vhost in front of it, so
+`certbot --nginx` has nothing to edit there. To replace the self-signed panel
+certificate, issue one however you like (`certbot certonly --webroot` works)
+and point `[server] tls_cert` / `tls_key` at it. If you maintain hand-written
+vhosts on the box and want `certbot --nginx` for those, install the plugin
+yourself — it is your certbot, outside what the panel manages.
+
+**Known gap:** issuance lives in `internal/nginx` only. Apache sites get
+renewal (`internal/apache2/le_renew.go` over the shared `internal/web` helper)
+but cannot *issue* from the panel yet — issue once by hand on an Apache host
+and the renewal job takes over. `openspec/changes/acme-as-go/` proposes
+replacing both paths with an in-process client.
+
 ## Deferred installer capabilities (other modules)
 
 The following configure steps are **not** part of the current

@@ -7,7 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-—
+### Fixed
+
+- **`--acme-client certbot` no longer installs `python3-certbot-nginx` /
+  `python3-certbot-apache`.** v0.5.0 pulled them in; nothing uses them. Site
+  certificates are issued with `--authenticator webroot`, as the legacy does,
+  and the panel's own certificate is served by `go-ispconfig-serve` with no
+  vhost in front of it, so a webserver plugin has nothing to edit either way
+
+### Documentation
+
+- `docs/install.md` gained an ACME section: which client the installer puts on
+  the box, why issuance is webroot-only, and how to replace the self-signed
+  panel certificate
+- `add-apache2-letsencrypt` proposal — Apache sites can renew a Let's Encrypt
+  certificate but not issue one
 
 ## [0.5.0] — 2026-08-04
 
@@ -54,8 +68,15 @@ so a fresh install generates the same prefixed names the PHP panel does.
 - `add-multiserver-mgmt` re-scoped against the shipped tree, with tasks
 - `refine-system-config-parity` proposal covering the gaps found against the
   legacy panel at 192.168.56.20
-- `acme-as-go` proposal and decision record — wrap `go-acme/lego` rather than
-  port acme.sh, with the legacy's actual ACME behaviour documented
+- `acme-as-go` proposal and decision record — issue certificates natively over
+  `golang.org/x/crypto/acme`, already a direct dependency, rather than porting
+  acme.sh or adding `go-acme/lego` for a DNS provider catalogue this panel does
+  not need (it *is* the DNS server), with the legacy's actual ACME behaviour
+  documented
+- `docs/multi-server.md` — what to install on each node (the `--web`/`--dns`
+  answers gate the web and DNS steps, the row's `mail_server` flag gates the
+  mail steps), per-role package tables, and how to run a real BIND secondary
+  across two DNS nodes
 - brand gopher icons regenerated from the 1024px source, transparency preserved
 
 ## [0.4.0] — 2026-08-04
