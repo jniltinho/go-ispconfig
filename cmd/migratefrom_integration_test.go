@@ -60,7 +60,7 @@ func TestMigrateFromFullRun(t *testing.T) {
 		require.Contains(t, out, "rsync -a --usermap")
 		require.Contains(t, out, "Operational order:")
 		require.Contains(t, out, "web_domain: 1201/1201", "progress lines printed")
-		require.Contains(t, out, "Run again with --reset-passwords",
+		require.Contains(t, out, "again with --reset-passwords",
 			"reset flow hinted prominently when the flag is not passed")
 		// No credentials anywhere in the output.
 		require.NotContains(t, out, s.Password)

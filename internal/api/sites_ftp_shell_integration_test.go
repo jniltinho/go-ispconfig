@@ -48,7 +48,14 @@ func TestSitesFTPUserAPI(t *testing.T) {
 		var rec map[string]any
 		require.NoError(t, json.Unmarshal(data, &rec))
 		ftpID = rec["ftp_user_id"].(float64)
-		require.Equal(t, "alice", rec["username"], "no prefix configured")
+		require.Equal(t, "clientaalice", rec["username"], "seeded ftpuser_prefix [CLIENTNAME] prepends the owning group name")
+
+		// An empty name must not be rescued by the prefix: NOTEMPTY runs after
+		// the hook that prefixes, so "" would otherwise be stored as "clienta".
+		status, data = call(t, srv, http.MethodPost, "/api/sites/ftp-users", env.aCookie, env.aCSRF,
+			map[string]any{"parent_domain_id": domainID, "username": "  ", "password": "Sup3r-Secret!"})
+		require.Equal(t, http.StatusUnprocessableEntity, status, "%s", data)
+		require.Contains(t, errKeyOf(t, data).Fields["username"], "username_error_empty")
 		require.Equal(t, "y", rec["active"], "default applied")
 		require.EqualValues(t, -1, rec["quota_size"])
 		require.NotContains(t, rec, "password", "password redacted on read")
@@ -260,7 +267,7 @@ func TestSitesShellUserAPI(t *testing.T) {
 		var rec map[string]any
 		require.NoError(t, json.Unmarshal(data, &rec))
 		shellID = rec["shell_user_id"].(float64)
-		require.Equal(t, "alice", rec["username"])
+		require.Equal(t, "clientaalice", rec["username"], "shelluser_prefix applies")
 		require.Equal(t, "y", rec["active"])
 		require.Equal(t, "/bin/bash", rec["shell"])
 		require.NotContains(t, rec, "password")
