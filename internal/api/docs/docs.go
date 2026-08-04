@@ -4698,7 +4698,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Returns the tabs, fields, types, defaults and validator hints of a registered entity so the SPA renders its form from the same source of truth used for validation. Admin-only tabs/fields are omitted for non-admin sessions.",
+                "description": "Returns the tabs, fields, types, defaults and validator hints of a registered entity so the SPA renders its form from the same source of truth used for validation. Admin-only tabs/fields are omitted for non-admin sessions. The pseudo-entity ` + "`" + `server_config` + "`" + ` returns the per-server INI editor shape (one tab per section of /servers/{id}/config) and is admin only.",
                 "produces": [
                     "application/json"
                 ],

@@ -104,7 +104,7 @@ export const modules: ModuleDef[] = [
     id: 'system',
     path: '/system',
     sections: [
-      { labelKey: 'sidebar.system.server_config', path: '/system', group: 'sidebar.group.server_config' },
+      { labelKey: 'sidebar.system.server_config', path: '/system/server-config', adminOnly: true, group: 'sidebar.group.server_config' },
       { labelKey: 'sidebar.system.server_ips', path: '/system/server-ips', adminOnly: true },
       { labelKey: 'sidebar.system.users', path: '/system', group: 'sidebar.group.cp_users' },
       { labelKey: 'sidebar.system.firewall', path: '/system/firewall', adminOnly: true },

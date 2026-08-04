@@ -20,6 +20,12 @@ const props = defineProps<{
   addKey: string
   /** activeValue is the "on" value for the status badge ('y' or 'Y'). */
   activeValue?: string
+  /**
+   * deletable false drops the per-row delete button, for lists that only
+   * pick a record to edit (Server Config picks the node whose INI is edited;
+   * deleting the server from there would be a different, destructive action).
+   */
+  deletable?: boolean
 }>()
 
 const { t } = useI18n()
@@ -87,6 +93,7 @@ const activeOn = props.activeValue ?? 'y'
   <div>
     <h1 class="page-title">{{ t(titleKey) }}</h1>
     <button
+      v-if="addKey"
       type="button"
       data-test="mail-add"
       class="my-3 btn btn-success px-4 py-2"
@@ -112,7 +119,7 @@ const activeOn = props.activeValue ?? 'y'
       @sort="onSort"
     >
       <template #cell-active="{ value }">
-        {{ value === activeOn ? t('yes_txt') : t('no_txt') }}
+        {{ String(value) === activeOn ? t('yes_txt') : t('no_txt') }}
       </template>
       <template #actions="{ row }">
         <button
@@ -125,6 +132,7 @@ const activeOn = props.activeValue ?? 'y'
           <component :is="utilityIcons.edit" :size="14" />
         </button>
         <button
+          v-if="deletable !== false"
           type="button"
           :title="t('sites.delete')"
           :aria-label="t('sites.delete')"

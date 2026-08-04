@@ -24,6 +24,7 @@ design/specs/tasks when scheduled.
 | `add-legacy-migration` | Import wizard/CLI from a running PHP ISPConfig3 via remote API ([docs/legacy-migration.md](legacy-migration.md)) |
 | `add-legacy-test-lab` | Standing PHP ISPConfig3 lab VMs used as the parity baseline |
 | `add-panel-ui-theme`, `ui-forms-tables-qa`, `ui-mail-login-aaa` | Panel theme and UI parity sweeps (Vue 3 + Tailwind v4, dark mode, dashlets) |
+| `server-config-sync` | System → Server Config: per-server `server.config` INI editor, one tab per section ([docs/server-config-module.md](server-config-module.md)) |
 
 ## Future modules (proposal when scheduled)
 
