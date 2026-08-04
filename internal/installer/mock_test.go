@@ -80,6 +80,8 @@ func testState(t *testing.T) (*State, *mockExec, *bytes.Buffer) {
 	st.SudoersDir = dir + "/etc/sudoers.d"
 	st.PureFTPdConfigDir = dir + "/etc/pure-ftpd"
 	st.PureFTPdDefaults = dir + "/etc/default/pure-ftpd-common"
+	st.PostfixConfigDir = dir + "/etc/postfix"
+	st.DovecotConfigDir = dir + "/etc/dovecot"
 	mock.missing["acme.sh"] = true
 	mock.missing["certbot"] = true
 

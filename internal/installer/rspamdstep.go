@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-
-	"gorm.io/gorm"
 )
 
 // Rspamd package/unit names, identical on all five supported distros.
@@ -64,15 +62,8 @@ func (rspamdStep) Name() string { return "rspamd" }
 
 // Run converges Rspamd; it is skipped on hosts that are not mail servers.
 func (rspamdStep) Run(ctx context.Context, st *State) error {
-	if st.DB == nil {
-		return Skip("no database connection")
-	}
-	mail, err := mailServerRow(st.DB, st.Answers.Hostname)
-	if err != nil {
+	if _, _, err := mailRole(st); err != nil {
 		return err
-	}
-	if !mail {
-		return Skip("not a mail server")
 	}
 
 	installed, err := dpkgInstalled(ctx, st, RspamdPackage)
@@ -141,14 +132,4 @@ func ensureRspamdUsersInclude(path string) (bool, error) {
 		return false, fmt.Errorf("writing %s: %w", path, err)
 	}
 	return true, nil
-}
-
-// mailServerRow reports whether this host's server row carries the mail
-// role.
-func mailServerRow(db *gorm.DB, hostname string) (bool, error) {
-	srv, err := localServer(db, hostname)
-	if err != nil {
-		return false, fmt.Errorf("loading server row %q: %w", hostname, err)
-	}
-	return srv.MailServer == 1, nil
 }
