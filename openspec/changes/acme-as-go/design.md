@@ -90,6 +90,23 @@ writes generation N+1 and repoints the four symlinks, so a reader that opens
 rolled back by repointing. Directories 0755, `archive/*/privkey*.pem` 0600,
 written temp-then-rename.
 
+`renewal/<domain>.conf` is not decoration — it is the **discovery contract**.
+ISPConfig does not glob `live/`; `get_certificate_list()`
+(`letsencrypt.inc.php:614`) walks the renewal directory, parses each `.conf` as
+`key = value` until the `[[webroot_map]]` marker, and takes the `cert`,
+`privkey`, `chain` and `fullchain` paths from it, discarding any candidate
+whose four files are not all readable. So the interop requirement is precise
+and testable: write those four keys with absolute paths, terminate before
+`[[webroot_map]]`, and the legacy panel's own discovery finds our certificates
+unmodified. A layout that merely looks like certbot's but omits the renewal
+file is invisible to it.
+
+The lineage name matters for the same reason. ISPConfig issues ECDSA
+certificates as `--cert-name <domain>_ecc` (`installer_base.lib.php:3454`), so
+an adopted host may already have both `<domain>` and `<domain>_ecc` lineages.
+Ours must pick the same name for the same key type or it will create a second,
+competing lineage next to the one already being renewed.
+
 Account keys are the one deliberate divergence:
 `/etc/letsencrypt/accounts/<server-id>/account.{key,json}`. Certbot has no
 multi-account concept and keys the directory by CA URL; this panel is
