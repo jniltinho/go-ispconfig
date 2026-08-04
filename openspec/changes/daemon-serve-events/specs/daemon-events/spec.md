@@ -81,6 +81,14 @@ permitted to read.
 - **THEN** its buffer is bounded and the connection is closed rather than
   allowed to grow the process
 
+#### Scenario: The stream drops and reconnects
+
+- **WHEN** the connection is lost and `EventSource` reconnects
+- **THEN** the client refetches the rows it displays before trusting further
+  events
+- **AND** a change applied during the gap is reflected, even though no event for
+  it was ever delivered
+
 #### Scenario: The stream is unavailable
 
 - **WHEN** the browser cannot open or keep an `EventSource`

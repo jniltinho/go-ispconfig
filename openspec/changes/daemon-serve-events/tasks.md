@@ -27,7 +27,7 @@
 
 ## 4. The UI reacts
 
-- [ ] 4.1 A store subscribing once for the whole app, not per view — one `EventSource` per tab.
+- [ ] 4.1 A store subscribing once for the whole app, not per view — one `EventSource` per tab. On every `open`, first connect and each reconnect, refetch the displayed rows (D6): pub/sub does not retain, so anything published during a gap is gone and the stream must never be treated as complete.
 - [ ] 4.2 Lists carrying `_datalog_state` refresh the affected row on `datalog.applied` / `datalog.failed` instead of waiting for a manual reload. A form that just saved matches on the `request_id` it got back, so it can report *its own* change rather than any change to that record.
 - [ ] 4.3 A toast on `datalog.failed` and `cert.failed`, using the components added in the dialogs/toasts change.
 - [ ] 4.4 Fallback when `EventSource` fails: the existing behaviour, unchanged, with no error surfaced to the user.

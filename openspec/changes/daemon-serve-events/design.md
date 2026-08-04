@@ -119,7 +119,26 @@ Redis restarts.
 WebSocket is not phase 4. It is a different change, to be proposed when there is
 a bidirectional use case.
 
-## D6. What has to stay true
+## D6. A missed event must not be a wrong screen
+
+Redis pub/sub does not retain: a subscriber that is disconnected when a message
+is published never sees it. `EventSource` reconnects on its own, and the
+existing migration stream handles no `Last-Event-ID`
+(`internal/api/migration.go`), so a serve restart, a network blip or a
+Redis failover drops whatever fired in the gap.
+
+This is acceptable **only** because the event carries no state. The rule that
+makes it safe: on `open` — first connect and every reconnect — the client
+refetches the rows it is displaying, exactly as it does on page load. The stream
+then adds latency improvements, never authority. A page that trusted the stream
+to be complete would show a stale badge forever after one dropped message.
+
+The alternative is a resumable log (`Last-Event-ID` against a Redis stream), and
+it is not worth it here: the database already answers "what is the state now"
+in one query, which is a cheaper and more honest recovery than replaying a
+window of events.
+
+## D7. What has to stay true
 
 - An apply must never fail, retry or slow down because publishing failed.
 - A session must not receive an event for a record it may not read; the SSE
