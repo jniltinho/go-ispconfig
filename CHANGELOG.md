@@ -30,9 +30,9 @@ so a fresh install generates the same prefixed names the PHP panel does.
   `getconf.ServerSection` instead of raw map indexing
 - **`--acme-client certbot` also installs the matching webserver plugin** —
   `python3-certbot-nginx`, or `python3-certbot-apache` with
-  `--web-server apache2`. The panel does not use it (site certificates are
-  issued with `--authenticator webroot`, as the legacy does); it is there for
-  the one certificate the panel does not manage, its own
+  `--web-server apache2`. The panel does not use it — nginx site certificates
+  are issued with `--authenticator webroot`, as the legacy does — it is a
+  convenience for vhosts maintained by hand outside the panel
 
 ### Fixed
 

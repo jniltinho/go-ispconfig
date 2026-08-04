@@ -131,14 +131,13 @@ fails loudly.
 
 ## ACME clients
 
-`--acme y` installs one client: `acme.sh` through its own installer script, or
-the distro's `certbot` package. With `--acme-client certbot` the webserver
-plugin matching `--web-server` comes along — `python3-certbot-nginx`, or
-`python3-certbot-apache` on the Apache path.
+`--acme y` installs **one client and nothing else**: `acme.sh` through its own
+installer script, or the distro's `certbot` package. No
+`python3-certbot-nginx`, no `python3-certbot-apache`.
 
-**The panel itself never uses that plugin.** Site certificates are issued with
-`--authenticator webroot`, which needs no plugin, and this is what ISPConfig3
-does too (checked against the 3.3.1p1 tree):
+Site certificates are issued with `--authenticator webroot`, which needs no
+plugin — and neither does the legacy, checked against the ISPConfig `3.2dev`
+tree in `base/ispconfig3_install/`:
 
 - the PHP installer **detects** a client rather than apt-installing one, and
   only falls back to installing acme.sh when neither is present
@@ -151,12 +150,20 @@ does too (checked against the 3.3.1p1 tree):
   `certonly … --authenticator webroot --webroot-map {…}`, called by both the
   apache2 and nginx plugins.
 
-A plugin rewrites the vhost to place its challenge, which the panel cannot
-allow for a site it manages: vhosts are rendered from templates and the next
-apply would overwrite the edit. The plugin is there for the one certificate the
-panel does *not* manage — its own — so that an operator replacing the
-self-signed panel certificate can run `certbot --nginx` without hunting for a
-package first.
+Webroot is the right authenticator for a site the panel manages: a plugin
+writes its own `ssl_certificate` and redirect directives into the vhost, and
+those are exactly the lines the next apply overwrites, because vhosts are
+rendered from templates. Webroot only drops a challenge file under
+`/usr/local/ispconfig/interface/acme` and touches no config.
+
+The plugin would not help with the panel's own certificate either:
+`go-ispconfig-serve` terminates TLS itself on port 8080 and reads the cert from
+`/etc/go-ispconfig/`, with no nginx or Apache vhost in front of it, so
+`certbot --nginx` has nothing to edit there. To replace the self-signed panel
+certificate, issue one however you like (`certbot certonly --webroot` works)
+and point `[server] tls_cert` / `tls_key` at it. If you maintain hand-written
+vhosts on the box and want `certbot --nginx` for those, install the plugin
+yourself — it is your certbot, outside what the panel manages.
 
 **Known gap:** issuance lives in `internal/nginx` only. Apache sites get
 renewal (`internal/apache2/le_renew.go` over the shared `internal/web` helper)
