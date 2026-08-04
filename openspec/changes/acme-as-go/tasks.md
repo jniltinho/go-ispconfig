@@ -22,7 +22,12 @@
 ## 4. Config, install, docs
 
 - [ ] 4.1 `[server] acme_client`, CA directory URL, contact e-mail and key type — rendered on the Server Config Web tab, defaults matching the legacy (http-01, Let's Encrypt production, RSA-2048). Form/getconf staleness test follows automatically.
-- [ ] 4.2 Installer: `python3-certbot-nginx` / `python3-certbot-apache` as the optional external path, now genuinely optional because the native path is the default.
+- [ ] 4.2 Installer: **delete `acmeStep` and its answers** (D11). The native
+  client makes the external one dead weight, so `--acme`, `--acme-client`, the
+  `apt install certbot` and the `curl | sh` acme.sh pull all go. Nothing on the
+  box is installed for ACME any more. Update `docs/install.md` (the flag table
+  and the ACME section) and `internal/installer/acmestep_test.go` with it;
+  detection of a pre-existing client stays as the D10 fallback.
 - [ ] 4.3 `docs/acme.md`: the approach vs the legacy shell-out, http-01 vs dns-01 and when each applies, how to run against staging, where the datastore and account key live, how to pin the external client.
 - [ ] 4.4 Swagger for any new endpoint (AGENTS.md rule).
 

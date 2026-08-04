@@ -134,6 +134,38 @@ a log line, which is what makes the backoff acceptable.
 The production directory URL appears in exactly one place, and a test asserts no
 test file mentions it.
 
+## D11. The installer stops shipping an ACME client
+
+An in-process client makes the external one dead weight, and this holds for
+either library — it is a consequence of "the daemon speaks ACME", not of which
+Go package it speaks it with.
+
+`acmeStep` goes away, and with it: the `--acme` / `--acme-client` answers, the
+`curl` pull that only exists to run acme.sh's installer, the `apt install
+certbot`, and the sudoers/service surface an external client would otherwise
+need. What is left is a Go dependency, resolved at build time, versioned in
+`go.mod` and auditable with `govulncheck` — none of which is true of 10k lines
+of POSIX shell fetched over `curl | sh`.
+
+Measured, so the trade is not argued from adjectives (`go list -deps` on a
+program importing only `lego`, `certificate`, `challenge/http01` and
+`registration`):
+
+| | External binary | New Go modules linked | Audit surface |
+|---|---|---|---|
+| `acme.sh` | yes, fetched by `curl \| sh` | 0 | ~10k lines of shell, unversioned |
+| `certbot` | yes, apt + Python runtime | 0 | ~50k lines Python + plugin venv |
+| `lego` core | **no** | 3 new (`go-jose/v4`, `cenkalti/backoff/v5`, `miekg/dns`) + lego itself; `x/crypto`, `x/net`, `x/text`, `x/sys` already direct deps | one module, pinned, `govulncheck`-visible |
+| `x/crypto/acme` | **no** | 0 — already a direct dependency | ditto, Go team maintained |
+
+The 231-module figure `go list -m all` prints for lego is the *requirement*
+graph: lego ships its 100+ DNS providers in one module, so every cloud SDK is
+required-but-not-linked. Importing only the core links 33 non-stdlib packages.
+Neither library needs anything on the box.
+
+Detection of an existing client stays as the D10 fallback, but nothing installs
+one any more. An operator who wants acme.sh keeps it — it is theirs.
+
 ## D10. Nothing already working breaks
 
 Certificates issued by `acme.sh` (`~/.acme.sh`) or `certbot`
