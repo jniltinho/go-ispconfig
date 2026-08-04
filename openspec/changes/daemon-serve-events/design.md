@@ -95,6 +95,42 @@ information the database does not already have. Drop every event and the panel
 behaves exactly as it does today: `_datalog_state` still resolves on reload.
 That is the property that lets Redis stay optional.
 
+### D3a. The request-level object is a query, not a store
+
+Refusing the asynq job did not refuse the requirement behind it, and pretending
+otherwise would just push the aggregation into the browser — which cannot even
+know how many rows its POST journalled. `GET /api/requests/<id>` exists, and it
+is one query:
+
+```sql
+SELECT status, COUNT(*) FROM sys_datalog WHERE session_id = ? GROUP BY status
+```
+
+Terminal state is derived, not stored: any row above the owning server's cursor
+→ `running`; else any `error` → `failed`; else `ok`. That is what makes partial
+failure representable — 2 rows applied and 1 failed is a real outcome a single
+job id could not express.
+
+This needs an index. `sys_datalog` ships `PRIMARY KEY (datalog_id)` and
+`KEY (server_id, status)` and nothing on `session_id`
+(`internal/database/ispconfig3.sql:1681`), so correlating without one full-scans
+an append-only audit table that grows forever. `KEY (session_id)` goes in as a
+migration, not an edit to the vendored schema: extra indexes do not break
+compatibility with a legacy panel, changing the shipped DDL would.
+
+### D3b. The request id is also the idempotency key
+
+This is the property the asynq design had for free and that is worth keeping
+deliberately: a task id deduplicates a retried enqueue. Here, a double-clicked
+save or a retried POST journals the rows twice and the daemon applies them
+twice. Today that is masked because most applies are convergent, but it is luck,
+not design.
+
+The id the client sends (or the one serve mints and returns) is unique per
+request, so a write whose `session_id` already exists is a replay and is
+answered with the first outcome instead of journalling again. Small, and it
+closes a hole that predates this change.
+
 ## D4. SSE, not WebSocket, not Inspector polling
 
 One-way traffic, server to browser. SSE costs a handler and an `EventSource`,
@@ -140,10 +176,31 @@ window of events.
 
 ## D7. What has to stay true
 
+- **Permission filtering is the safety property of this change, not a detail.**
+  The channel carries record identities from every client of the panel. An
+  unfiltered stream is cross-tenant information disclosure — a reseller learning
+  another reseller's domain names. The SSE handler applies the same riud check
+  the REST list applies, before writing, and the test for it is not optional.
 - An apply must never fail, retry or slow down because publishing failed.
-- A session must not receive an event for a record it may not read; the SSE
-  handler filters by permission before writing, rather than the daemon
-  publishing per-user topics.
-- A slow reader is disconnected, not buffered without bound.
+- One slow reader must not stall the others: fan-out writes to per-connection
+  buffers, never to sockets in a shared loop. A full buffer disconnects that
+  client and nobody else.
+- The SSE route needs the server write timeout disabled for it, or every stream
+  dies at the global deadline.
 - With Redis down, everything degrades to today's behaviour and nothing surfaces
   an error to the user.
+
+## D8. Two gaps this change inherits and does not fix
+
+Naming them so they are not mistaken for solved:
+
+- **A row stuck in `pending`.** If the daemon dies mid-apply, the row stays
+  above the cursor forever and the UI shows "pending" indefinitely. Nothing
+  reaps or retries it today; the events make the symptom visible sooner, which
+  is an argument for fixing it, not a fix.
+- **No per-row retry policy.** asynq gives retry and timeout to the *wake-up
+  task*, not to the datalog rows it wakes the daemon for. The operational
+  visibility asynqmon would give over a job queue has no equivalent over the
+  datalog.
+
+Both belong to the datalog engine, not to the event channel.

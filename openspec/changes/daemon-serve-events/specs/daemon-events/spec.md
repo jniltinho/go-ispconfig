@@ -51,6 +51,21 @@ correlation survives a restart and needs no schema change.
 - **AND** the response returns that id to the caller
 - **AND** each event published about those rows carries it
 
+#### Scenario: Part of a request fails
+
+- **WHEN** a request journalled three rows and one of them is quarantined while
+  the other two applied
+- **THEN** the request reports a failed terminal state
+- **AND** names the row that failed, rather than collapsing the outcome to a
+  single success or failure
+
+#### Scenario: The same request is submitted twice
+
+- **WHEN** a save is double-clicked, or a POST is retried with the same request
+  id
+- **THEN** the rows are journalled once
+- **AND** the second call is answered with the outcome of the first
+
 #### Scenario: The panel restarts mid-flight
 
 - **WHEN** serve restarts after journalling but before the daemon applies

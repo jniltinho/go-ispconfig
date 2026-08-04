@@ -9,6 +9,9 @@
 - [ ] 1b.1 Serve stamps `sys_datalog.session_id` with a per-request id (`req-<8 hex>`) for every row a single API call journals, and returns it as `request_id` in the response. No schema change: the column exists (`internal/model/sys.go:71`) and this port writes nothing into it today.
 - [ ] 1b.2 Note the divergence from the legacy, which puts the browser session there for `dataloghistory_undo` (`db_mysql.inc.php:762`). Per-request is finer-grained; if undo is ever ported it groups by user + time window instead. Record it in the migration doc.
 - [ ] 1b.3 Every event the daemon publishes about a datalog row carries that `request_id` when the row has one. Test: one API call journalling three rows produces three events sharing one id.
+- [ ] 1b.4 Migration adding `KEY (session_id)` to `sys_datalog` — the table ships only `PRIMARY KEY (datalog_id)` and `KEY (server_id, status)` (`internal/database/ispconfig3.sql:1681`), so correlating without it full-scans an append-only table. A migration, **not** an edit to the vendored schema.
+- [ ] 1b.5 `GET /api/requests/<id>` (D3a): one grouped query over `session_id`, deriving `running` / `failed` / `ok` from the rows and the owning servers' cursors. This is the request-level object; it is a query, not a store. Test partial failure: two rows applied, one failed, reports `failed` and names the row.
+- [ ] 1b.6 Idempotency (D3b): a write whose request id was already journalled is answered with the first outcome instead of journalling again. Test a replayed POST — the double-clicked save is the real case.
 
 ## 2. The daemon publishes
 
@@ -22,7 +25,8 @@
 
 - [ ] 3.1 `GET /api/events` (SSE), modelled on `migrationProgressHandler`: same headers including `X-Accel-Buffering: no`, same flush discipline, plus a periodic comment frame as keepalive.
 - [ ] 3.2 Permission filter before write: an event naming a record the session cannot read is not sent. Test with a client-scoped user and an admin against the same event.
-- [ ] 3.3 A bounded per-connection buffer; a slow consumer is disconnected rather than allowed to grow memory. Test with a reader that never reads.
+- [ ] 3.3 A bounded per-connection buffer, written by the fan-out rather than the socket: one slow consumer must not stall delivery to the others (head-of-line). A full buffer disconnects that client alone. Test with two subscribers where one never reads and assert the other keeps receiving.
+- [ ] 3.3b Disable the server write timeout on this route only, or every stream dies at the global deadline. Assert a stream survives past it.
 - [ ] 3.4 Cap concurrent streams per session so a tab-hoarding browser cannot exhaust the process.
 
 ## 4. The UI reacts
