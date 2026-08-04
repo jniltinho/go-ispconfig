@@ -55,6 +55,49 @@ reachable Redis the daemon falls back to its `tick_seconds` poll and applies
 exactly the same changes, a few seconds later. `sys_datalog` is the source of
 truth, never the queue.
 
+## What to install on each node
+
+Two different switches decide what a node ends up running, and mixing them up
+is the usual first mistake:
+
+- **`--web` / `--dns` install answers** gate the web and DNS steps at install
+  time. They are what you pass on the command line.
+- **the `mail_server` flag on the node's `server` row** gates every mail step.
+  There is no `--mail` answer: the mail steps read the row and skip when it is
+  0, which is why a first install always logs
+  `[postfix] skipped: mail role disabled`.
+
+A fresh `install` seeds its own row with `web_server = 1`, `dns_server = 1`,
+`db_server = 1`, `mail_server = 0` and `firewall_server = 0`
+(`internal/database/seed.go`). The *daemon* then loads its modules from those
+same flags, so the row has to agree with what you installed either way.
+
+| Node role | Install with | Row flags to set | What lands on the box |
+|---|---|---|---|
+| Web | `--web y --dns n` | `web_server = 1` | nginx (or Apache with `--web-server apache2`), `pure-ftpd-mysql`, `php*-fpm` when `--php-fpm=y` |
+| DNS | `--web n --dns y` | `dns_server = 1` | `bind9`, or the PowerDNS set with `--dns-backend powerdns` |
+| Mail | `--web n --dns n` | `mail_server = 1`, then re-run install | `postfix`, `postfix-mysql`, `dovecot-*`, `rspamd`, the vmail user — installed by the mail steps themselves |
+| Database | `--web n --dns n` | `db_server = 1` | `mariadb-server` (always installed) plus the `goisp_clientdb` admin account |
+| Firewall | any | `firewall_server = 1` | `ufw`, driven by the Firewall module |
+
+So a mail node is set up in three moves:
+
+```bash
+# 1. install — the mail steps skip, the seeded row has mail_server = 0
+go-ispconfig install --yes --hostname mail1.example.com --web n --dns n
+
+# 2. turn the role on for this node's row
+mysql dbispconfig -e "UPDATE server SET mail_server = 1 WHERE server_name = 'mail1.example.com'"
+
+# 3. re-run: now the mail steps install and configure postfix/dovecot/rspamd
+go-ispconfig install --yes --update
+```
+
+Every step is idempotent, so re-running after a role change is the supported
+way to add a role to an existing node — there is no `install --add-role`. On a
+node joined to a master, step 2 is done on the master's row for that node,
+from the panel or `/api/server`, not on a local database.
+
 ## Adding a node
 
 ### 1. Create the server row on the master
@@ -160,6 +203,33 @@ so a node appears there as soon as step 1 is done.
 moving a site between nodes would leave its files, its vhost and its database
 behind on the old one. Migrating a resource means recreating it on the target
 node and moving the data yourself.
+
+## DNS across two nodes
+
+A zone belongs to exactly one node — `dns_soa.server_id` — and only that node
+renders its zonefile and its `named.conf` entry. A second DNS node does **not**
+mirror it automatically. Real secondaries are set up the way BIND expects, with
+rows the panel already has:
+
+1. On the **primary** zone (DNS → Zones → *zone*), fill `xfer` and
+   `also_notify` with the secondary's IP. Both land in the `named.conf` zone
+   block as `allow-transfer` and `also-notify`
+   (`internal/dns/namedconf.go`); a value that is not a list of addresses is
+   refused by the form.
+2. On the **secondary** node, create a slave zone: DNS → Secondary Zones
+   (`/api/dns/slave-zones`) with `server_id` = the secondary and the primary's
+   IP as the master. That node renders it from
+   `bind_named.conf.local.slave` and BIND pulls the zone over AXFR.
+3. Publish both in the zone's NS records. Nothing does that for you.
+
+Consequences worth knowing before you rely on it:
+
+- the transfer is **BIND's**, not the panel's. A record change reaches the
+  secondary via AXFR/NOTIFY after the primary's serial bumps, not through
+  `sys_datalog`;
+- with the PowerDNS backend the slave-zone path does not apply — replication
+  there is PowerDNS's own (see [powerdns-module.md](powerdns-module.md));
+- deleting the primary zone leaves the slave row behind. Remove it yourself.
 
 ## What is not supported yet
 
