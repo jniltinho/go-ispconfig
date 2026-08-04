@@ -86,6 +86,55 @@ func TestServerCompatKeysAreNotDecoded(t *testing.T) {
 	assert.NotEmpty(t, serverCompatKeys)
 }
 
+// TestServerConfigFormOptionValuesAreDistinct catches the class of bug the
+// name-only staleness tests cannot see: a SELECT whose options collapse onto
+// fewer stored values than it shows. It happened twice while generating this
+// table from the legacy tform — `backup_time` rendered 96 times and stored 4
+// distinct values, and `loglevel` stored its labels instead of its keys —
+// because PHP writes a list and a map identically once the key quoting is
+// dropped. Either way the symptom is silent: pick one option, reload, get a
+// different one, and an adopted database's value matches nothing.
+func TestServerConfigFormOptionValuesAreDistinct(t *testing.T) {
+	for _, tab := range serverConfigForm().Tabs {
+		for _, f := range tab.Fields {
+			if len(f.Options) == 0 {
+				continue
+			}
+			seen := map[string]bool{}
+			for _, o := range f.Options {
+				assert.False(t, seen[o.Value],
+					"%s.%s offers %d options but repeats the value %q — a map was parsed as a list, or vice versa",
+					tab.Name, f.Name, len(f.Options), o.Value)
+				seen[o.Value] = true
+			}
+		}
+	}
+}
+
+// TestServerConfigFormKnownSelectValues pins the two selects that were wrong,
+// against the legacy tform they are generated from.
+func TestServerConfigFormKnownSelectValues(t *testing.T) {
+	fields := map[string]FormFieldMeta{}
+	for _, tab := range serverConfigForm().Tabs {
+		for _, f := range tab.Fields {
+			fields[tab.Name+"."+f.Name] = f
+		}
+	}
+
+	loglevel := fields["server.loglevel"]
+	require.Len(t, loglevel.Options, 3)
+	assert.Equal(t, []Option{
+		{Value: "0", Label: "Debug"},
+		{Value: "1", Label: "Warnings"},
+		{Value: "2", Label: "Errors"},
+	}, loglevel.Options, "loglevel is INTEGER 0/1/2 in the legacy tform, not its labels")
+
+	backup := fields["server.backup_time"]
+	require.Len(t, backup.Options, 96, "every quarter hour of the day")
+	assert.Equal(t, "0:00", backup.Options[0].Value)
+	assert.Equal(t, "23:45", backup.Options[len(backup.Options)-1].Value)
+}
+
 // TestServerConfigFormDefaultsAreSelectable guards against carrying over the
 // upstream tform bug where a SELECT ships a default that is not one of its own
 // options (maildir_format => '20'): the form would preselect a value the INI

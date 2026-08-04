@@ -1348,5 +1348,17 @@
   "srvcfg.server.sysbackup_copies": "Number of ISPConfig backups",
   "srvcfg.server.v6_prefix": "IPv6 Prefix",
   "srvcfg.tab.server": "Server",
-  "srvcfg_error_ssh_port": "The SSH port must be between 1 and 65535."
+  "srvcfg_error_ssh_port": "The SSH port must be between 1 and 65535.",
+  "backup_mode_borg_txt": "BorgBackup: Backup all files in vhost directory and databases into incremental repositories",
+  "jailkit_hardlinks_allow_txt": "Allow hardlinks within the jail",
+  "jailkit_hardlinks_no_txt": "No, remove hardlinked files",
+  "jailkit_hardlinks_yes_txt": "Yes, use hardlinks if possible",
+  "no_notifications_txt": "No Notifications",
+  "soft_delete_directly_txt": "Delete instantly",
+  "soft_delete_keep_1_txt": "Purge after 1 day",
+  "soft_delete_keep_30_txt": "Purge after 30 days",
+  "soft_delete_keep_365_txt": "Purge after 365 days",
+  "soft_delete_keep_7_txt": "Purge after 7 days",
+  "soft_delete_keep_90_txt": "Purge after 90 days",
+  "soft_delete_keep_indefinitely_txt": "Rename but don't delete (manual cleanup)"
 }

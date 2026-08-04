@@ -123,7 +123,7 @@ func serverConfigSectionHandler(d *Deps) echo.HandlerFunc {
 // serverConfigSaveHandler implements PUT /api/servers/:id/config/:section.
 //
 //	@Summary		Save one configuration section
-//	@Description	Merges the submitted keys into the section, re-serialises the full INI and stores it, then journals a sys_datalog row for dbtable=server so the owning node applies it. Keys of other sections are untouched; an empty body is refused so a broken form cannot blank a section. Admin only.
+//	@Description	Merges the submitted keys into the section, re-serialises the full INI and stores it, then journals a sys_datalog row for dbtable=server so the owning node applies it. Keys of other sections are untouched; an empty body is refused so a broken form cannot blank a section. Keys this port acts on are validated (the [server] section's ssh_port must be a TCP port). Admin only.
 //	@Tags			servers
 //	@Accept			json
 //	@Produce		json
@@ -134,6 +134,7 @@ func serverConfigSectionHandler(d *Deps) echo.HandlerFunc {
 //	@Failure		400		{object}	ErrorResponse
 //	@Failure		403		{object}	ErrorResponse
 //	@Failure		404		{object}	ErrorResponse
+//	@Failure		422		{object}	ErrorResponse	"Per-field validation errors (e.g. an out-of-range ssh_port)"
 //	@Router			/servers/{id}/config/{section} [put]
 func serverConfigSaveHandler(d *Deps) echo.HandlerFunc {
 	return func(c *echo.Context) error {

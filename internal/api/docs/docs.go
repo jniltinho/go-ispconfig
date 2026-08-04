@@ -6253,7 +6253,7 @@ const docTemplate = `{
                 }
             },
             "put": {
-                "description": "Merges the submitted keys into the section, re-serialises the full INI and stores it, then journals a sys_datalog row for dbtable=server so the owning node applies it. Keys of other sections are untouched; an empty body is refused so a broken form cannot blank a section. Admin only.",
+                "description": "Merges the submitted keys into the section, re-serialises the full INI and stores it, then journals a sys_datalog row for dbtable=server so the owning node applies it. Keys of other sections are untouched; an empty body is refused so a broken form cannot blank a section. Keys this port acts on are validated (the [server] section's ssh_port must be a TCP port). Admin only.",
                 "consumes": [
                     "application/json"
                 ],
@@ -6316,6 +6316,12 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Per-field validation errors (e.g. an out-of-range ssh_port)",
                         "schema": {
                             "$ref": "#/definitions/api.ErrorResponse"
                         }
