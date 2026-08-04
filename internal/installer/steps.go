@@ -17,6 +17,7 @@ func InstallSteps() []Step {
 		powerDNSStep{},
 		ftpStep{},
 		fail2banStep{},
+		vmailStep{},
 		rspamdStep{},
 		getmailStep{},
 		acmeStep{},
