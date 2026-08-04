@@ -3,6 +3,8 @@ package installer
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"go-ispconfig/internal/fail2ban"
 )
@@ -13,7 +15,19 @@ const (
 	Fail2banPackage = "fail2ban"
 	// Fail2banService is the unit shipped by that package.
 	Fail2banService = "fail2ban"
+	// Fail2banSudoersFile is the drop-in inside State.SudoersDir.
+	Fail2banSudoersFile = "go-ispconfig-fail2ban"
 )
+
+// fail2banSudoers lets the unprivileged panel user reach fail2ban's
+// root-only control socket. The whitelist is exactly the three commands
+// internal/fail2ban issues; the jail name and the address are validated
+// (ValidJailName, net.ParseIP) before any command is built.
+const fail2banSudoers = `# Managed by go-ispconfig — do not edit.
+go-ispconfig ALL=(root) NOPASSWD: /usr/bin/fail2ban-client status
+go-ispconfig ALL=(root) NOPASSWD: /usr/bin/fail2ban-client status *
+go-ispconfig ALL=(root) NOPASSWD: /usr/bin/fail2ban-client set * unbanip *
+`
 
 // fail2banStep installs fail2ban and writes the panel-owned jail drop-ins.
 // ISPConfig3's configure_fail2ban() is a stub, so there is nothing to port:
@@ -47,6 +61,9 @@ func (fail2banStep) Run(ctx context.Context, st *State) error {
 	if err != nil {
 		return err
 	}
+	if err := writeFail2banSudoers(ctx, st); err != nil {
+		return err
+	}
 	if _, err := st.Exec.Run(ctx, nil, "systemctl", "enable", "--now", Fail2banService); err != nil {
 		return fmt.Errorf("enabling %s: %w", Fail2banService, err)
 	}
@@ -55,6 +72,29 @@ func (fail2banStep) Run(ctx context.Context, st *State) error {
 	}
 	if _, err := st.Exec.Run(ctx, nil, "systemctl", "restart", Fail2banService); err != nil {
 		return fmt.Errorf("restarting %s: %w", Fail2banService, err)
+	}
+	return nil
+}
+
+// writeFail2banSudoers installs the panel's sudo grant, validating it with
+// visudo before it goes live: a malformed file in /etc/sudoers.d breaks
+// sudo for the whole host. The staging name carries a dot, which sudo
+// ignores, so a failure between write and rename can never take effect.
+func writeFail2banSudoers(ctx context.Context, st *State) error {
+	path := filepath.Join(st.SudoersDir, Fail2banSudoersFile)
+	staging := path + ".new"
+	if err := os.MkdirAll(st.SudoersDir, 0o750); err != nil {
+		return fmt.Errorf("creating %s: %w", st.SudoersDir, err)
+	}
+	if err := os.WriteFile(staging, []byte(fail2banSudoers), 0o440); err != nil {
+		return fmt.Errorf("writing %s: %w", staging, err)
+	}
+	defer func() { _ = os.Remove(staging) }()
+	if out, err := st.Exec.Run(ctx, nil, "visudo", "-c", "-f", staging); err != nil {
+		return fmt.Errorf("visudo -c %s: %w: %s", staging, err, out)
+	}
+	if err := os.Rename(staging, path); err != nil {
+		return fmt.Errorf("installing %s: %w", path, err)
 	}
 	return nil
 }

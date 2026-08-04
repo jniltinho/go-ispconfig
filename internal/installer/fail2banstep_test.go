@@ -2,6 +2,7 @@ package installer
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -38,4 +39,34 @@ func TestFail2banStepHTTPJailFollowsWebServer(t *testing.T) {
 			assert.NoFileExists(t, filepath.Join(st.Fail2banJailDir, tc.absent))
 		})
 	}
+}
+
+// The sudo grant must be visudo-validated before it goes live: a malformed
+// file in /etc/sudoers.d breaks sudo host-wide.
+func TestFail2banStepWritesValidatedSudoers(t *testing.T) {
+	st, mock, _ := testState(t)
+	st.Fail2banJailDir = t.TempDir()
+
+	require.NoError(t, fail2banStep{}.Run(context.Background(), st))
+
+	path := filepath.Join(st.SudoersDir, Fail2banSudoersFile)
+	body, err := os.ReadFile(path)
+	require.NoError(t, err)
+	assert.Contains(t, string(body), "NOPASSWD: /usr/bin/fail2ban-client status")
+	assert.True(t, mock.called("visudo -c -f "+path+".new"), "visudo must run on the staging file")
+	assert.NoFileExists(t, path+".new")
+
+	info, err := os.Stat(path)
+	require.NoError(t, err)
+	assert.Equal(t, os.FileMode(0o440), info.Mode().Perm())
+}
+
+// A rejected sudoers file must never reach /etc/sudoers.d.
+func TestFail2banStepSudoersVisudoFailure(t *testing.T) {
+	st, mock, _ := testState(t)
+	st.Fail2banJailDir = t.TempDir()
+	mock.fail["visudo"] = "syntax error"
+
+	require.Error(t, fail2banStep{}.Run(context.Background(), st))
+	assert.NoFileExists(t, filepath.Join(st.SudoersDir, Fail2banSudoersFile))
 }

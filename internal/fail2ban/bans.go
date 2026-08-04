@@ -41,14 +41,34 @@ type Status struct {
 type Client struct {
 	// Runner executes fail2ban-client.
 	Runner engine.CommandRunner
+	// Sudo prefixes every invocation with `sudo -n`. fail2ban's control
+	// socket is root-only, so a caller that is not root (the panel runs as
+	// the unprivileged go-ispconfig user) reaches it through the
+	// /etc/sudoers.d drop-in the installer writes, which whitelists exactly
+	// the status and unbanip commands issued below.
+	Sudo bool
 }
 
-// NewClient returns a Client backed by the production exec runner.
+// NewClient returns a Client backed by the production exec runner, for
+// callers that already run as root (the daemon).
 func NewClient() *Client { return &Client{Runner: engine.ExecRunner{}} }
+
+// NewSudoClient returns a Client that goes through sudo, for the
+// unprivileged panel process.
+func NewSudoClient() *Client { return &Client{Runner: engine.ExecRunner{}, Sudo: true} }
+
+// run executes fail2ban-client with args, through sudo when required.
+// `-n` keeps a misconfigured sudoers from blocking on a password prompt.
+func (c *Client) run(ctx context.Context, args ...string) ([]byte, error) {
+	if c.Sudo {
+		return c.Runner.Run(ctx, "sudo", append([]string{"-n", "fail2ban-client"}, args...)...)
+	}
+	return c.Runner.Run(ctx, "fail2ban-client", args...)
+}
 
 // Jails returns the live jail names from `fail2ban-client status`.
 func (c *Client) Jails(ctx context.Context) ([]string, error) {
-	out, err := c.Runner.Run(ctx, "fail2ban-client", "status")
+	out, err := c.run(ctx, "status")
 	if err != nil {
 		return nil, fmt.Errorf("fail2ban-client status: %w (%s)", err, strings.TrimSpace(string(out)))
 	}
@@ -60,7 +80,7 @@ func (c *Client) Status(ctx context.Context, jail string) (Status, error) {
 	if !ValidJailName(jail) {
 		return Status{}, fmt.Errorf("fail2ban: invalid jail name %q", jail)
 	}
-	out, err := c.Runner.Run(ctx, "fail2ban-client", "status", jail)
+	out, err := c.run(ctx, "status", jail)
 	if err != nil {
 		return Status{}, fmt.Errorf("fail2ban-client status %s: %w (%s)", jail, err, strings.TrimSpace(string(out)))
 	}
@@ -78,7 +98,7 @@ func (c *Client) Unban(ctx context.Context, jail, ip string) error {
 	if net.ParseIP(ip) == nil {
 		return fmt.Errorf("fail2ban: invalid ip %q", ip)
 	}
-	if out, err := c.Runner.Run(ctx, "fail2ban-client", "set", jail, "unbanip", ip); err != nil {
+	if out, err := c.run(ctx, "set", jail, "unbanip", ip); err != nil {
 		return fmt.Errorf("fail2ban-client set %s unbanip: %w (%s)", jail, err, strings.TrimSpace(string(out)))
 	}
 	return nil

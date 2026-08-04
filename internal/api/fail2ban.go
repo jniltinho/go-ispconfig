@@ -14,8 +14,10 @@ import (
 	"go-ispconfig/internal/fail2ban"
 )
 
-// fail2banClient talks to the local fail2ban daemon.
-var fail2banClient = fail2ban.NewClient()
+// fail2banClient talks to the local fail2ban daemon. The panel runs as the
+// unprivileged go-ispconfig user and fail2ban's control socket is
+// root-only, so it goes through the sudoers drop-in the installer writes.
+var fail2banClient = fail2ban.NewSudoClient()
 
 // registerFail2banRoutes mounts /api/monitor/fail2ban/* (admin only).
 func registerFail2banRoutes(g *echo.Group, _ *Deps) {
