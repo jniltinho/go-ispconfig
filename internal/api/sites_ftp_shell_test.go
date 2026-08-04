@@ -370,3 +370,4 @@ func TestShellUserChrootOptions(t *testing.T) {
 	assert.True(t, values[""] || values["no"])
 	assert.True(t, values["jailkit"])
 }
+

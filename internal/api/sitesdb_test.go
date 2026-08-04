@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -137,6 +138,7 @@ func TestConvertClientName(t *testing.T) {
 		{"under_score", "under_score"}, // already allowed
 		{"", "default"},                // a nameless group must still namespace
 		{"   ", "default"},
+		{"café", "caf__"},              // PHP indexes bytes: two for the accent
 	}
 	for _, tc := range tests {
 		assert.Equal(t, tc.want, convertClientName(tc.in), "convertClientName(%q)", tc.in)
@@ -147,5 +149,15 @@ func TestConvertClientName(t *testing.T) {
 func TestExpandPrefixUsesSanitisedName(t *testing.T) {
 	got := expandPrefixPlaceholders("[CLIENTNAME]", convertClientName("Acme Ltd."), "3", 7)
 	assert.Equal(t, "acmeltd_", got, "a group name with a space and a dot must not reach a username raw")
+}
+
+// An unresolved placeholder must never reach a stored name: brackets fail the
+// name regex and the error would blame what the caller typed.
+func TestUnresolvedPrefixIsDropped(t *testing.T) {
+	assert.Equal(t, "", expandSitesPrefix(context.Background(), nil, nil, "c[CLIENTID]", nil),
+		"no identity and no parent site leaves nothing to expand")
+	assert.Equal(t, "", expandSitesPrefix(context.Background(), nil, nil, "[CLIENTNAME]", nil))
+	assert.Equal(t, "", expandSitesPrefix(context.Background(), nil, nil, "", nil),
+		"an empty template stays empty")
 }
 

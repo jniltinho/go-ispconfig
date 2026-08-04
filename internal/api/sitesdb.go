@@ -80,12 +80,16 @@ func convertClientName(name string) string {
 	}
 	var b strings.Builder
 	b.Grow(len(name))
-	for _, r := range name {
+	// Byte-wise, not rune-wise: PHP indexes $name[$i] by byte, so a name with
+	// "e-acute" yields one underscore per UTF-8 byte. Iterating runes here
+	// would produce a different prefix than the panel it was migrated from.
+	for i := 0; i < len(name); i++ {
+		c := name[i]
 		switch {
-		case r == ' ':
+		case c == ' ':
 			// Dropped, not replaced — PHP `continue`s on space.
-		case r >= 'a' && r <= 'z', r >= '0' && r <= '9', r == '_':
-			b.WriteRune(r)
+		case c >= 'a' && c <= 'z', c >= '0' && c <= '9', c == '_':
+			b.WriteByte(c)
 		default:
 			b.WriteByte('_')
 		}
@@ -667,7 +671,11 @@ func expandSitesPrefix(ctx context.Context, db *gorm.DB, id *repository.Identity
 	domainID := bodyInt(body, "parent_domain_id")
 
 	var groupID uint32
-	if id != nil && !id.IsAdmin() {
+	if g := bodyInt(body, "client_group_id"); g > 0 {
+		// getClientName consults the submitted client group first; an admin
+		// creating on behalf of a client names it there and nowhere else.
+		groupID = uint32(g)
+	} else if id != nil && !id.IsAdmin() {
 		groupID = id.DefaultGroup
 	} else if domainID > 0 {
 		var web model.WebDomain
@@ -696,7 +704,16 @@ func expandSitesPrefix(ctx context.Context, db *gorm.DB, id *repository.Identity
 			clientID = strconv.FormatUint(uint64(group.ClientID), 10)
 		}
 	}
-	return expandPrefixPlaceholders(tpl, clientName, clientID, domainID)
+	out := expandPrefixPlaceholders(tpl, clientName, clientID, domainID)
+	// A placeholder that survived every source above (a dangling sys_groupid,
+	// an API token with no default group) would reach the name regex as "[" and
+	// "]" and fail the create with an error blaming the name the caller typed.
+	// Dropping the prefix loses the namespacing, which is recoverable; storing
+	// brackets is not.
+	if strings.ContainsAny(out, "[]") {
+		return ""
+	}
+	return out
 }
 
 // --- entity hooks (task 4.6, sites_database_plugin + remote API parity) ---
