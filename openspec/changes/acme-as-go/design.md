@@ -70,15 +70,49 @@ an external-DNS user actually appears.`
 
 ## D5. Storage, and the two things that must not be lost
 
-Certificates: `/var/lib/go-ispconfig/acme/certs/<main-domain>/` holding
-`cert.pem`, `chain.pem`, `fullchain.pem`, `key.pem` — the acme.sh layout, so
-`internal/apache2/ssl.go` and the nginx templates need a new path, not a new
-shape. Written temp-then-rename, key 0600.
+Certificates go where certbot puts them, because that is what an adopted
+install already has on disk and what third-party tooling, monitoring and every
+Let's Encrypt tutorial expects:
 
-Account: `/var/lib/go-ispconfig/acme/account.key` plus `account.json` (the
-registration URI and contact). Separate from the certificates on purpose —
-losing a certificate costs a re-issue, losing the account key costs the
-rate-limit history attached to it.
+```
+/etc/letsencrypt/
+├── live/<main-domain>/           symlinks into ../../archive/<main-domain>/
+│   ├── cert.pem  chain.pem  fullchain.pem  privkey.pem
+├── archive/<main-domain>/        every generation kept, N-suffixed
+│   ├── cert1.pem  chain1.pem  fullchain1.pem  privkey1.pem
+│   └── cert2.pem  …
+└── renewal/<main-domain>.conf    issuance metadata, INI, certbot-shaped
+```
+
+`live/` is a symlink farm into `archive/`, exactly as certbot does it: a renewal
+writes generation N+1 and repoints the four symlinks, so a reader that opens
+`live/…/fullchain.pem` never sees a half-written file and a bad renewal can be
+rolled back by repointing. Directories 0755, `archive/*/privkey*.pem` 0600,
+written temp-then-rename.
+
+Account keys are the one deliberate divergence:
+`/etc/letsencrypt/accounts/<server-id>/account.{key,json}`. Certbot has no
+multi-account concept and keys the directory by CA URL; this panel is
+per-server, and the account key is what carries the rate-limit history — losing
+a certificate costs a re-issue, losing the account key costs that history.
+
+**The vhosts do not change, and that is the point.** Both templates render
+`<docroot>/ssl/<domain>-le.crt|key|bundle`
+(`internal/nginx/le.go:242`, `internal/apache2/vhost.go:182`) — the ISPConfig
+layout. Those stay, as **symlinks into `live/`**, which is precisely what the
+legacy does on its certbot path: `letsencrypt.inc.php:496` calls `link_file()`
+for privkey, chain and fullchain after certbot writes them. Repointing the
+templates at `/etc/letsencrypt/live/` instead would rewrite every vhost on
+upgrade and break the acme.sh path, which installs *copies* at the site ssl
+path rather than symlinks (`letsencrypt.inc.php:478`). Writing certbot's layout
+and linking from the site ssl dir is what makes an adopted install zero-touch:
+the symlinks it already has keep resolving.
+
+The challenge webroot also stays at `/usr/local/ispconfig/interface/acme` —
+both vhost templates hardcode it (`nginx_vhost.conf.master:92`), and it is what
+the legacy passes as `--webroot-path`. Moving it to `/var/www/letsencrypt`
+would mean re-rendering every vhost to chase a path that is a per-site
+convention, not a certbot default.
 
 **Not in the database.** A private key in `sys_datalog`'s replication path would
 be handed to every node in a multi-server install.

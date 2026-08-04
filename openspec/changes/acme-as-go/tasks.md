@@ -1,11 +1,12 @@
 ## 1. `internal/acme` — the client
 
 - [ ] 1.1 `Client` over `golang.org/x/crypto/acme` (no new dependency): directory discovery, account registration, order → authorize → finalize. The production directory URL appears in exactly one place.
-- [ ] 1.2 Account storage at `/var/lib/go-ispconfig/acme/account.{key,json}`, created 0600 on first use and reused after, registration serialised under a file lock (D6). Tests: a second `New` reuses the key; two concurrent `New` calls register once.
-- [ ] 1.3 `Issue(ctx, domains) (*Result, error)` writing the acme.sh-shaped directory of D5 temp-then-rename, key 0600.
-- [ ] 1.4 `Renew` and `Revoke` on the same client.
-- [ ] 1.5 The 30-day / domain-set precondition of D7 under a per-domain lock, with a test for each half: fresh cert skips, added alias re-issues.
-- [ ] 1.6 The backoff ledger of D8: a failed issuance is recorded per domain and the next attempt refused locally until it expires. Test the exponential and the cap.
+- [ ] 1.2 Account storage at `/etc/letsencrypt/accounts/<server-id>/account.{key,json}`, created 0600 on first use and reused after, registration serialised under a file lock (D6). Tests: a second `New` reuses the key; two concurrent `New` calls register once.
+- [ ] 1.3 `internal/acme/storage.go` implementing the certbot layout of D5: write generation N+1 into `archive/<domain>/`, then repoint the four `live/<domain>/` symlinks in one step, then write `renewal/<domain>.conf`. Temp-then-rename, `privkey*.pem` 0600, directories 0755. Tests: first issuance creates generation 1; a renewal creates 2 and the symlinks follow; a reader holding `live/…/fullchain.pem` open across a renewal never observes a truncated file.
+- [ ] 1.4 Link the site paths the vhosts already render — `<docroot>/ssl/<domain>-le.{key,crt,bundle}` → `live/<domain>/{privkey,fullchain,chain}.pem` — replacing an existing symlink but **never** a regular file, which is what an acme.sh install has there. Test both: a stale symlink is repointed, a real file is left alone and reported.
+- [ ] 1.5 `Renew` and `Revoke` on the same client.
+- [ ] 1.6 The 30-day / domain-set precondition of D7 under a per-domain lock, with a test for each half: fresh cert skips, added alias re-issues.
+- [ ] 1.7 The backoff ledger of D8: a failed issuance is recorded per domain and the next attempt refused locally until it expires. Test the exponential and the cap.
 
 ## 2. http-01
 
@@ -16,7 +17,7 @@
 
 - [ ] 3.1 `internal/nginx/le.go`: issuance delegates to `internal/acme`; the shell-out path stays behind `[server] acme_client` (D10) so an upgraded host does not change behaviour mid-flight.
 - [ ] 3.2 `internal/apache2/acme.go`: issue on demand, then `apache2ctl graceful`. This closes the proposal's gap 1 — an Apache node can obtain its first certificate.
-- [ ] 3.3 Point `internal/apache2/ssl.go` and the nginx vhost templates at the D5 datastore, leaving the `~/.acme.sh` and `/etc/letsencrypt/live` paths readable (D10).
+- [ ] 3.3 **No vhost or template change** (D5): both keep rendering `<docroot>/ssl/<domain>-le.*`, which task 1.4 now links into `/etc/letsencrypt/live/`. Assert it in the golden vhost tests — a diff there means an adopted install would get its vhosts rewritten on upgrade, which is the outcome this design exists to avoid.
 - [ ] 3.4 `internal/web/le_renew.go`: native renewal branch when `acme_client=native`; the existing acme.sh/certbot branches untouched.
 
 ## 4. Config, install, docs
