@@ -594,6 +594,39 @@ export const router = createRouter({
           meta: { adminOnly: true },
         },
         {
+          // CP Users: the panel login accounts (sys_user). Client logins are
+          // created by the Client module; this list edits them and creates
+          // additional admins (legacy admin/users_*).
+          path: 'system/cp-users',
+          name: 'system-cp-users',
+          component: MailList,
+          meta: { adminOnly: true },
+          props: {
+            apiBase: '/api/cp-users', idField: 'userid', formBase: '/system/cp-users',
+            columns: [
+              { key: 'username', label: 'cpuser.col.username' },
+              { key: 'typ', label: 'cpuser.col.typ' },
+              { key: 'active', label: 'cpuser.col.active' },
+              { key: 'modules', label: 'cpuser.col.modules' },
+            ],
+            titleKey: 'cpuser.list_title', addKey: 'cpuser.add', activeValue: '1',
+          },
+        },
+        {
+          path: 'system/cp-users/new',
+          name: 'system-cp-user-new',
+          component: EntityForm,
+          meta: { adminOnly: true },
+          props: { entity: 'cp-users', apiBase: '/api/cp-users', backTo: '/system/cp-users' },
+        },
+        {
+          path: 'system/cp-users/:id(\\d+)',
+          name: 'system-cp-user-edit',
+          component: EntityForm,
+          meta: { adminOnly: true },
+          props: (route) => ({ entity: 'cp-users', apiBase: '/api/cp-users', backTo: '/system/cp-users', id: String(route.params.id) }),
+        },
+        {
           path: 'system/server-ips',
           name: 'system-server-ips',
           component: MailList,

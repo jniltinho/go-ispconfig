@@ -106,6 +106,9 @@ func registerEntities(g *echo.Group, d *Deps) error {
 	if err := RegisterEntity[model.ServerIP](g, d, serverIPEntity()); err != nil {
 		return err
 	}
+	if err := RegisterEntity[model.SysUser](g, d, cpUserEntity()); err != nil {
+		return err
+	}
 	if err := registerSitesEntities(g.Group("/sites"), d); err != nil {
 		return err
 	}

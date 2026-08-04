@@ -61,12 +61,13 @@ type FormMeta struct {
 
 // formTypes maps tform formtypes to SPA TabbedForm control types.
 var formTypes = map[string]string{
-	"TEXT":     "text",
-	"PASSWORD": "password",
-	"TEXTAREA": "textarea",
-	"SELECT":   "select",
-	"CHECKBOX": "checkbox",
-	"RADIO":    "select",
+	"TEXT":          "text",
+	"PASSWORD":      "password",
+	"TEXTAREA":      "textarea",
+	"SELECT":        "select",
+	"CHECKBOX":      "checkbox",
+	"CHECKBOXARRAY": "checkboxarray",
+	"RADIO":         "select",
 }
 
 // registerMetaRoutes mounts the form metadata endpoint on the
