@@ -107,7 +107,7 @@ Daemon modules consume `sys_datalog` rows; installer steps only run during
 | `client` | stable | clients/resellers, limits, client templates, messaging | [client-module.md](client-module.md) |
 | `monitor` | stable | service/state/quota collectors, `monitor_data` history, dashlets and charts | [monitor-module.md](monitor-module.md) |
 | `getmail` | stable | fetch external POP3/IMAP accounts via systemd timer | [mail-module.md](mail-module.md) |
-| multi-server | stable | server registry, role validation, node identity, per-`server_id` datalog routing | [ARCHITECTURE.md](ARCHITECTURE.md) |
+| multi-server | partial | per-`server_id` datalog routing, role-gated module loading and node identity all work; setup is manual (no `install --join`, no master/slave DB split, no mirrors) | [multi-server.md](multi-server.md) |
 | legacy migration | stable | adopt an existing `dbispconfig`, or import over the PHP panel's remote API | [MIGRATION.md](MIGRATION.md), [legacy-migration.md](legacy-migration.md) |
 | `postfix` (installer) | stable | idempotent convergence via `postconf -e/-M/-P`, submission + submissions, virtual maps | [mail-module.md](mail-module.md) |
 | `dovecot` (installer) | stable | IMAP/POP3/LMTP, dual-dialect config (2.3 and 2.4 detected at runtime), SQL auth | [mail-module.md](mail-module.md) |

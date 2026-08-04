@@ -35,11 +35,11 @@ flowchart LR
     API -->|GORM: records + sys_datalog| DB[(MariaDB<br/>dbispconfig — schema<br/>identical to ISPConfig3)]
     API -->|"enqueue datalog:ready"| REDIS[(Redis / Valkey)]
 
-    ENG -->|"poll datalog_id > server.updated"| DB
+    ENG -->|"poll datalog_id > server.updated<br/>(server_id = mine OR 0)"| DB
     WORKER -->|"queue server:&lt;id&gt;"| REDIS
     WORKER -->|wake| ENG
     ENG --> TPL
-    TPL -->|write configs, validate, reload| SVC["nginx / Bind<br/>(systemctl)"]
+    TPL -->|write configs, validate, reload| SVC["nginx / apache2 / Bind / PowerDNS<br/>Postfix / Dovecot / Rspamd<br/>MariaDB / PureFTPd / UFW / fail2ban<br/>(systemctl)"]
 ```
 
 Key properties:
@@ -47,8 +47,15 @@ Key properties:
 - **sys_datalog is the source of truth** for configuration changes; Redis
   transports *work, never state* (D12). If Redis is down, datalog writes still
   succeed and the daemon's poll ticker picks them up.
-- The daemon refuses to start on multi-server or mirror databases
-  (`GuardServer`, D2) and takes a single-instance `flock`.
+- **Each daemon serves exactly one `server` row**, resolved by
+  `engine.ResolveServer` in this order: `server_id` from `config.toml`, then
+  the active row whose `server_name` matches the OS hostname, then the single
+  active row when there is only one. With several active rows and no match it
+  refuses to start rather than apply another node's datalog. See
+  [multi-server.md](multi-server.md).
+- The daemon takes a single-instance `flock`, and loads each module only when
+  the resolved row carries the matching role flag (`web_server`,
+  `mail_server`, `dns_server`, `db_server`, `firewall_server`).
 - Static process config lives in `config.toml` (Viper, env prefix `GOISP_`);
   runtime server behavior stays in the DB (`server.config` INI, `sys_config`,
   `sys_ini`) parsed by `internal/getconf` (D8) — so a server's daemon is
@@ -192,11 +199,13 @@ strand users on rollback.
 | `internal/queue` | asynq client/server wrappers, per-server queues, periodic tasks |
 | `internal/mastertpl` | ISPConfig `.master` template lexer/renderer |
 | `internal/database` | Embedded `ispconfig3.sql`, migrate/adopt logic, seed |
-| `internal/model` | GORM models with explicit column tags (subset of the ~80 tables) |
+| `internal/model` | GORM models with explicit column tags — all 78 ISPConfig3 tables, 1:1 with the embedded schema |
 | `internal/getconf` | `server.config` INI + `sys_config`/`sys_ini` accessors |
 | `internal/validator` | tform validator port (REGEX, UNIQUE, ISEMAIL, ...) |
 | `internal/config` | `config.toml` loading (Viper, `GOISP_` env prefix) |
 | `internal/installer` | `install`/`uninstall` step pipeline: distro profiles, packages, MariaDB, base configs, systemd units |
+| `internal/tlscert` | Self-signed panel certificate generation and validation |
+| `internal/system` | Filesystem and payload helpers shared by the daemon plugins |
 | `internal/legacy` | Remote-API client and import engine for a running PHP ISPConfig3 |
 | `frontend/` | Vue 3 + Vite + Tailwind v4 SPA, built into `web/dist` and embedded |
 
@@ -206,12 +215,13 @@ that apply the resulting events (one doc each, linked from the
 
 | Package | Module hooks / plugins |
 |---|---|
-| `internal/web`, `internal/nginx` | `web_domain`, `web_folder*`, `ftp_user`, `shell_user` hooks → nginx vhosts, PHP-FPM pools, SSL |
+| `internal/web`, `internal/nginx`, `internal/apache2`, `internal/site` | `web_domain`, `web_folder*`, `ftp_user`, `shell_user` hooks → the site's on-disk layout plus nginx **or** Apache 2.4 vhosts, PHP-FPM pools, SSL (the renderer is picked by `server.config` `[web] server_type`) |
 | `internal/dns`, `internal/powerdns` | `dns_soa`/`dns_slave`/`dns_rr` hooks → Bind zonefiles or PowerDNS gmysql rows (mutually exclusive, chosen by `server.config` `dns_backend`) |
 | `internal/mail` | mail/spamfilter hooks → Postfix maps, Dovecot, DKIM keys, Rspamd settings |
 | `internal/clientdb` | `database`/`database_user` hooks → MySQL databases, users and grants |
 | `internal/ftp`, `internal/shell`, `internal/jailkit` | FTP login dirs (virtual accounts), shell users, jailkit chroots |
 | `internal/cron` | `cron` hooks → jobs run by the daemon scheduler, never a system crontab |
 | `internal/firewall` | `firewall` hooks → UFW rule sets |
+| `internal/fail2ban` | panel-managed fail2ban jails rendered as `jail.local` + owned filters, live ban/unban API |
 | `internal/clients` | `client` hooks (broadcast) + limit/usage computation |
 | `internal/monitor` | scheduler-only: state, log and quota collectors writing `monitor_data` |
