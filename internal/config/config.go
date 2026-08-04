@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"time"
 
 	"github.com/spf13/viper"
 )
@@ -174,6 +175,14 @@ type AuthConfig struct {
 	// to bcrypt on successful login. Default false: PHP ISPConfig cannot verify
 	// bcrypt, so eager rehash would break the migration rollback path (D10).
 	RehashLegacy bool `toml:"rehash_legacy" mapstructure:"rehash_legacy"`
+	// JWTSecret signs the short-lived JWTs an API token can be exchanged
+	// for. Generated at install time; empty disables only the exchange
+	// endpoint — API tokens themselves keep working without it.
+	JWTSecret string `toml:"jwt_secret" mapstructure:"jwt_secret"`
+	// JWTTTL is the lifetime of an exchanged JWT. Zero applies the 15-minute
+	// default; anything above one hour is clamped, because a stateless
+	// credential is only safe while it expires soon.
+	JWTTTL time.Duration `toml:"jwt_ttl" mapstructure:"jwt_ttl"`
 }
 
 // setDefaults registers the built-in default for every known key so that
@@ -200,6 +209,8 @@ func setDefaults() {
 	viper.SetDefault("daemon.disable_database_module", false)
 	viper.SetDefault("daemon.disable_cron_module", false)
 	viper.SetDefault("auth.rehash_legacy", false)
+	viper.SetDefault("auth.jwt_secret", "")
+	viper.SetDefault("auth.jwt_ttl", "15m")
 	viper.SetDefault("queue.addr", "localhost:6379")
 	viper.SetDefault("queue.db", 0)
 	viper.SetDefault("queue.password", "")

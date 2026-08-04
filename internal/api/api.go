@@ -21,13 +21,13 @@ import (
 //
 //	@title						go-ispconfig API
 //	@version					1.0
-//	@description				REST API of go-ispconfig, the Go port of ISPConfig3. Authenticate via POST /api/login: browsers receive an HTTP-only session cookie (mutating requests then require the X-CSRF-Token header returned by login); non-browser clients present the same session id as a bearer token.
+//	@description				REST API of go-ispconfig, the Go port of ISPConfig3. Authenticate via POST /api/login: browsers receive an HTTP-only session cookie (mutating requests then require the X-CSRF-Token header returned by login); non-browser clients present the same session id as a bearer token. Automation should instead use an API token minted under System → Remote Users (see docs/api-tokens.md): it is long-lived, scoped, revocable, and presented on the same Authorization header.
 //	@BasePath					/api
 //
 //	@securityDefinitions.apikey	BearerAuth
 //	@in							header
 //	@name						Authorization
-//	@description				Session id as bearer token: "Bearer <session id>". No CSRF token required on this transport.
+//	@description				Bearer credential, one of three forms: a session id from POST /api/login, an API token (goisp_<id>_<secret>) minted under System → Remote Users, or a JWT obtained from POST /api/tokens/exchange. No CSRF token is required on this transport. A token or JWT additionally needs the endpoint's scope (resource:action, e.g. sites:read) and can never exceed what its owning user may do.
 //
 //	@securityDefinitions.apikey	CookieAuth
 //	@in							header
@@ -68,10 +68,16 @@ func Register(e *echo.Echo, d *Deps) error {
 		d.trustedProxies = append(d.trustedProxies, p)
 	}
 
-	g := e.Group("/api", requestLogger(), echoMiddleware.BodyLimit(4<<20), auth.Middleware(d.Sessions))
+	// tokenAuthMiddleware runs ahead of the session middleware: it claims an
+	// `Authorization: Bearer goisp_…` (or JWT) credential and leaves anything
+	// else — including every cookie request — to the session path, which keeps
+	// its CSRF requirement untouched.
+	g := e.Group("/api", requestLogger(), echoMiddleware.BodyLimit(4<<20),
+		tokenAuthMiddleware(d), auth.Middleware(d.Sessions))
 	registerAuthRoutes(g, d)
 
-	protected := g.Group("", auth.RequireAuth())
+	protected := g.Group("", auth.RequireAuth(), requireScope())
+	registerTokenRoutes(protected, d)
 	registerMetaRoutes(protected, d)
 	registerSystemRoutes(protected, d)
 	registerMonitorRoutes(protected, d)

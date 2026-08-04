@@ -21,11 +21,15 @@ const props = defineProps<{
   /** activeValue is the "on" value for the status badge ('y' or 'Y'). */
   activeValue?: string
   /**
-   * deletable false drops the per-row delete button, for lists that only
-   * pick a record to edit (Server Config picks the node whose INI is edited;
+   * noDelete drops the per-row delete button, for lists that only pick a
+   * record to edit (Server Config picks the node whose INI is edited;
    * deleting the server from there would be a different, destructive action).
+   *
+   * Phrased as an opt-out, not an opt-in: Vue casts an absent Boolean-typed
+   * prop to `false`, so a `deletable?: boolean` default would silently hide
+   * the button on every list that does not pass it.
    */
-  deletable?: boolean
+  noDelete?: boolean
 }>()
 
 const { t } = useI18n()
@@ -132,7 +136,7 @@ const activeOn = props.activeValue ?? 'y'
           <component :is="utilityIcons.edit" :size="14" />
         </button>
         <button
-          v-if="deletable !== false"
+          v-if="!noDelete"
           type="button"
           :title="t('sites.delete')"
           :aria-label="t('sites.delete')"

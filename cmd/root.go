@@ -37,6 +37,7 @@ Available commands:
   serve      Start the panel web server (API + embedded SPA)
   daemon     Start the config-apply daemon (sys_datalog consumer)
   migrate    Create or validate the database schema
+  token      Manage API tokens for automation
   version    Show version information`,
 	SilenceErrors: true,
 	// Config is loaded here instead of cobra.OnInitialize so that commands

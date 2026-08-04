@@ -42,10 +42,36 @@ go test ./internal/...
 cd frontend && npm run build   # garante que web/dist compila
 ```
 
-- Swagger não pode ficar stale: `make swagger` após mudar handlers.
+- Swagger não pode ficar stale: `make swagger` após mudar handlers (regra completa abaixo).
 - Commits convencionais (`feat:`, `fix:`, `docs:`...). Cada task terminada e validada = 1 commit.
 - NUNCA commitar: `docs/prints/`, `base/`, `.vagrant/`, `*.box`, `testdata/`, `config.toml` real, senhas/credenciais/dados sensíveis, imagens Vagrant.
 - `docs/screenshots/` (curados) SOBE no repo; `docs/prints/` (validação local) NÃO sobe.
+
+## Swagger (obrigatório em TODA mudança de API)
+
+**Toda vez que adicionar uma nova API ou ajustar uma existente, atualize o Swagger.**
+Sem exceção — endpoint novo, rota renomeada, campo novo no body, novo código de
+erro, mudança de auth/escopo, ou até só o texto de uma `@Description`.
+
+```bash
+make swagger        # swag fmt + swag init → internal/api/docs (go + json)
+make swagger-check  # falha se o spec commitado estiver stale — é o que o CI roda
+```
+
+Checklist ao mexer em `internal/api/`:
+
+1. Anotar o handler com swaggo: `@Summary`, `@Description`, `@Tags`, `@Param`,
+   `@Success`, `@Failure` (todos os códigos que o handler realmente retorna) e
+   `@Router`, mais `@Security CookieAuth` / `@Security BearerAuth`.
+2. Rodar `make swagger` e **commitar** `internal/api/docs/docs.go` +
+   `swagger.json` no mesmo commit da mudança de API — nunca num commit separado.
+3. Conferir `make swagger-check` limpo antes do `git push`.
+4. Rotas registradas genericamente (`RegisterEntity`) não geram anotação
+   sozinhas: adicione as funções `*Doc()` correspondentes, como
+   `internal/api/serverip.go` faz.
+5. Se a mudança altera como o cliente autentica ou o que ele precisa para
+   chamar o endpoint, atualize também `docs/api-tokens.md` e a descrição do
+   `BearerAuth` — o spec é a documentação que o usuário externo lê.
 
 ## Validação cruzada com outros agents (obrigatório ao terminar cada task)
 
@@ -98,7 +124,7 @@ com usuário full-grant `goisp-lab`), dataset de fixtures idempotente
 | Log de debug | `LOG_LEVEL=debug` (env, sem rebuild) ou `[log] level` no config.toml — vale para `serve` e `daemon` |
 | **Lab painel `.10`** | **Redeploy do binário na VM go-ispconfig (ver abaixo) — obrigatório em todo marco de módulo/UI** |
 
-## Redeploy na VM lab `192.168.56.10` (obrigatório)
+## Redeploy na VM lab `192.168.56.12` (obrigatório)
 
 E2E local (`127.0.0.1:809x`) **não substitui** validação no painel lab final.
 A cada marco que altera o binário embutido (módulo fechado, lote UI/API relevante, archive de change, ou pedido explícito do usuário), o agent DEVE redeployar e checar saúde na VM:
@@ -107,16 +133,25 @@ A cada marco que altera o binário embutido (módulo fechado, lote UI/API releva
 # A partir do worktree/clone com o código a validar:
 make build-linux
 cd vagrant
-vagrant upload ../bin/go-ispconfig-linux-amd64 /tmp/go-ispconfig ubuntu
-vagrant ssh ubuntu -c 'sudo install -m 0755 /tmp/go-ispconfig /usr/local/bin/go-ispconfig && sudo systemctl restart go-ispconfig-serve go-ispconfig-daemon && systemctl is-active go-ispconfig-serve go-ispconfig-daemon && /usr/local/bin/go-ispconfig version'
+vagrant upload ../bin/go-ispconfig-linux-amd64 /tmp/go-ispconfig debian
+vagrant ssh debian -c 'sudo install -m 0755 /tmp/go-ispconfig /usr/local/bin/go-ispconfig && sudo systemctl restart go-ispconfig-serve go-ispconfig-daemon && systemctl is-active go-ispconfig-serve go-ispconfig-daemon && /usr/local/bin/go-ispconfig version'
 # Health
-curl -sk -o /dev/null -w '%{http_code}\n' https://192.168.56.10:8080/
+curl -sk -o /dev/null -w '%{http_code}\n' https://192.168.56.12:8080/
 ```
 
-- VM: `ubuntu` = **192.168.56.10** (painel novo). Legados `.20`/`.21` só quando o marco for paridade/lab fixtures.
-- Preferir `vagrant ssh ubuntu` (não `ssh root@192.168.56.10` com chave solta).
+### Topologia do lab (atual)
+
+| VM Vagrant | IP | Papel |
+|---|---|---|
+| `debian` | **192.168.56.12** (não `.11` do Vagrantfile) | painel go-ispconfig de **teste** — dataset E2E completo, é onde se valida |
+| `legacy` | **192.168.56.20** | ISPConfig3 PHP — baseline de **paridade** e fonte de migração |
+
+As VMs `ubuntu` (.10), `apache-test` (.22) e `legacy-apache` (.21) foram destruídas;
+recrie com `cd vagrant && vagrant up <nome>` quando precisar testar instalação do zero.
+
+- Preferir `vagrant ssh debian` (não `ssh root@192.168.56.12` com chave solta).
 - Incluir no relatório/Telegram: commit/version deployado + HTTP code do painel.
-- Se a VM estiver down: `cd vagrant && vagrant up ubuntu` (ou `make vagrant-lab-up`) antes do upload — não pular o redeploy em silêncio.
+- Se a VM estiver down: `cd vagrant && vagrant up debian` antes do upload — não pular o redeploy em silêncio.
 
 ## Status ao usuário (Telegram + e-mail) — obrigatório a cada marco
 
