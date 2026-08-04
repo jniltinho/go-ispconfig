@@ -3,12 +3,21 @@ package cmd
 // initCmd writes a default config.toml to the current directory from the
 // config.toml.example embedded at build time. It never overwrites an
 // existing file.
+//
+// One value is not copied verbatim: the JWT signing key is generated here.
+// The embedded example ships with an empty jwt_secret on purpose — a literal
+// key checked into the repository would be the same key on every install in
+// the world — so the randomness has to be produced at write time, the same
+// way the installer does it.
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -38,6 +47,9 @@ Examples:
 		if err != nil {
 			return fmt.Errorf("failed to load embedded default configuration: %w", err)
 		}
+		if defaultConfig, err = withGeneratedJWTSecret(defaultConfig); err != nil {
+			return err
+		}
 
 		// O_EXCL: fail atomically if the file already exists (no Stat/Write race).
 		// 0600: the config holds database credentials.
@@ -58,8 +70,28 @@ Examples:
 
 		fmt.Printf("Created default configuration file: %s\n", targetFile)
 		fmt.Println("Review the [server] and [database] sections, then run: go-ispconfig migrate && go-ispconfig serve")
+		fmt.Println("A random [auth] jwt_secret was generated for you; keep it out of version control.")
 		return nil
 	},
+}
+
+// jwtSecretPlaceholder is the empty value the embedded example carries.
+const jwtSecretPlaceholder = `jwt_secret = ""`
+
+// withGeneratedJWTSecret substitutes a fresh signing key into the template.
+// If the placeholder is ever renamed the substitution is a no-op rather than
+// a silent corruption, and the config is still valid — the exchange endpoint
+// simply stays disabled until an operator sets a key.
+func withGeneratedJWTSecret(template []byte) ([]byte, error) {
+	if !strings.Contains(string(template), jwtSecretPlaceholder) {
+		return template, nil
+	}
+	buf := make([]byte, 32)
+	if _, err := rand.Read(buf); err != nil {
+		return nil, fmt.Errorf("failed to generate a jwt signing key: %w", err)
+	}
+	generated := fmt.Sprintf(`jwt_secret = %q`, hex.EncodeToString(buf))
+	return []byte(strings.Replace(string(template), jwtSecretPlaceholder, generated, 1)), nil
 }
 
 func init() {

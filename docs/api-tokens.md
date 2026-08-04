@@ -213,10 +213,20 @@ jwt_secret = "…"
 jwt_ttl = "15m"
 ```
 
-An install upgraded from before this feature has no `jwt_secret`. Tokens keep
+Both `go-ispconfig install` and `go-ispconfig init` generate a random key when
+they write the file, and `install --update` reuses the one already there — so
+an upgrade never invalidates outstanding JWTs.
+
+An install created **before** this feature has no `jwt_secret`. Tokens keep
 working; only `/api/tokens/exchange` returns `503` naming the missing setting.
-Add the two lines above (with `openssl rand -hex 32`) and restart
-`go-ispconfig-serve`.
+Add the two lines above with a key of your own and restart
+`go-ispconfig-serve`:
+
+```bash
+printf '\n[auth]\njwt_secret = "%s"\njwt_ttl = "15m"\n' "$(openssl rand -hex 32)" \
+  | sudo tee -a /etc/go-ispconfig/config.toml
+sudo systemctl restart go-ispconfig-serve
+```
 
 ## Managing tokens
 

@@ -88,6 +88,18 @@ addr = "localhost:6379"
 db = 0
 password = ""
 
+# Outgoing SMTP used by the panel itself: client welcome emails and the
+# Client → Send message feature. An empty smtp_host disables sending — the
+# panel then simply skips those emails instead of failing the action.
+# This is NOT the mail server the panel provisions for hosted domains; that
+# is Postfix/Dovecot, configured per server in the panel (Server Config).
+# [mail]
+# smtp_host = "localhost"
+# smtp_port = 25
+# smtp_user = ""
+# smtp_pass = ""
+# from = "ispconfig@localhost"
+
 [templates]
 # Directory checked before the embedded .master templates: a file here with
 # the same name overrides the embedded one (ISPConfig3 conf-custom parity).
@@ -99,6 +111,24 @@ custom_dir = "/etc/go-ispconfig/templates-custom"
 # Keep false until a migration cutover from PHP ISPConfig is final: PHP cannot
 # verify bcrypt, so enabling this breaks the documented rollback path.
 rehash_legacy = false
+
+# Signing key for the short-lived JWTs an API token can be exchanged for
+# (POST /api/tokens/exchange — see docs/api-tokens.md). Both `go-ispconfig
+# install` and `go-ispconfig init` generate a random one when they write the
+# file; it is empty HERE because this example is embedded in the binary, and a
+# literal key checked into the repository would be the same key on every
+# install in the world.
+#
+# Setting one by hand:  openssl rand -hex 32
+#
+# Empty disables ONLY the exchange endpoint — API tokens themselves keep
+# working. Replacing the key invalidates every outstanding JWT immediately,
+# which is the emergency lever when one leaks.
+jwt_secret = ""
+# Lifetime of an exchanged JWT. Clamped to 1 hour, and never longer than the
+# expiry of the token that issued it. Keep it short: a JWT is verified without
+# a database read, so revoking its token cannot take effect until it expires.
+jwt_ttl = "15m"
 
 # Optional PowerDNS gmysql connection override. Used only when the local
 # server row has [dns] dns_backend=powerdns in server.config (panel/DB).
