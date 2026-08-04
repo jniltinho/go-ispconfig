@@ -45,6 +45,9 @@ type Field struct {
 	// renders it, dedicated handling reads it from the body, and the
 	// generic default/body application skips it.
 	Virtual bool `json:"-"`
+	// Collapsible marks a LEGEND field whose section the SPA renders
+	// folded (legacy collapse fieldsets, e.g. the DKIM block).
+	Collapsible bool `json:"collapsible,omitempty"`
 }
 
 // Option is one selectable value of a SELECT or CHECKBOX field.

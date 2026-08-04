@@ -141,17 +141,25 @@ function toFormMetadata(meta: ServerMeta, values: Record<string, unknown> = {}):
   }
 }
 
-/** needsServerLookup is true when a bare server_id SELECT has no options yet. */
-function needsServerLookup(meta: ServerMeta): boolean {
-  if (resolvedOverrides.value.server_id?.length) return false
-  for (const tab of meta.tabs) {
-    for (const field of tab.fields) {
-      if (field.name === 'server_id' && field.type === 'select' && !field.options?.length) {
-        return true
-      }
-    }
-  }
-  return false
+/**
+ * autoLookups maps the SELECT fields shared across entities to their
+ * datasource endpoint, so every form gets a real dropdown instead of the
+ * free-text fallback. `empty` is the leading "not assigned" option matching
+ * the entity default (legacy <option value='0'>).
+ */
+const autoLookups: Record<string, { url: string; empty?: { value: string; label: string } }> = {
+  server_id: { url: '/api/meta/lookups/servers' },
+  client_group_id: { url: '/api/meta/lookups/client-groups', empty: { value: '0', label: '—' } },
+}
+
+/** needsLookup is true when a bare SELECT has neither options nor an override. */
+function needsLookup(meta: ServerMeta, name: string): boolean {
+  if (resolvedOverrides.value[name]?.length) return false
+  return meta.tabs.some((tab) =>
+    tab.fields.some(
+      (field) => field.name === name && field.type === 'select' && !field.options?.length,
+    ),
+  )
 }
 
 // toFormValues converts an API record into TabbedForm values: checkboxes
@@ -197,19 +205,21 @@ onMounted(async () => {
   try {
     resolvedOverrides.value = { ...(props.optionOverrides ?? {}) }
     const meta = await api.get<ServerMeta>(`/api/meta/forms/${props.entity}`)
-    // Auto-fill server_id selects so mail/dns/firewall/sites forms do not
-    // fall back to free-text ids (shared /api/meta/lookups/servers).
-    if (needsServerLookup(meta)) {
+    // Auto-fill the shared selects (server_id, client_group_id) so mail/dns/
+    // firewall/sites forms do not fall back to free-text ids.
+    for (const [name, src] of Object.entries(autoLookups)) {
+      if (!needsLookup(meta, name)) continue
       try {
-        const servers = await api.get<{ value: string; label: string }[]>('/api/meta/lookups/servers')
-        if (servers?.length) {
-          resolvedOverrides.value = {
-            ...resolvedOverrides.value,
-            server_id: servers.map((s) => ({ value: String(s.value), label: String(s.label) })),
-          }
+        const rows = await api.get<{ value: string; label: string }[]>(src.url)
+        if (!rows?.length) continue
+        const opts = rows.map((r) => ({ value: String(r.value), label: String(r.label) }))
+        resolvedOverrides.value = {
+          ...resolvedOverrides.value,
+          [name]: src.empty ? [src.empty, ...opts] : opts,
         }
       } catch {
-        // Keep free-text fallback when the lookup is unavailable.
+        // Keep the free-text fallback when the lookup is unavailable
+        // (client-groups is admin-only; non-admins never see the field).
       }
     }
     let record: Record<string, unknown> = {}
@@ -298,6 +308,8 @@ async function save(values: Record<string, unknown>) {
       @values-change="onValuesChange"
       @save="save"
       @cancel="router.push(backTo)"
-    />
+    >
+      <template #extra><slot name="extra" /></template>
+    </TabbedForm>
   </div>
 </template>

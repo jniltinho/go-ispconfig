@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -11,6 +12,7 @@ import (
 	"golang.org/x/net/idna"
 	"gorm.io/gorm"
 
+	"go-ispconfig/internal/datalog"
 	"go-ispconfig/internal/getconf"
 	"go-ispconfig/internal/mail"
 	"go-ispconfig/internal/model"
@@ -76,8 +78,16 @@ func mailDomainEntity(d *Deps) *Entity {
 				text("domain", "domain_txt",
 					validator.Rule{Type: "NOTEMPTY", ErrKey: "domain_error_empty"},
 					validator.Rule{Type: "CUSTOM", ErrKey: "domain_error_regex", Fn: checkIsDomain}),
+				// The spamfilter policy is not a mail_domain column: it lives
+				// in spamfilter_users under the "@domain" pseudo-address
+				// (mail_domain_edit onAfterInsert/onAfterUpdate).
+				{Name: "policy", Label: "spamfilter_txt", Datatype: "INTEGER",
+					Formtype: "SELECT", Default: "0", Virtual: true},
 				checkbox("active", "active_txt", "y"),
 				checkbox("local_delivery", "local_delivery_txt", "y"),
+				// Collapsed DKIM fieldset (legacy #toggle-dkim collapse).
+				{Name: "dkim_settings", Label: "dkim_settings_txt",
+					Formtype: "LEGEND", Collapsible: true, Virtual: true},
 				checkbox("dkim", "dkim_txt", "n"),
 				text("dkim_selector", "dkim_selector_txt",
 					validator.Rule{Type: "CUSTOM", ErrKey: "dkim_selector_error", Fn: checkDKIMSelector}),
@@ -135,6 +145,9 @@ func mailDomainDecorate() func(ctx context.Context, db *gorm.DB, items []map[str
 					}
 				}
 			}
+		}
+		if err := spamfilterPolicyDecorate(ctx, db, items); err != nil {
+			return err
 		}
 		return state(ctx, db, items)
 	}
@@ -242,12 +255,84 @@ func dkimStateFor(m *model.MailDomain) *DKIMDomain {
 	}
 }
 
-// mailDomainAfterInsert reconciles DKIM DNS after an insert (old=nil).
+// mailDomainAfterInsert reconciles DKIM DNS after an insert (old=nil) and
+// creates the spamfilter_users row carrying the domain policy.
 func mailDomainAfterInsert(d *Deps) func(context.Context, *gorm.DB, *repository.Identity, any, map[string]any) error {
-	return func(ctx context.Context, tx *gorm.DB, _ *repository.Identity, rec any, _ map[string]any) error {
-		SyncDKIMDNS(ctx, tx, d.publisher(), nil, dkimStateFor(rec.(*model.MailDomain)))
+	return func(ctx context.Context, tx *gorm.DB, id *repository.Identity, rec any, body map[string]any) error {
+		dom := rec.(*model.MailDomain)
+		SyncDKIMDNS(ctx, tx, d.publisher(), nil, dkimStateFor(dom))
+		return syncSpamfilterPolicy(ctx, tx, id, dom, "", uint32(bodyInt(body, "policy")))
+	}
+}
+
+// syncSpamfilterPolicy ports the mail_domain_edit spamfilter handling: the
+// domain policy is stored in spamfilter_users under the "@domain"
+// pseudo-address, so a create inserts the row, an edit updates policy_id
+// and a rename carries the existing row (and its wblist entries) over
+// instead of orphaning it.
+func syncSpamfilterPolicy(
+	ctx context.Context, tx *gorm.DB, id *repository.Identity,
+	dom *model.MailDomain, oldDomain string, policyID uint32,
+) error {
+	email := "@" + dom.Domain
+	var user model.SpamfilterUser
+	err := tx.WithContext(ctx).Where("email = ?", email).Take(&user).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) && oldDomain != "" && oldDomain != dom.Domain {
+		err = tx.WithContext(ctx).Where("email = ?", "@"+oldDomain).Take(&user).Error
+	}
+	var actor string
+	if id != nil {
+		actor = id.Username
+	}
+	switch {
+	case errors.Is(err, gorm.ErrRecordNotFound):
+		user = model.SpamfilterUser{
+			SysUserID: dom.SysUserID, SysGroupID: dom.SysGroupID,
+			SysPermUser: "riud", SysPermGroup: "riud",
+			ServerID: dom.ServerID, Priority: 5,
+			PolicyID: policyID, Email: email, Fullname: email, Local: "Y",
+		}
+		if err := tx.WithContext(ctx).Create(&user).Error; err != nil {
+			return err
+		}
+		return datalog.LogInsert(tx, &user, actor)
+	case err != nil:
+		return err
+	case user.Email == email && user.PolicyID == policyID:
 		return nil
 	}
+	old := user
+	user.Email, user.Fullname, user.PolicyID = email, email, policyID
+	if err := tx.WithContext(ctx).Model(&model.SpamfilterUser{}).Where("id = ?", user.ID).
+		Updates(map[string]any{"email": email, "fullname": email, "policy_id": policyID}).Error; err != nil {
+		return err
+	}
+	return datalog.LogUpdate(tx, &old, &user, actor)
+}
+
+// spamfilterPolicyDecorate fills the virtual `policy` field of every mail
+// domain from its "@domain" spamfilter_users row (0 = not enabled).
+func spamfilterPolicyDecorate(ctx context.Context, db *gorm.DB, items []map[string]any) error {
+	if len(items) == 0 {
+		return nil
+	}
+	emails := make([]string, 0, len(items))
+	for _, it := range items {
+		emails = append(emails, "@"+fmt.Sprint(it["domain"]))
+	}
+	var rows []model.SpamfilterUser
+	if err := db.WithContext(ctx).Model(&model.SpamfilterUser{}).
+		Select("email", "policy_id").Where("email IN ?", emails).Find(&rows).Error; err != nil {
+		return err
+	}
+	byEmail := make(map[string]uint32, len(rows))
+	for _, r := range rows {
+		byEmail[r.Email] = r.PolicyID
+	}
+	for _, it := range items {
+		it["policy"] = byEmail["@"+fmt.Sprint(it["domain"])]
+	}
+	return nil
 }
 
 // mailDomainBeforeDelete withdraws the DKIM TXT inside the delete
@@ -259,14 +344,38 @@ func mailDomainBeforeDelete(d *Deps) func(context.Context, *gorm.DB, *repository
 	}
 }
 
-// mailDomainBeforeUpdate reconciles DKIM DNS after an update using the
-// old and new records.
+// mailDomainBeforeUpdate reconciles DKIM DNS and the spamfilter policy
+// using the old and new records.
 func mailDomainBeforeUpdate(d *Deps) func(context.Context, *gorm.DB, *repository.Identity, map[string]any, any, any) error {
-	return func(ctx context.Context, tx *gorm.DB, _ *repository.Identity, _ map[string]any, old, rec any) error {
-		SyncDKIMDNS(ctx, tx, d.publisher(),
-			dkimStateFor(old.(*model.MailDomain)), dkimStateFor(rec.(*model.MailDomain)))
+	return func(ctx context.Context, tx *gorm.DB, id *repository.Identity, body map[string]any, old, rec any) error {
+		oldDom, dom := old.(*model.MailDomain), rec.(*model.MailDomain)
+		SyncDKIMDNS(ctx, tx, d.publisher(), dkimStateFor(oldDom), dkimStateFor(dom))
+		if _, ok := body["policy"]; !ok {
+			// Partial update that does not touch the spamfilter: only the
+			// pseudo-address has to follow a rename.
+			return syncSpamfilterPolicyRename(ctx, tx, id, dom, oldDom.Domain)
+		}
+		return syncSpamfilterPolicy(ctx, tx, id, dom, oldDom.Domain, uint32(bodyInt(body, "policy")))
+	}
+}
+
+// syncSpamfilterPolicyRename carries the "@domain" pseudo-address over to
+// the new domain name, keeping the policy the row already holds.
+func syncSpamfilterPolicyRename(
+	ctx context.Context, tx *gorm.DB, id *repository.Identity, dom *model.MailDomain, oldDomain string,
+) error {
+	if oldDomain == "" || oldDomain == dom.Domain {
 		return nil
 	}
+	var user model.SpamfilterUser
+	err := tx.WithContext(ctx).Where("email = ?", "@"+oldDomain).Take(&user).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	return syncSpamfilterPolicy(ctx, tx, id, dom, oldDomain, user.PolicyID)
 }
 
 // --- extra routes (remote.d/mail.inc.php helpers) ---
