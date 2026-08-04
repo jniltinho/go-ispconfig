@@ -8,7 +8,7 @@ import { useI18n } from '../i18n'
 
 export interface FormField {
   name: string
-  type: 'text' | 'password' | 'textarea' | 'select' | 'checkbox' | 'legend'
+  type: 'text' | 'password' | 'textarea' | 'select' | 'checkbox' | 'checkboxarray' | 'legend'
   label: string
   options?: { value: string; label: string }[]
   default?: unknown
@@ -62,6 +62,31 @@ for (const tab of props.metadata.tabs) {
       field.default ??
       (field.type === 'checkbox' ? false : '')
   }
+}
+
+// A checkboxarray holds the legacy CSV string (sys_user.modules), not an
+// array: the value stays exactly what the API stores, so no conversion is
+// needed on either side of the request.
+function csvHas(field: FormField, option: string): boolean {
+  return String(values[field.name] ?? '')
+    .split(',')
+    .includes(option)
+}
+
+// toggleCsv rewrites the CSV in the field's own option order, so the stored
+// value does not depend on the order the boxes were clicked in.
+function toggleCsv(field: FormField, option: string, on: boolean) {
+  const current = new Set(
+    String(values[field.name] ?? '')
+      .split(',')
+      .filter(Boolean),
+  )
+  if (on) current.add(option)
+  else current.delete(option)
+  values[field.name] = (field.options ?? [])
+    .map((o) => o.value)
+    .filter((v) => current.has(v))
+    .join(',')
 }
 
 // fieldLabel resolves a field name to its display label for the error
@@ -228,6 +253,27 @@ watch(
                 :disabled="field.readonly"
                 class="mt-1"
               />
+              <div
+                v-else-if="field.type === 'checkboxarray'"
+                :id="`field-${field.name}`"
+                class="flex flex-wrap gap-x-4 gap-y-1 pt-1"
+              >
+                <label
+                  v-for="opt in field.options"
+                  :key="opt.value"
+                  class="flex items-center gap-1 text-sm"
+                >
+                  <input
+                    type="checkbox"
+                    :name="field.name"
+                    :value="opt.value"
+                    :checked="csvHas(field, opt.value)"
+                    :disabled="field.readonly"
+                    @change="toggleCsv(field, opt.value, ($event.target as HTMLInputElement).checked)"
+                  />
+                  {{ opt.label }}
+                </label>
+              </div>
               <p
                 v-if="errors?.[field.name]?.length"
                 class="mt-1 text-xs text-danger-text"

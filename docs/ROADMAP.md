@@ -25,6 +25,7 @@ design/specs/tasks when scheduled.
 | `add-legacy-test-lab` | Standing PHP ISPConfig3 lab VMs used as the parity baseline |
 | `add-panel-ui-theme`, `ui-forms-tables-qa`, `ui-mail-login-aaa` | Panel theme and UI parity sweeps (Vue 3 + Tailwind v4, dark mode, dashlets) |
 | `server-config-sync` | System → Server Config: per-server `server.config` INI editor, one tab per section ([docs/server-config-module.md](server-config-module.md)) |
+| `cp-users` | System → CP Users: panel login accounts in `sys_user` ([docs/cp-users-module.md](cp-users-module.md)) |
 
 ## Future modules (proposal when scheduled)
 

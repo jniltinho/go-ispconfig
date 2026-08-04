@@ -56,7 +56,7 @@ const router = useRouter()
 interface ServerField {
   name: string
   label: string
-  type: 'text' | 'password' | 'textarea' | 'select' | 'checkbox' | 'legend'
+  type: 'text' | 'password' | 'textarea' | 'select' | 'checkbox' | 'checkboxarray' | 'legend'
   datatype: string
   formtype: string
   collapsible?: boolean
