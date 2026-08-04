@@ -22,7 +22,7 @@ func TestInstallStepsOrder(t *testing.T) {
 	assert.Equal(t, []string{
 		"preflight", "packages", "mariadb", "server-ips", "panel-user",
 		"config-toml", "tls-cert", "nginx-base", "apache2", "bind-base", "powerdns", "pure-ftpd",
-		"fail2ban", "rspamd", "getmail", "install-acme",
+		"fail2ban", "vmail", "rspamd", "getmail", "install-acme",
 		"systemd-units", "summary",
 	}, stepNames(InstallSteps()))
 }
