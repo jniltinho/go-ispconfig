@@ -42,7 +42,7 @@ func TestSyncDKIMDNS(t *testing.T) {
 		pub := &fakePublisher{zone: true}
 		st := SyncDKIMDNS(context.Background(), nil, pub, nil, dkimDomain("example.com", "default", true, true))
 		assert.True(t, st.DNSPublished)
-		assert.Equal(t, `default._domainkey.example.com. 3600 IN TXT "v=DKIM1; t=s; p=AAAA"`, st.SuggestedRecord)
+		assert.Equal(t, "default._domainkey.example.com. 3600   IN\tTXT\t\"v=DKIM1; t=s; p=AAAA\"", st.SuggestedRecord)
 		assert.Len(t, pub.upserts, 1)
 		assert.Empty(t, pub.deletes)
 	})
