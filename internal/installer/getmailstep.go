@@ -6,7 +6,6 @@ import (
 	"os"
 
 	"go-ispconfig/internal/getconf"
-	"go-ispconfig/internal/model"
 )
 
 // GetmailPackage is the current getmail (Python 3) package; Debian 11 and
@@ -33,21 +32,10 @@ func (getmailStep) Name() string { return "getmail" }
 // Run provisions getmail on mail servers only; it is skipped before the
 // database step ran or when this host has no mail role.
 func (getmailStep) Run(ctx context.Context, st *State) error {
-	if st.DB == nil {
-		return Skip("no database connection")
-	}
-	serverID, err := localServerID(st.DB, st.Answers.Hostname)
+	serverID, _, err := mailRole(st)
 	if err != nil {
 		return err
 	}
-	var srv model.Server
-	if err := st.DB.Take(&srv, serverID).Error; err != nil {
-		return fmt.Errorf("loading server %d: %w", serverID, err)
-	}
-	if srv.MailServer != 1 {
-		return Skip("mail role disabled")
-	}
-
 	dir := getconf.DefaultGetmailConfig().ConfigDir
 	if cfg, err := getconf.GetServerConfig(st.DB, serverID); err == nil && cfg.Getmail.ConfigDir != "" {
 		dir = cfg.Getmail.ConfigDir

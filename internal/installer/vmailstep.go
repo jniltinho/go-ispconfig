@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"go-ispconfig/internal/getconf"
-	"go-ispconfig/internal/model"
 )
 
 // vmailStep provisions the virtual mail identity Dovecot, Postfix and
@@ -23,24 +22,9 @@ func (vmailStep) Name() string { return "vmail" }
 // Run provisions the mail user on mail servers only; it is skipped before
 // the database step ran or when this host has no mail role.
 func (vmailStep) Run(ctx context.Context, st *State) error {
-	if st.DB == nil {
-		return Skip("no database connection")
-	}
-	serverID, err := localServerID(st.DB, st.Answers.Hostname)
+	_, cfg, err := mailRole(st)
 	if err != nil {
 		return err
-	}
-	var srv model.Server
-	if err := st.DB.Take(&srv, serverID).Error; err != nil {
-		return fmt.Errorf("loading server %d: %w", serverID, err)
-	}
-	if srv.MailServer != 1 {
-		return Skip("mail role disabled")
-	}
-
-	cfg := getconf.DefaultMailConfig()
-	if sc, err := getconf.GetServerConfig(st.DB, serverID); err == nil {
-		cfg = sc.Mail
 	}
 	return provisionVmail(ctx, st, cfg)
 }

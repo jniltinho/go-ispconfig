@@ -82,6 +82,10 @@ type State struct {
 	PureFTPdDefaults string
 	// RspamdConfigDir is the Rspamd config root the baseline is written to.
 	RspamdConfigDir string
+	// PostfixConfigDir holds main.cf and the rendered mysql-*.cf maps.
+	PostfixConfigDir string
+	// DovecotConfigDir holds dovecot.conf and the 0600 SQL auth file.
+	DovecotConfigDir string
 	// Fail2banJailDir holds the panel-owned ispconfig-*.local jail drop-ins.
 	Fail2banJailDir string
 	// SudoersDir holds the panel's sudo drop-ins (fail2ban-client access).
@@ -124,6 +128,8 @@ func NewState(profile *Profile, answers *Answers) *State {
 		PureFTPdConfigDir: "/etc/pure-ftpd",
 		PureFTPdDefaults:  "/etc/default/pure-ftpd-common",
 		RspamdConfigDir:   RspamdConfigDir,
+		PostfixConfigDir:  PostfixConfigDir,
+		DovecotConfigDir:  DovecotConfigDir,
 		Fail2banJailDir:   fail2ban.JailDir,
 		SudoersDir:        "/etc/sudoers.d",
 	}

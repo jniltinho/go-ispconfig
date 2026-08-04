@@ -18,6 +18,8 @@ func InstallSteps() []Step {
 		ftpStep{},
 		fail2banStep{},
 		vmailStep{},
+		postfixStep{},
+		dovecotStep{},
 		rspamdStep{},
 		getmailStep{},
 		acmeStep{},

@@ -22,3 +22,29 @@ var pureFTPdMySQLConf string
 //
 //go:embed assets/nginx-sites.conf
 var nginxSitesInclude string
+
+// dovecot23Conf / dovecot24Conf are the two Dovecot config dialects; 2.4
+// renamed most of the settings 2.3 uses, so the installer renders whichever
+// matches the installed version instead of one shared file.
+//
+//go:embed assets/dovecot-2.3.conf
+var dovecot23Conf string
+
+//go:embed assets/dovecot-2.4.conf
+var dovecot24Conf string
+
+// dovecotSQL23Conf / dovecotSQL24Conf are the matching SQL auth backends
+// (written 0600: they carry the panel database password).
+//
+//go:embed assets/dovecot-sql-2.3.conf
+var dovecotSQL23Conf string
+
+//go:embed assets/dovecot-sql-2.4.conf
+var dovecotSQL24Conf string
+
+// postfixMySQLMaps holds every Postfix MySQL lookup table in one file, one
+// "=== <name>" section each; the postfix step splits it and writes the
+// individual /etc/postfix/mysql-<name>.cf files.
+//
+//go:embed assets/postfix-mysql-maps.conf
+var postfixMySQLMaps string

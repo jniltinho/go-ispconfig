@@ -8,6 +8,7 @@ import (
 
 	"gorm.io/gorm"
 
+	"go-ispconfig/internal/getconf"
 	"go-ispconfig/internal/model"
 )
 
@@ -57,6 +58,30 @@ func localServer(db *gorm.DB, hostname string) (model.Server, error) {
 		return srv, fmt.Errorf("no server row matches %q and the server table holds %d rows", hostname, len(servers))
 	}
 	return servers[0], nil
+}
+
+// mailRole resolves this host's server id together with its [mail] config,
+// returning Skip when the step must not run: no database yet, or no mail
+// role on this host. Every mail step (vmail, postfix, dovecot, getmail)
+// opens with it.
+func mailRole(st *State) (uint32, getconf.MailConfig, error) {
+	if st.DB == nil {
+		return 0, getconf.MailConfig{}, Skip("no database connection")
+	}
+	srv, err := localServer(st.DB, st.Answers.Hostname)
+	if err != nil {
+		return 0, getconf.MailConfig{}, err
+	}
+	if srv.MailServer != 1 {
+		return 0, getconf.MailConfig{}, Skip("mail role disabled")
+	}
+	// GetServerConfig seeds the defaults before decoding, so a server row
+	// without a [mail] section still yields a usable config.
+	cfg := getconf.DefaultMailConfig()
+	if sc, err := getconf.GetServerConfig(st.DB, srv.ServerID); err == nil {
+		cfg = sc.Mail
+	}
+	return srv.ServerID, cfg, nil
 }
 
 // updateServerConfig applies keys to the [section] of the local server row's
