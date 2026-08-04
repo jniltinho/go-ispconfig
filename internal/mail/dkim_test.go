@@ -34,10 +34,17 @@ func TestGenerateDeriveValidateDKIM(t *testing.T) {
 func TestDKIMSelectorAndRecord(t *testing.T) {
 	assert.True(t, ValidDKIMSelector("default"))
 	assert.True(t, ValidDKIMSelector("k2026"))
-	for _, bad := range []string{"", "Bad", "sel_ector", "a-b", strings.Repeat("x", 64)} {
+	assert.True(t, ValidDKIMSelector("default.aug"), "two-part selector, as the tform regex allows")
+	for _, bad := range []string{"", "Bad", "sel_ector", "a-b", "a.b.c", "a.", strings.Repeat("x", 64)} {
 		assert.False(t, ValidDKIMSelector(bad), bad)
 	}
 	assert.Equal(t, "default._domainkey.example.com.", DKIMRecordName("default", "example.com"))
+
+	// mail_domain_edit.htm:170 verbatim: three spaces before IN, tabs
+	// around TXT.
+	assert.Equal(t,
+		"default._domainkey.example.com. 3600   IN\tTXT\t\"v=DKIM1; t=s; p=AAAA\"",
+		DKIMSuggestedRecord(DKIMRecordName("default", "example.com"), "v=DKIM1; t=s; p=AAAA"))
 }
 
 func TestDKIMTXTValue(t *testing.T) {

@@ -14,8 +14,10 @@ import (
 // DKIM key handling (design D6, API side): pure crypto/rsa replaces the
 // PHP openssl shell-outs. Key material is never logged.
 
-// selectorRe ports validate_selector: lowercase alphanumeric, 1-63.
-var selectorRe = regexp.MustCompile(`^[a-z0-9]{1,63}$`)
+// selectorRe ports the dkim_selector REGEX validator of
+// mail_domain.tform.php: lowercase alphanumeric 1-63, optionally in two
+// dot-separated parts (e.g. "default.aug").
+var selectorRe = regexp.MustCompile(`^[a-z0-9]{1,63}(?:\.[a-z0-9]{1,63})?$`)
 
 // ValidDKIMSelector reports whether the selector is acceptable.
 func ValidDKIMSelector(s string) bool { return selectorRe.MatchString(s) }
@@ -94,4 +96,12 @@ func DKIMTXTValue(pubPEM string) string {
 // DKIMRecordName is the owner name of the DKIM TXT record.
 func DKIMRecordName(selector, domain string) string {
 	return selector + "._domainkey." + domain + "."
+}
+
+// DKIMSuggestedRecord builds the DNS-Record line of the form, byte for
+// byte as mail_domain_edit.htm:170 renders it: three spaces before IN
+// and tabs around TXT. The RDATA stays quoted because the ';' of the
+// DKIM value is a Bind comment delimiter.
+func DKIMSuggestedRecord(name, data string) string {
+	return name + " 3600   IN\tTXT\t\"" + data + "\""
 }

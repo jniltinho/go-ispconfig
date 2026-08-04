@@ -71,7 +71,7 @@ async function generateKey() {
 function buildRecord(domain: string, selector: string, pubPEM: string) {
   if (!domain) return ''
   const p = pubPEM.replace(/-----(BEGIN|END) PUBLIC KEY-----|\r|\n/g, '')
-  return `${selector || 'default'}._domainkey.${domain}. 3600 IN TXT "v=DKIM1; t=s; p=${p}"`
+  return `${selector || 'default'}._domainkey.${domain}. 3600   IN\tTXT\t"v=DKIM1; t=s; p=${p}"`
 }
 
 function readField(name: string) {
