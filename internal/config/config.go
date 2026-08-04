@@ -9,6 +9,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/spf13/viper"
@@ -21,6 +22,7 @@ type Config struct {
 	Daemon    DaemonConfig    `toml:"daemon" mapstructure:"daemon"`
 	Auth      AuthConfig      `toml:"auth" mapstructure:"auth"`
 	Queue     QueueConfig     `toml:"queue" mapstructure:"queue"`
+	Log       LogConfig       `toml:"log" mapstructure:"log"`
 	Templates TemplatesConfig `toml:"templates" mapstructure:"templates"`
 	Mail      MailConfig      `toml:"mail" mapstructure:"mail"`
 	// PowerDNS holds optional overrides for the PowerDNS gmysql connection
@@ -133,6 +135,26 @@ type DaemonConfig struct {
 	DisableClientEvents bool `toml:"disable_client_events" mapstructure:"disable_client_events"`
 }
 
+// LogConfig holds the global logging verbosity.
+type LogConfig struct {
+	// Level is the slog level: panic|error|warn|info|debug (case-insensitive).
+	// Overridable at runtime with LOG_LEVEL (or GOISP_LOG_LEVEL).
+	Level string `toml:"level" mapstructure:"level"`
+}
+
+// Slog resolves Level into a slog.Level, falling back to info on an unknown
+// value. "panic" maps to error: slog has no panic level.
+func (l LogConfig) Slog() slog.Level {
+	if strings.EqualFold(l.Level, "panic") {
+		return slog.LevelError
+	}
+	var lvl slog.Level
+	if err := lvl.UnmarshalText([]byte(l.Level)); err != nil {
+		return slog.LevelInfo
+	}
+	return lvl
+}
+
 // AuthConfig holds authentication behavior toggles.
 type AuthConfig struct {
 	// RehashLegacy re-hashes legacy ISPConfig crypt password hashes ($6$/$1$)
@@ -172,6 +194,7 @@ func setDefaults() {
 	viper.SetDefault("mail.smtp_pass", "")
 	viper.SetDefault("mail.from", "")
 	viper.SetDefault("powerdns.dsn", "")
+	viper.SetDefault("log.level", "info")
 }
 
 // Init configures the global Viper instance: defaults, GOISP_ environment
@@ -191,6 +214,11 @@ func Init(cfgFile string) error {
 	viper.SetEnvPrefix("GOISP")
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	viper.AutomaticEnv()
+	// Bare LOG_LEVEL as well as GOISP_LOG_LEVEL: turning on debug logging is
+	// the one knob reached for mid-incident, so it keeps the conventional name.
+	if err := viper.BindEnv("log.level", "GOISP_LOG_LEVEL", "LOG_LEVEL"); err != nil {
+		return fmt.Errorf("binding LOG_LEVEL: %w", err)
+	}
 	setDefaults()
 
 	if err := viper.ReadInConfig(); err != nil {
