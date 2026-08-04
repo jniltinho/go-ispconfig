@@ -6,12 +6,13 @@
 
 ## 1b. Request correlation
 
-- [ ] 1b.1 Serve stamps `sys_datalog.session_id` with a per-request id (`req-<8 hex>`) for every row a single API call journals, and returns it as `request_id` in the response. No schema change: the column exists (`internal/model/sys.go:71`) and this port writes nothing into it today.
+- [ ] 1b.1 Serve stamps `sys_datalog.session_id` with the request id — the client's `Idempotency-Key` when present (1b.6), otherwise one it mints — for every row a single API call journals, and returns it as `request_id` in the response. No schema change: the column exists (`internal/model/sys.go:71`) and this port writes nothing into it today.
 - [ ] 1b.2 Note the divergence from the legacy, which puts the browser session there for `dataloghistory_undo` (`db_mysql.inc.php:762`). Per-request is finer-grained; if undo is ever ported it groups by user + time window instead. Record it in the migration doc.
 - [ ] 1b.3 Every event the daemon publishes about a datalog row carries that `request_id` when the row has one. Test: one API call journalling three rows produces three events sharing one id.
 - [ ] 1b.4 Migration adding `KEY (session_id)` to `sys_datalog` — the table ships only `PRIMARY KEY (datalog_id)` and `KEY (server_id, status)` (`internal/database/ispconfig3.sql:1681`), so correlating without it full-scans an append-only table. A migration, **not** an edit to the vendored schema.
-- [ ] 1b.5 `GET /api/requests/<id>` (D3a): one grouped query over `session_id`, deriving `running` / `failed` / `ok` from the rows and the owning servers' cursors. This is the request-level object; it is a query, not a store. Test partial failure: two rows applied, one failed, reports `failed` and names the row.
-- [ ] 1b.6 Idempotency (D3b) on a **client-supplied** `Idempotency-Key` header: serve uses it as the request id and answers a repeat with the first outcome instead of journalling again. A serve-minted id cannot dedup — the retry would mint a second one — so without the header the request stays correlatable but not idempotent, which is today's behaviour. Tests: same key twice journals once; no key twice journals twice; the frontend sends the key on form saves.
+- [ ] 1b.5 `GET /api/requests/<id>` (D3a): join `sys_datalog` to `server` on `server_id` and derive the state per D3a's four rules — grouping by `status` alone loses the server and each row must be compared against *its own* cursor. A row below the cursor still `pending` is `failed`, never `ok`. `404` for an id with no `sys_request` row. Tests: partial failure reports `failed` and names the row; rows behind two different cursors; a below-cursor `pending` row is not reported as success.
+- [ ] 1b.6 Idempotency (D3b) on a **client-supplied** `Idempotency-Key` header, enforced by a `sys_request` row with `UNIQUE(request_id)` inserted inside the existing `datalogTxn` (`internal/api/dnsrr.go:38`) — a SELECT-then-INSERT check is a race both simultaneous submits win, so the constraint has to do the refusing. The id is returned only after that transaction commits. Validate a client key as a UUID: `session_id` already carries legacy PHP session values (`db_mysql.inc.php:762`) and a collision would return another request's rows. Tests: two concurrent submits with one key journal once; same key twice answers with the first outcome; no key twice journals twice; a crash mid-transaction leaves neither marker nor rows.
+- [ ] 1b.7 `running` must expire (D3a): a request whose owning server has not sent a `daemon.heartbeat` within the interval reports `stale`, so a dead daemon or a decommissioned server does not leave it in flight for ever. Depends on phase 2.
 
 ## 2. The daemon publishes
 
@@ -23,7 +24,8 @@
 
 ## 3. Serve streams to the browser
 
-- [ ] 3.1 `GET /api/events` (SSE), modelled on `migrationProgressHandler`: same headers including `X-Accel-Buffering: no`, same flush discipline, plus a periodic comment frame as keepalive.
+- [ ] 3.1 `GET /api/events` (SSE), modelled on `migrationProgressHandler`: same headers including `X-Accel-Buffering: no`, same flush discipline, plus a **numbered** keepalive frame, so a client can spot a gap in the sequence (D6).
+- [ ] 3.1b A `resync` event to every open stream whenever serve (re)subscribes to Redis (D6): a broker failover loses events without dropping the browser's connection, so `open` never fires and the client would never refetch on its own.
 - [ ] 3.2 Permission filter before write: an event naming a record the session cannot read is not sent. Test with a client-scoped user and an admin against the same event.
 - [ ] 3.3 A bounded per-connection buffer, written by the fan-out rather than the socket: one slow consumer must not stall delivery to the others (head-of-line). A full buffer disconnects that client alone. Test with two subscribers where one never reads and assert the other keeps receiving.
 - [ ] 3.3b Disable the server write timeout on this route only, or every stream dies at the global deadline. Assert a stream survives past it.
@@ -31,7 +33,7 @@
 
 ## 4. The UI reacts
 
-- [ ] 4.1 A store subscribing once for the whole app, not per view — one `EventSource` per tab. On every `open`, first connect and each reconnect, refetch the displayed rows (D6): pub/sub does not retain, so anything published during a gap is gone and the stream must never be treated as complete.
+- [ ] 4.1 A store subscribing once for the whole app, not per view — one `EventSource` per tab. Refetch the displayed rows on `open`, on `resync`, and on a missed keepalive (D6): pub/sub does not retain, so anything published during a gap is gone and the stream must never be treated as complete.
 - [ ] 4.2 Lists carrying `_datalog_state` refresh the affected row on `datalog.applied` / `datalog.failed` instead of waiting for a manual reload. A form that just saved matches on the `request_id` it got back, so it can report *its own* change rather than any change to that record.
 - [ ] 4.3 A toast on `datalog.failed` and `cert.failed`, using the components added in the dialogs/toasts change.
 - [ ] 4.4 Fallback when `EventSource` fails: the existing behaviour, unchanged, with no error surfaced to the user.

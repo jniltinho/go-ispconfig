@@ -59,12 +59,33 @@ correlation survives a restart and needs no schema change.
 - **AND** names the row that failed, rather than collapsing the outcome to a
   single success or failure
 
+#### Scenario: A request spans two nodes
+
+- **WHEN** one request's rows are addressed to two servers whose cursors are at
+  different positions
+- **THEN** each row is judged against its own server's cursor
+- **AND** the request reports as still running while any one of them is behind
+
+#### Scenario: The daemon that owns a request is gone
+
+- **WHEN** a request has rows above the cursor of a server that has not sent a
+  heartbeat within the interval
+- **THEN** the request reports as stale rather than running indefinitely
+
 #### Scenario: The same request is submitted twice with an idempotency key
 
 - **WHEN** a save is double-clicked, or a POST is retried, and both calls carry
   the same client-supplied `Idempotency-Key`
 - **THEN** the rows are journalled once
 - **AND** the second call is answered with the outcome of the first
+- **AND** this holds when the two calls run concurrently, because a uniqueness
+  constraint refuses the duplicate rather than an application-level check
+
+#### Scenario: A request id was never issued
+
+- **WHEN** the request-level object is asked for an id that was never committed
+- **THEN** it answers 404
+- **AND** a caller can tell an unknown id from a request still in flight
 
 #### Scenario: A repeated request carries no idempotency key
 
@@ -101,6 +122,13 @@ permitted to read.
 - **WHEN** a connected client stops draining its stream
 - **THEN** its buffer is bounded and the connection is closed rather than
   allowed to grow the process
+
+#### Scenario: Events are lost without the connection dropping
+
+- **WHEN** the broker fails over, or serve resubscribes, while the client's
+  stream stays open
+- **THEN** the client is told to resynchronise and refetches what it displays
+- **AND** does not wait for a disconnect that never comes
 
 #### Scenario: The stream drops and reconnects
 

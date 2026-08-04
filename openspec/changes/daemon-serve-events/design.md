@@ -103,13 +103,37 @@ know how many rows its POST journalled. `GET /api/requests/<id>` exists, and it
 is one query:
 
 ```sql
-SELECT status, COUNT(*) FROM sys_datalog WHERE session_id = ? GROUP BY status
+SELECT d.datalog_id, d.server_id, d.status, s.updated
+FROM sys_datalog d JOIN server s ON s.server_id = d.server_id
+WHERE d.session_id = ?
 ```
 
-Terminal state is derived, not stored: any row above the owning server's cursor
-→ `running`; else any `error` → `failed`; else `ok`. That is what makes partial
-failure representable — 2 rows applied and 1 failed is a real outcome a single
-job id could not express.
+The join is not incidental. Grouping by `status` alone loses `server_id`, and
+each row has to be compared against **its own** server's cursor — on a
+multi-server install one request's rows sit behind different cursors. The rule,
+in order:
+
+1. any row with `datalog_id > s.updated` → `running`;
+2. else any row with `status = 'error'` → `failed`;
+3. else any row still `pending` → `failed`, **not** `ok`. A row below the cursor
+   that never left `pending` means the daemon passed it without recording an
+   outcome; calling that success is how a silent failure becomes invisible;
+4. else `ok`.
+
+That is what makes partial failure representable — 2 rows applied and 1 failed
+is a real outcome a single job id could not express.
+
+Two properties of the engine this rests on, both already true: a failed row is
+quarantined with `status = 'error'` and the cursor **advances past it**
+(`internal/engine/daemon.go:281`), so one bad row does not strand the rest of a
+request in `pending`; and rows are processed in `datalog_id` order, which is the
+dependency order a request needs (client before site before zone).
+
+Rule 1 needs a way out or a request whose daemon died sits in `running`
+for ever, indistinguishable from one in flight — the same for a row addressed to
+a decommissioned server. The `daemon.heartbeat` of phase 2 is what closes it:
+`running` with no heartbeat from the owning server for longer than the
+heartbeat interval reports `stale`, which is a state an operator can act on.
 
 This needs an index. `sys_datalog` ships `PRIMARY KEY (datalog_id)` and
 `KEY (server_id, status)` and nothing on `session_id`
@@ -143,6 +167,33 @@ regression.
 The browser sends it on form saves, where the double-click is real. An API
 client that wants exactly-once opts in the same way. Making serve mint it and
 calling that idempotency would have been a comfortable lie.
+
+**Checking is not deduplicating.** `session_id` cannot be `UNIQUE` — a request
+is N rows by design — so "SELECT, and if absent INSERT" is a race two
+simultaneous submits both win. The uniqueness has to live somewhere it can be
+declared: a `sys_request` row keyed `UNIQUE(request_id)`, inserted **inside the
+transaction that journals the datalog rows**. The second submit's insert fails
+on the constraint, the transaction rolls back, and it is answered with the first
+outcome. The database refuses the duplicate; no application-level check can.
+
+That the journal is already transactional is what makes this cheap: handlers go
+through `datalogTxn` (`internal/api/dnsrr.go:38`), so the marker joins an
+existing transaction rather than introducing one. It also closes the partial
+journal — a crash mid-request leaves neither the marker nor the rows, so the
+retry writes the whole thing rather than completing someone's half-batch.
+
+Two consequences worth stating:
+
+- the id is returned to the client **after** that transaction commits. Before it,
+  there is nothing to look up;
+- `GET /api/requests/<id>` answers **404** for an id with no `sys_request` row.
+  Without that, an unknown id and a committed-but-empty request look identical
+  and a client polls a typo for ever.
+
+Client-supplied keys must be namespaced — a UUID, validated — because
+`session_id` already carries values from the legacy panel, which writes PHP's
+`session_id()` there (`db_mysql.inc.php:762`). A collision would hand one
+request's caller another's rows.
 
 ## D4. SSE, not WebSocket, not Inspector polling
 
@@ -181,6 +232,25 @@ makes it safe: on `open` — first connect and every reconnect — the client
 refetches the rows it is displaying, exactly as it does on page load. The stream
 then adds latency improvements, never authority. A page that trusted the stream
 to be complete would show a stale badge forever after one dropped message.
+
+**That rule alone is not enough**, because the gap that matters most does not
+drop the browser's connection. Redis fails over, or serve resubscribes, and
+events are lost while the `EventSource` stays happily open — so `open` never
+fires, the client never refetches, and the badge is wrong until someone reloads
+by hand. A daemon that applies a row and dies before its `PUBLISH` does the same
+thing with no outage at all.
+
+Two mechanisms, both cheap:
+
+- serve emits a `resync` event to every connected stream whenever *it*
+  (re)subscribes to Redis. The clients refetch on `resync` exactly as they do on
+  `open`, so a broker blip reaches them without a disconnect;
+- a numbered keepalive comment every N seconds. A client that sees a gap in the
+  sequence, or no keepalive within the window, refetches on its own. That covers
+  the publish that never happened, which no server-side signal can announce.
+
+Neither makes the stream authoritative. They just make "I may have missed
+something" observable, which is the only property the refetch rule needs.
 
 The alternative is a resumable log (`Last-Event-ID` against a Redis stream), and
 it is not worth it here: the database already answers "what is the state now"
