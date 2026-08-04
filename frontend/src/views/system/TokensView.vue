@@ -9,8 +9,10 @@ import { computed, onMounted, ref } from 'vue'
 import UiAlert from '../../components/UiAlert.vue'
 import { api, ApiError } from '../../api'
 import { useI18n } from '../../i18n'
+import { useDialogStore } from '../../stores/dialog'
 
 const { t } = useI18n()
+const dialog = useDialogStore()
 
 interface TokenRow {
   id: number
@@ -107,7 +109,7 @@ async function setEnabled(row: TokenRow, enabled: boolean) {
 }
 
 async function remove(row: TokenRow) {
-  if (!confirm(t('tokens.confirm_delete'))) return
+  if (!(await dialog.confirm({ message: t('tokens.confirm_delete') }))) return
   try {
     await api.delete(`/api/tokens/${row.id}`)
     await load()
@@ -119,9 +121,12 @@ async function remove(row: TokenRow) {
 async function copyMinted() {
   try {
     await navigator.clipboard.writeText(minted.value)
+    dialog.toast(t('tokens.copied'))
   } catch {
-    // Clipboard unavailable (insecure context): the value is on screen and
-    // selectable, which is the fallback that always works.
+    // Clipboard unavailable (insecure context, or permission denied): say so
+    // instead of leaving a button that looks like it worked. The value is on
+    // screen and selectable, which is the fallback that always works.
+    dialog.toast(t('tokens.copy_failed'), 'danger')
   }
 }
 </script>

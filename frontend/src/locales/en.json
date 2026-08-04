@@ -1312,5 +1312,11 @@
   "token_error_owner_unknown": "No panel user with that login.",
   "token_error_owner_inactive": "That panel user is not active.",
   "error.missing_scope": "This credential lacks the scope required for that endpoint.",
-  "sidebar.group.security": "Security"
+  "sidebar.group.security": "Security",
+  "dialog.confirm_title": "Confirm",
+  "dialog.confirm": "OK",
+  "dialog.cancel": "Cancel",
+  "dialog.dismiss": "Dismiss",
+  "tokens.copied": "Token copied to the clipboard.",
+  "tokens.copy_failed": "Could not copy — select the token and copy it manually."
 }

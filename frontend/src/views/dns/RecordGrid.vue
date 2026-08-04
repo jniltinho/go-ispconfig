@@ -9,11 +9,13 @@ import { utilityIcons } from '../../icons'
 import { api, ApiError } from '../../api'
 import UiAlert from '../../components/UiAlert.vue'
 import { useI18n } from '../../i18n'
+import { useDialogStore } from '../../stores/dialog'
 
 const props = defineProps<{ zoneId: string }>()
 const emit = defineEmits<{ (e: 'changed'): void }>()
 
 const { t } = useI18n()
+const dialog = useDialogStore()
 
 /** RecordType mirrors api.DNSRecordType. */
 interface RecordType {
@@ -180,7 +182,7 @@ async function save() {
 }
 
 async function remove(row: RecordRow) {
-  if (!confirm(t('sites.confirm_delete'))) return
+  if (!(await dialog.confirm({ message: t('sites.confirm_delete') }))) return
   try {
     await api.delete(`/api/dns/records/${row.id}`)
     await load()

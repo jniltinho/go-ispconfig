@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import WebDomainList from '../WebDomainList.vue'
+import { useDialogStore } from '../../../stores/dialog'
 
 const push = vi.fn()
 vi.mock('vue-router', () => ({
@@ -96,11 +97,14 @@ describe('WebDomainList', () => {
 
   it('deletes a row after confirmation and reloads', async () => {
     fetchMock.mockResolvedValue(res(200, page))
-    vi.stubGlobal('confirm', vi.fn().mockReturnValue(true))
     const wrapper = mount(WebDomainList)
     await flushPromises()
 
+    // The themed dialog replaced window.confirm: click delete, then answer
+    // the pending request the way a user would.
     await wrapper.find('[data-test="delete"]').trigger('click')
+    await flushPromises()
+    useDialogStore().answer(true)
     await flushPromises()
 
     const del = fetchMock.mock.calls.find(([, init]) => init?.method === 'DELETE')

@@ -6,8 +6,10 @@ import { onMounted, ref } from 'vue'
 import UiAlert from '../../components/UiAlert.vue'
 import { api, ApiError } from '../../api'
 import { useI18n } from '../../i18n'
+import { useDialogStore } from '../../stores/dialog'
 
 const { t } = useI18n()
+const dialog = useDialogStore()
 
 interface Jail {
   name: string
@@ -42,7 +44,7 @@ async function load() {
 onMounted(load)
 
 async function unban(jail: string, ip: string) {
-  if (!confirm(t('fail2ban.confirm_unban'))) return
+  if (!(await dialog.confirm({ message: t('fail2ban.confirm_unban') }))) return
   error.value = ''
   try {
     await api.post(`/api/monitor/fail2ban/unban/${encodeURIComponent(jail)}/${encodeURIComponent(ip)}`)

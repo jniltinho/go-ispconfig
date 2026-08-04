@@ -1,6 +1,7 @@
 // Record editor grid: metadata-driven dialog with per-type fields and
 // client-side validation, grid refresh after save. fetch is mocked.
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { createPinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import RecordGrid from '../RecordGrid.vue'
 
@@ -40,6 +41,9 @@ function queueLoad() {
 }
 
 beforeEach(() => {
+  // The delete flow goes through the themed confirm dialog, which is a
+  // Pinia store.
+  setActivePinia(createPinia())
   fetchMock.mockReset()
 })
 

@@ -7,6 +7,8 @@ import { Menu, Moon, Sun } from 'lucide-vue-next'
 import { moduleIcons, utilityIcons } from '../icons'
 import { isDark, toggleTheme } from '../theme'
 import { modules } from '../modules'
+import UiDialog from './UiDialog.vue'
+import UiToast from './UiToast.vue'
 import { useI18n } from '../i18n'
 import { useAuthStore } from '../stores/auth'
 import { useUiStore } from '../stores/ui'
@@ -211,5 +213,9 @@ async function logout() {
         </RouterView>
       </main>
     </div>
+
+    <!-- App-level chrome: exactly one confirm dialog and one toast stack. -->
+    <UiDialog />
+    <UiToast />
   </div>
 </template>
