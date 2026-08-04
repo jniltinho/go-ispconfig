@@ -12,6 +12,15 @@ package api
 // that list honest: a key read anywhere in the Go code with no field here
 // fails the build.
 
+// Defaults are copied from install/tpl/system.ini.master, NOT from
+// system_config.tform.php. The tform ships an empty default for every prefix
+// and min_password_length=5, but the values a real ISPConfig install carries
+// are the ones its installer writes from the template — c[CLIENTID],
+// [CLIENTNAME], min_password_length=8, min_password_strength=3. Taking the
+// tform value would show an operator a default their PHP panel never had.
+// internal/database/system_config.ini seeds the same values, so a fresh
+// install behaves like ISPConfig rather than merely displaying that it would.
+//
 // systemConfigForm is the FormMeta served by GET /api/meta/forms/system_config.
 func systemConfigForm() FormMeta {
 	return FormMeta{
@@ -22,14 +31,16 @@ func systemConfigForm() FormMeta {
 				Name:  "sites",
 				Label: "sysini.tab.sites",
 				Fields: []FormFieldMeta{
-					{Name: "dbname_prefix", Label: "sysini.sites.dbname_prefix", Type: "text", Datatype: "VARCHAR", Formtype: "TEXT"},
-					{Name: "dbuser_prefix", Label: "sysini.sites.dbuser_prefix", Type: "text", Datatype: "VARCHAR", Formtype: "TEXT"},
-					{Name: "ftpuser_prefix", Label: "sysini.sites.ftpuser_prefix", Type: "text", Datatype: "VARCHAR", Formtype: "TEXT"},
-					{Name: "shelluser_prefix", Label: "sysini.sites.shelluser_prefix", Type: "text", Datatype: "VARCHAR", Formtype: "TEXT"},
-					{Name: "phpmyadmin_url", Label: "sysini.sites.phpmyadmin_url", Type: "text", Datatype: "VARCHAR", Formtype: "TEXT"},
+					{Name: "dbname_prefix", Label: "sysini.sites.dbname_prefix", Type: "text", Datatype: "VARCHAR", Formtype: "TEXT", Default: "c[CLIENTID]"},
+					{Name: "dbuser_prefix", Label: "sysini.sites.dbuser_prefix", Type: "text", Datatype: "VARCHAR", Formtype: "TEXT", Default: "c[CLIENTID]"},
+					{Name: "ftpuser_prefix", Label: "sysini.sites.ftpuser_prefix", Type: "text", Datatype: "VARCHAR", Formtype: "TEXT", Default: "[CLIENTNAME]"},
+					{Name: "shelluser_prefix", Label: "sysini.sites.shelluser_prefix", Type: "text", Datatype: "VARCHAR", Formtype: "TEXT", Default: "[CLIENTNAME]"},
+					{Name: "phpmyadmin_url", Label: "sysini.sites.phpmyadmin_url", Type: "text", Datatype: "VARCHAR", Formtype: "TEXT", Default: "https://[SERVERNAME]:8081/phpmyadmin"},
 					// Server ids. The legacy renders these as selects over a
 					// db-server datasource; here they are the raw id, which is
-					// what the code reads, with the hint in the label.
+					// what the code reads, with the hint in the label. The "1"
+					// is the tform default — system.ini.master does not write
+					// these keys at all, so the form default is the only source.
 					{Name: "default_dbserver", Label: "sysini.sites.default_dbserver", Type: "text", Datatype: "INTEGER", Formtype: "TEXT", Default: "1"},
 					{Name: "default_remote_dbserver", Label: "sysini.sites.default_remote_dbserver", Type: "text", Datatype: "INTEGER", Formtype: "TEXT"},
 					{Name: "disable_client_remote_dbserver", Label: "sysini.sites.disable_client_remote_dbserver", Type: "checkbox", Datatype: "VARCHAR", Formtype: "CHECKBOX", Default: "n", Options: []Option{{Value: "n", Label: "no_txt"}, {Value: "y", Label: "yes_txt"}}},
@@ -60,8 +71,8 @@ func systemConfigForm() FormMeta {
 				Name:  "misc",
 				Label: "sysini.tab.misc",
 				Fields: []FormFieldMeta{
-					{Name: "min_password_length", Label: "sysini.misc.min_password_length", Type: "text", Datatype: "INTEGER", Formtype: "TEXT", Default: "5"},
-					{Name: "min_password_strength", Label: "sysini.misc.min_password_strength", Type: "select", Datatype: "INTEGER", Formtype: "SELECT", Options: []Option{
+					{Name: "min_password_length", Label: "sysini.misc.min_password_length", Type: "text", Datatype: "INTEGER", Formtype: "TEXT", Default: "8"},
+					{Name: "min_password_strength", Label: "sysini.misc.min_password_strength", Type: "select", Datatype: "INTEGER", Formtype: "SELECT", Default: "3", Options: []Option{
 						{Value: "", Label: "sysini.strength_any"},
 						{Value: "1", Label: "sysini.strength_weak"},
 						{Value: "2", Label: "sysini.strength_medium"},

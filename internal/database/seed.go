@@ -21,6 +21,20 @@ import (
 //go:embed server_config.ini
 var defaultServerConfig string
 
+// defaultSystemConfig is the panel-wide INI seeded into sys_ini, copied
+// key-for-key from ISPConfig's install/tpl/system.ini.master for the keys
+// this port reads.
+//
+// Without it a fresh install has an empty sys_ini and behaves differently
+// from ISPConfig in a way that shows up in the data: dbname_prefix is what
+// makes a client database "c1_shop" instead of "shop", and an empty value
+// silently drops the prefix. The legacy inserts the row empty in its SQL dump
+// too — exactly as our embedded dump does — and then writes this template
+// over it from the installer (installer_base.lib.php:431). This is that step.
+//
+//go:embed system_config.ini
+var defaultSystemConfig string
+
 // Seed finishes a fresh install after Migrate executed the DDL: it sets the
 // admin password (bcrypt) on the admin sys_user (id 1, inserted by the dump
 // with an unusable placeholder), repairs its groups list ('1,2' in the dump,
@@ -75,6 +89,16 @@ func Seed(db *gorm.DB, hostname, adminPassword string) (string, error) {
 		}
 		if err := tx.Create(&server).Error; err != nil {
 			return fmt.Errorf("creating local server row: %w", err)
+		}
+
+		// sys_ini row 1 ships in the dump with an empty config; fill it the
+		// way the PHP installer does. Only when it is still empty: an adopted
+		// ISPConfig3 database arrives with its own values and must keep them.
+		err := tx.Model(&model.SysIni{}).
+			Where("sysini_id = 1 AND (config IS NULL OR config = '')").
+			Update("config", defaultSystemConfig).Error
+		if err != nil {
+			return fmt.Errorf("seeding sys_ini config: %w", err)
 		}
 		return nil
 	})

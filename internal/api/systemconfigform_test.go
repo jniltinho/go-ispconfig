@@ -178,3 +178,60 @@ func TestSysIniSectionNameIsLowercased(t *testing.T) {
 	// Keys are NOT lowercased, which is why only the section name is folded.
 	assert.Equal(t, "1", sections["misc"]["Foo"])
 }
+
+// sysIniLegacyDefaults are the values ISPConfig's install/tpl/system.ini.master
+// carries for the keys this form renders, copied byte for byte. They are NOT
+// the tform defaults: system_config.tform.php ships an empty default for every
+// prefix and min_password_length=5, while a real install gets c[CLIENTID],
+// [CLIENTNAME] and 8/3 from the template its installer writes.
+//
+// Taking the tform value would show an operator a default their PHP panel
+// never had — and, because the form default is also what a fresh section save
+// materialises, would write it into the database.
+var sysIniLegacyDefaults = map[string]string{
+	"sites.dbname_prefix":                "c[CLIENTID]",
+	"sites.dbuser_prefix":                "c[CLIENTID]",
+	"sites.ftpuser_prefix":               "[CLIENTNAME]",
+	"sites.shelluser_prefix":             "[CLIENTNAME]",
+	"sites.phpmyadmin_url":               "https://[SERVERNAME]:8081/phpmyadmin",
+	"sites.ssh_authentication":           "",
+	"mail.enable_welcome_mail":           "y",
+	"mail.show_per_domain_relay_options": "n",
+	"misc.min_password_length":           "8",
+	"misc.min_password_strength":         "3",
+}
+
+// TestSysIniDefaultsMatchLegacyTemplate pins every rendered default against
+// system.ini.master.
+func TestSysIniDefaultsMatchLegacyTemplate(t *testing.T) {
+	got := map[string]string{}
+	for _, tab := range systemConfigForm().Tabs {
+		for _, f := range tab.Fields {
+			def, _ := f.Default.(string)
+			got[tab.Name+"."+f.Name] = def
+		}
+	}
+	for key, want := range sysIniLegacyDefaults {
+		require.Contains(t, got, key, "%s is no longer rendered", key)
+		assert.Equal(t, want, got[key],
+			"%s must default to what install/tpl/system.ini.master writes, not to the tform value", key)
+	}
+}
+
+// TestSeededSysIniMatchesFormDefaults keeps the two copies of these values in
+// step: the form default an operator sees, and the value
+// internal/database/system_config.ini writes into a fresh database. A form
+// that shows c[CLIENTID] over a database seeded with nothing would be a lie
+// that only surfaces when the first client database comes out unprefixed.
+func TestSeededSysIniMatchesFormDefaults(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join("..", "database", "system_config.ini"))
+	require.NoError(t, err)
+	seeded := getconf.ParseINI(string(raw))
+
+	for key, want := range sysIniLegacyDefaults {
+		section, name, _ := strings.Cut(key, ".")
+		require.Contains(t, seeded, section, "seed has no [%s] section", section)
+		assert.Equal(t, want, seeded[section][name],
+			"internal/database/system_config.ini must seed %s with the same value the form defaults to", key)
+	}
+}

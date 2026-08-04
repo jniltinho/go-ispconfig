@@ -153,6 +153,44 @@ Two deliberate semantics, both matching the legacy panel:
 - **a merge never removes a key.** Clearing a field stores an empty value and
   the key stays in the blob.
 
+### Defaults come from the installer template, not the tform
+
+`system_config.tform.php` ships an empty default for every prefix and
+`min_password_length=5`. Those are **not** the values a real ISPConfig install
+carries — its installer writes `install/tpl/system.ini.master` over the empty
+`sys_ini` row (`installer_base.lib.php:431`), and that template says:
+
+| Key | Value |
+|---|---|
+| `dbname_prefix`, `dbuser_prefix` | `c[CLIENTID]` |
+| `ftpuser_prefix`, `shelluser_prefix` | `[CLIENTNAME]` |
+| `phpmyadmin_url` | `https://[SERVERNAME]:8081/phpmyadmin` |
+| `ssh_authentication` | *(empty)* |
+| `enable_welcome_mail` | `y` |
+| `show_per_domain_relay_options` | `n` |
+| `min_password_length` | `8` |
+| `min_password_strength` | `3` |
+
+Verified byte for byte against the live `sys_ini` of the lab panel at
+`192.168.56.20`. `internal/database/system_config.ini` seeds the same values,
+and `Seed()` writes it **only when the row is still empty**, so an adopted
+ISPConfig3 database keeps its own. Without that seed a fresh install had an
+empty `sys_ini`, and the divergence showed up in the data rather than in the
+UI: `dbname_prefix` is what makes a client database `c1_shop` instead of
+`shop`.
+
+`TestSysIniDefaultsMatchLegacyTemplate` pins the form defaults and
+`TestSeededSysIniMatchesFormDefaults` keeps the seed and the form from
+drifting apart — a form showing `c[CLIENTID]` over a database seeded with
+nothing would be a lie that only surfaces at the first client database.
+
+**`httpuser` and `httpgroup` do not exist in ISPConfig 3.3.1p1** (no hit
+anywhere in the 3.3.1p1 tree). The equivalent keys are `[web] user` and
+`[web] group` in `server.config`, defaulting to `www-data`, and they live on
+the Server Config Web tab. `mailuser_uid`, `mailuser_gid` and `mailuser_name`
+are likewise `server.config` `[mail]` keys, not `sys_ini` — already on the
+Server Config Mail tab with the legacy defaults `5000`, `5000` and `vmail`.
+
 The password policy is validated on save: a minimum length outside 1–64, or a
 strength outside 1–3, is refused with a field error rather than stored — the
 panel would otherwise hold a policy its own generated credentials could not
