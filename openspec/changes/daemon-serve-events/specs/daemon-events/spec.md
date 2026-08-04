@@ -37,6 +37,26 @@ it does today.
 - **THEN** `daemon.started` and `daemon.heartbeat` are published with the
   version and the loaded module list
 
+### Requirement: A request can be followed end to end
+
+The panel SHALL correlate the datalog rows one API call produces under a single
+request id, return it to the caller, and carry it on every event about those
+rows. The id SHALL be stored in the existing `sys_datalog.session_id` column, so
+correlation survives a restart and needs no schema change.
+
+#### Scenario: One save journals several rows
+
+- **WHEN** a single API call journals more than one datalog row
+- **THEN** every row carries the same request id
+- **AND** the response returns that id to the caller
+- **AND** each event published about those rows carries it
+
+#### Scenario: The panel restarts mid-flight
+
+- **WHEN** serve restarts after journalling but before the daemon applies
+- **THEN** the correlation is still readable from the database
+- **AND** the rows apply normally
+
 ### Requirement: Serve streams events to the browser
 
 The panel SHALL expose an authenticated Server-Sent Events endpoint that
