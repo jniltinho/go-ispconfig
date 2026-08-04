@@ -9,6 +9,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 —
 
+## [0.3.0] — 2026-08-04
+
+**A complete mail server, provisioned by the installer.** `go-ispconfig install`
+now brings up Postfix and Dovecot on `mail_server` nodes, so a fresh host goes
+from bare Debian/Ubuntu to accepting and delivering mail in one command. The
+data layer is complete too: all 78 ISPConfig3 tables are mapped to GORM structs.
+
+### Added
+
+- **Postfix provisioning** (`postfix` install step) — converges via
+  `postconf -e/-M/-P` instead of rewriting `main.cf`, so hand edits survive:
+  virtual maps against `dbispconfig`, submission (587) and submissions (465),
+  Dovecot LMTP and SASL auth sockets inside the Postfix chroot
+- **Dovecot provisioning** (`dovecot` install step) — IMAP/POP3/LMTP with
+  runtime dialect detection: Dovecot 2.3 and 2.4 have incompatible config
+  syntax, and the correct one is rendered per host. SQL auth pulls uid/gid from
+  `mail_user`, and auth is verified at the end of the step
+- `vmail` install step — creates the `vmail` system user and group before any
+  maildir is written
+- `[log]` config section with a `level` key, plus a `LOG_LEVEL` environment
+  override that needs no rebuild
+- `[swagger]` config section — `disabled`, `public` and `path` knobs for the
+  Swagger route
+- `GET /healthz` — dependency-free liveness probe for load balancers
+- `GET /api/health?full=1` — probes database, task queue, TLS certificate expiry
+  and the daemon datalog backlog, reporting `degraded` with `200` for everything
+  short of an unreachable database
+- Extended technical documentation in `docs/README.md`
+
+### Changed
+
+- All **78 ISPConfig3 tables** are now covered by GORM structs with 1:1 schema
+  parity, including the natural primary keys of `sys_cron` and `remote_session`
+- Top-level `README.md` rewritten for hosting operators rather than developers
+- Mail install steps share a `mailRole()` gate, so they run only where the
+  server row has `mail_server = 1`
+
+### Fixed
+
+- **Mail Domain form parity** with the PHP panel: client select, spamfilter
+  policy lookup, Save/Cancel buttons, collapsible DKIM fieldset, field order
+  and sidebar labels all reconciled against `mail_domain_edit.htm`
+- DKIM DNS-Record is now byte-exact with the legacy form, and appears
+  immediately after a key is generated
+- Per-domain relay fields are hidden unless the legacy gates
+  (`show_per_domain_relay_options`, `limit_relayhost`) allow them
+- Maildirs are no longer created root-owned
+- The panel can reach the root-only fail2ban socket again
+- Integration tests probe MariaDB readiness over TCP rather than the unix socket
+
 ## [0.2.0] — 2026-08-03
 
 **Native Debian and RPM packages.** `make deb` and `make rpm` build installable
