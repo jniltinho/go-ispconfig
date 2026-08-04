@@ -77,6 +77,7 @@ func testState(t *testing.T) (*State, *mockExec, *bytes.Buffer) {
 	st.LegacyMarker = dir + "/usr/local/ispconfig/server/lib/config.inc.php"
 	st.AcmeWebroot = dir + "/usr/local/ispconfig/interface/acme"
 	st.AcmeShHome = dir + "/root/.acme.sh"
+	st.SudoersDir = dir + "/etc/sudoers.d"
 	st.PureFTPdConfigDir = dir + "/etc/pure-ftpd"
 	st.PureFTPdDefaults = dir + "/etc/default/pure-ftpd-common"
 	mock.missing["acme.sh"] = true

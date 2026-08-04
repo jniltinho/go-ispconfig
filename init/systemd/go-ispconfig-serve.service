@@ -20,7 +20,12 @@ RestartSec=5
 # Hardening. ProtectSystem=strict makes the filesystem read-only; the
 # config directory is re-exposed and only its ssl/ subdirectory is writable
 # (auto-generated panel certificate, design D13).
-NoNewPrivileges=yes
+#
+# NoNewPrivileges and an empty CapabilityBoundingSet are deliberately NOT
+# set: both stop setuid sudo from working, and the fail2ban page needs
+# `sudo fail2ban-client status` because fail2ban's control socket is
+# root-only. The escalation surface is the /etc/sudoers.d/go-ispconfig-fail2ban
+# whitelist (status + unbanip), not the whole system.
 ProtectSystem=strict
 ConfigurationDirectory=go-ispconfig
 ReadWritePaths=/etc/go-ispconfig/ssl
@@ -32,7 +37,6 @@ ProtectControlGroups=yes
 RestrictSUIDSGID=yes
 RestrictRealtime=yes
 LockPersonality=yes
-CapabilityBoundingSet=
 
 [Install]
 WantedBy=multi-user.target

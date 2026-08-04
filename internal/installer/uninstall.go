@@ -34,6 +34,10 @@ func Uninstall(ctx context.Context, st *State, opts UninstallOptions) error {
 	if err := removeIfExists(st.BinPath); err != nil {
 		return err
 	}
+	// The sudo grant is useless without the panel and must not outlive it.
+	if err := removeIfExists(filepath.Join(st.SudoersDir, Fail2banSudoersFile)); err != nil {
+		return err
+	}
 	if _, err := st.Exec.Run(ctx, nil, "systemctl", "daemon-reload"); err != nil {
 		return fmt.Errorf("systemctl daemon-reload: %w", err)
 	}

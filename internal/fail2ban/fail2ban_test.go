@@ -1,6 +1,7 @@
 package fail2ban
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -207,4 +208,44 @@ func TestWritePrunesOrphans(t *testing.T) {
 	assert.NoFileExists(t, filepath.Join(dir, "ispconfig-nginx-http-auth.local"))
 	assert.FileExists(t, filepath.Join(dir, "ispconfig-apache-auth.local"))
 	assert.FileExists(t, filepath.Join(dir, "ispconfig-sshd.local"))
+}
+
+// The panel is not root, so its Client must reach the root-only control
+// socket through sudo; the daemon's root Client must not.
+func TestClientSudoPrefix(t *testing.T) {
+	for _, tt := range []struct {
+		name string
+		sudo bool
+		want [][]string
+	}{
+		{
+			name: "root",
+			want: [][]string{
+				{"fail2ban-client", "status"},
+				{"fail2ban-client", "status", "sshd"},
+				{"fail2ban-client", "set", "sshd", "unbanip", "10.0.0.1"},
+			},
+		},
+		{
+			name: "panel",
+			sudo: true,
+			want: [][]string{
+				{"sudo", "-n", "fail2ban-client", "status"},
+				{"sudo", "-n", "fail2ban-client", "status", "sshd"},
+				{"sudo", "-n", "fail2ban-client", "set", "sshd", "unbanip", "10.0.0.1"},
+			},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			runner := &fakeRunner{}
+			c := &Client{Runner: runner, Sudo: tt.sudo}
+			ctx := context.Background()
+			_, err := c.Jails(ctx)
+			require.NoError(t, err)
+			_, err = c.Status(ctx, "sshd")
+			require.NoError(t, err)
+			require.NoError(t, c.Unban(ctx, "sshd", "10.0.0.1"))
+			assert.Equal(t, tt.want, runner.calls)
+		})
+	}
 }
