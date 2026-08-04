@@ -39,27 +39,6 @@ func TestAcmeStepInstallsCertbotWhenChosen(t *testing.T) {
 	assert.Contains(t, strings.Join(mock.calls, "|"), "certbot")
 }
 
-// The plugin follows the node's web server: installing the wrong one leaves
-// `certbot --apache` failing on an Apache box that already has certbot.
-func TestAcmeStepCertbotPluginFollowsWebServer(t *testing.T) {
-	for _, tc := range []struct{ webServer, want, notWant string }{
-		{WebServerNginx, "python3-certbot-nginx", "python3-certbot-apache"},
-		{WebServerApache, "python3-certbot-apache", "python3-certbot-nginx"},
-	} {
-		t.Run(tc.webServer, func(t *testing.T) {
-			st, mock, _ := testState(t)
-			st.Answers.InstallAcme = true
-			st.Answers.AcmeClient = "certbot"
-			st.Answers.WebServer = tc.webServer
-
-			require.NoError(t, acmeStep{}.Run(context.Background(), st))
-			joined := strings.Join(mock.calls, "|")
-			assert.Contains(t, joined, tc.want)
-			assert.NotContains(t, joined, tc.notWant)
-		})
-	}
-}
-
 func TestAcmeStepExistingClientNoop(t *testing.T) {
 	st, mock, _ := testState(t)
 	st.Answers.InstallAcme = true

@@ -32,19 +32,7 @@ func (acmeStep) Run(ctx context.Context, st *State) error {
 	}
 
 	if st.Answers.AcmeClient == "certbot" {
-		// The web-server plugin is not used by this port — site certificates
-		// are issued with --authenticator webroot, which needs no plugin (see
-		// internal/nginx/le.go certbotArgs). It is installed anyway because
-		// the one certificate the panel does not manage is its own: an
-		// operator replacing the self-signed panel cert reaches for
-		// `certbot --nginx` / `--apache`, and a missing plugin turns that
-		// into an error on a box that already has certbot.
-		pkgs := []string{"certbot", "python3-certbot-nginx"}
-		if st.Answers.WebServer == WebServerApache {
-			pkgs = []string{"certbot", "python3-certbot-apache"}
-		}
-		args := append(append([]string{}, aptOptions...), "install", "-y", "-q")
-		args = append(args, pkgs...)
+		args := append(append([]string{}, aptOptions...), "install", "-y", "-q", "certbot")
 		if _, err := st.Exec.Run(ctx, aptEnv, "apt-get", args...); err != nil {
 			return fmt.Errorf("installing certbot: %w", err)
 		}
