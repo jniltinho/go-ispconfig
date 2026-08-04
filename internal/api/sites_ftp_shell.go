@@ -152,6 +152,12 @@ func ftpUserPrepare(c *echo.Context, d *Deps, id *repository.Identity, body map[
 		if prefix != "" && strings.HasPrefix(suffix, prefix) {
 			suffix = strings.TrimPrefix(suffix, prefix)
 		}
+		// The declarative NOTEMPTY rule runs after this hook, so with a
+		// prefix configured an empty submission would arrive as the prefix
+		// alone and pass it — a user named after nothing but its client.
+		if suffix == "" {
+			fields["username"] = append(fields["username"], "username_error_empty")
+		}
 		body["username"] = prefix + suffix
 		body["username_prefix"] = prefix
 	}
@@ -390,6 +396,11 @@ func shellUserPrepare(c *echo.Context, d *Deps, id *repository.Identity, body ma
 		}
 		if shell.Blacklisted(checkName) || shell.Blacklisted(prefix+checkName) {
 			fields["username"] = append(fields["username"], "username_error_blacklist")
+		}
+		// As in the FTP hook: NOTEMPTY runs after Prepare, so an empty
+		// submission would reach it as the prefix alone.
+		if checkName == "" {
+			fields["username"] = append(fields["username"], "username_error_empty")
 		}
 		full := prefix + checkName
 		if len(full) > 32 {

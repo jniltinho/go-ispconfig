@@ -36,6 +36,12 @@ const (
 	mysqlUserNameMax     = 32
 )
 
+// dbObjectNameRe is the tform regex database.tform.php and
+// database_user.tform.php apply to the *submitted* name, before any prefix is
+// prepended. Kept as one value because the entity rules below declare the same
+// pattern, and the two must not drift.
+var dbObjectNameRe = regexp.MustCompile(`^[a-zA-Z0-9_]{2,64}$`)
+
 // expandPrefixPlaceholders ports tools_sites::replacePrefix — the
 // [CLIENTNAME], [CLIENTID] and [DOMAINID] placeholders of the getconf
 // sites dbname_prefix/dbuser_prefix templates. Unresolvable values keep
@@ -54,6 +60,41 @@ func expandPrefixPlaceholders(tpl, clientName, clientID string, domainID int64) 
 		"[CLIENTID]", clientID,
 		"[DOMAINID]", domain,
 	).Replace(tpl)
+}
+
+// convertClientName ports tools_sites::convertClientName — the sanitiser the
+// legacy runs on a group name before it becomes part of a username. Lowercase,
+// spaces dropped, anything outside [a-z0-9_] replaced by an underscore.
+//
+// It is not cosmetic: the expanded prefix is prepended to FTP, shell and
+// database user names, so a group called "Acme Ltd." would otherwise produce
+// "acme ltd.alice" — rejected by the name regex at best, and an invalid system
+// user at worst. Only reachable since the panel started seeding a non-empty
+// [sites] prefix, which is why no test caught it before.
+func convertClientName(name string) string {
+	name = strings.ToLower(strings.TrimSpace(name))
+	if name == "" {
+		// getClientName substitutes "default" for a nameless group before
+		// converting; an empty prefix would silently drop the namespacing.
+		return "default"
+	}
+	var b strings.Builder
+	b.Grow(len(name))
+	// Byte-wise, not rune-wise: PHP indexes $name[$i] by byte, so a name with
+	// "e-acute" yields one underscore per UTF-8 byte. Iterating runes here
+	// would produce a different prefix than the panel it was migrated from.
+	for i := 0; i < len(name); i++ {
+		c := name[i]
+		switch {
+		case c == ' ':
+			// Dropped, not replaced — PHP `continue`s on space.
+		case c >= 'a' && c <= 'z', c >= '0' && c <= '9', c == '_':
+			b.WriteByte(c)
+		default:
+			b.WriteByte('_')
+		}
+	}
+	return b.String()
 }
 
 // keepStoredPrefix ports tools_sites::getPrefix for the API flow: an
@@ -484,6 +525,15 @@ func sitesDatabasePrepare(c *echo.Context, d *Deps, id *repository.Identity, bod
 		prefix = keepStoredPrefix(old.DatabaseNamePrefix, expandedPrefix)
 	}
 	if suffix, ok := body["database_name"].(string); ok {
+		// The declarative REGEX rule runs after this hook, so by then the
+		// value is already prefixed and a name the legacy would refuse can
+		// slip through: database_edit.php validates the *submitted* name
+		// (tform '/^[a-zA-Z0-9_]{2,64}$/'), and only measures length and the
+		// blacklist against prefix+name. "a" is one character and must fail
+		// however long the prefix makes it.
+		if !dbObjectNameRe.MatchString(suffix) {
+			fields["database_name"] = append(fields["database_name"], "database_name_error_regex")
+		}
 		full := cropName(prefix+suffix, mysqlDatabaseNameMax)
 		body["database_name"] = full
 		body["database_name_prefix"] = prefix
@@ -621,7 +671,11 @@ func expandSitesPrefix(ctx context.Context, db *gorm.DB, id *repository.Identity
 	domainID := bodyInt(body, "parent_domain_id")
 
 	var groupID uint32
-	if id != nil && !id.IsAdmin() {
+	if g := bodyInt(body, "client_group_id"); g > 0 {
+		// getClientName consults the submitted client group first; an admin
+		// creating on behalf of a client names it there and nowhere else.
+		groupID = uint32(g)
+	} else if id != nil && !id.IsAdmin() {
 		groupID = id.DefaultGroup
 	} else if domainID > 0 {
 		var web model.WebDomain
@@ -630,17 +684,36 @@ func expandSitesPrefix(ctx context.Context, db *gorm.DB, id *repository.Identity
 			groupID = web.SysGroupID
 		}
 	}
+	// Last resort: the caller's own group. getClientName walks several
+	// sources for the same reason (client_group_id, then the parent site,
+	// then sys_groupid) and only gives up when the record names none of
+	// them — which for the legacy means an admin form that always supplies
+	// one. This API does not, so an admin creating a database user with no
+	// parent site would otherwise leave [CLIENTID] unexpanded and store a
+	// name containing brackets, which the name regex then refuses.
+	if groupID == 0 && id != nil {
+		groupID = id.DefaultGroup
+	}
 
 	clientName, clientID := "[CLIENTNAME]", "[CLIENTID]"
 	if groupID != 0 {
 		var group model.SysGroup
 		if err := db.WithContext(ctx).Select("name, client_id").
 			Where("groupid = ?", groupID).Take(&group).Error; err == nil {
-			clientName = group.Name
+			clientName = convertClientName(group.Name)
 			clientID = strconv.FormatUint(uint64(group.ClientID), 10)
 		}
 	}
-	return expandPrefixPlaceholders(tpl, clientName, clientID, domainID)
+	out := expandPrefixPlaceholders(tpl, clientName, clientID, domainID)
+	// A placeholder that survived every source above (a dangling sys_groupid,
+	// an API token with no default group) would reach the name regex as "[" and
+	// "]" and fail the create with an error blaming the name the caller typed.
+	// Dropping the prefix loses the namespacing, which is recoverable; storing
+	// brackets is not.
+	if strings.ContainsAny(out, "[]") {
+		return ""
+	}
+	return out
 }
 
 // --- entity hooks (task 4.6, sites_database_plugin + remote API parity) ---
