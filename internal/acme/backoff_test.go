@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // Issue runs in parallel for different sites by design, and every one of them
@@ -27,7 +28,8 @@ func TestLedgerSurvivesConcurrentFailures(t *testing.T) {
 	}
 	wg.Wait()
 
-	l := c.readLedger()
+	l, err := c.readLedger()
+	require.NoError(t, err)
 	assert.Len(t, l, n, "every concurrent failure is recorded, none clobbered")
 	for i := 0; i < n; i++ {
 		blocked, _ := c.blocked(lineageName(i), now)

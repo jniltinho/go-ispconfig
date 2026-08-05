@@ -18,6 +18,8 @@ type DomainState struct {
 	Provider    string    `json:"provider,omitempty"`
 	LastRenewal time.Time `json:"last_renewal,omitempty"`
 	LastError   string    `json:"last_error,omitempty"`
+	SiteKeyFile string    `json:"site_key_file,omitempty"`
+	SiteCrtFile string    `json:"site_crt_file,omitempty"`
 }
 
 type stateFile struct {
@@ -84,39 +86,51 @@ func (s *StateStore) saveLocked(f stateFile) error {
 	return writeFileAtomic(s.path, raw, 0o600)
 }
 
-// RecordSuccess updates last_renewal for domain.
-func (s *StateStore) RecordSuccess(domain, provider string, at time.Time) {
+// RecordSuccess updates last_renewal for domain and persists it.
+func (s *StateStore) RecordSuccess(domain, provider string, at time.Time, keyFile, crtFile string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	f := s.loadLocked()
 	st := f.Domains[domain]
+	if st.Provider == provider && st.LastError == "" && st.LastRenewal.Equal(at) &&
+		(keyFile == "" || st.SiteKeyFile == keyFile) &&
+		(crtFile == "" || st.SiteCrtFile == crtFile) {
+		return nil
+	}
 	st.Provider = provider
 	st.LastRenewal = at
 	st.LastError = ""
+	if keyFile != "" {
+		st.SiteKeyFile = keyFile
+	}
+	if crtFile != "" {
+		st.SiteCrtFile = crtFile
+	}
 	f.Domains[domain] = st
 	if err := s.saveLocked(f); err != nil {
-		// Swallowing this loses the provider choice, and the next renewal then
-		// falls back to http-01 for a domain that needs dns-01 — a wildcard
-		// that fails with no trace of why.
 		s.log.Error("acme: writing state", "path", s.path, "error", err)
+		return err
 	}
+	return nil
 }
 
 // RecordError stores the last failure for domain.
-func (s *StateStore) RecordError(domain, provider, cause string) {
+func (s *StateStore) RecordError(domain, provider, cause string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	f := s.loadLocked()
 	st := f.Domains[domain]
+	if st.Provider == provider && st.LastError == cause {
+		return nil
+	}
 	st.Provider = provider
 	st.LastError = cause
 	f.Domains[domain] = st
 	if err := s.saveLocked(f); err != nil {
-		// Swallowing this loses the provider choice, and the next renewal then
-		// falls back to http-01 for a domain that needs dns-01 — a wildcard
-		// that fails with no trace of why.
 		s.log.Error("acme: writing state", "path", s.path, "error", err)
+		return err
 	}
+	return nil
 }
 
 // Get returns the stored state for domain (zero when unknown).

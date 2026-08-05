@@ -15,13 +15,13 @@ func TestStateStoreRecordsSuccessAndError(t *testing.T) {
 	s := NewStateStore(path)
 	now := time.Now()
 
-	s.RecordSuccess("example.com", ChallengeHTTP, now)
+	require.NoError(t, s.RecordSuccess("example.com", ChallengeHTTP, now, "", ""))
 	st := s.Get("example.com")
 	assert.Equal(t, ChallengeHTTP, st.Provider)
 	assert.WithinDuration(t, now, st.LastRenewal, time.Second)
 	assert.Empty(t, st.LastError)
 
-	s.RecordError("example.com", ChallengeHTTP, "boom")
+	require.NoError(t, s.RecordError("example.com", ChallengeHTTP, "boom"))
 	st = s.Get("example.com")
 	assert.Equal(t, "boom", st.LastError)
 
@@ -68,4 +68,31 @@ func TestDomainsFromRenewal(t *testing.T) {
 	got, err := domainsFromRenewal(path)
 	require.NoError(t, err)
 	assert.Equal(t, []string{"www.example.com", "example.com"}, got)
+}
+
+func TestReadLedgerRejectsCorruptFile(t *testing.T) {
+	root := t.TempDir()
+	c := New(Config{Root: root, ServerID: 1})
+	path := c.ledgerPath()
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o700))
+	require.NoError(t, os.WriteFile(path, []byte("{not json"), 0o600))
+
+	_, err := c.readLedger()
+	require.Error(t, err)
+}
+
+func TestRecordSuccessSkipsUnchangedWrite(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "state.json")
+	s := NewStateStore(path)
+	now := time.Now().UTC().Truncate(time.Second)
+
+	require.NoError(t, s.RecordSuccess("example.com", ChallengeHTTP, now, "/k", "/c"))
+	info, err := os.Stat(path)
+	require.NoError(t, err)
+	firstMod := info.ModTime()
+
+	require.NoError(t, s.RecordSuccess("example.com", ChallengeHTTP, now, "/k", "/c"))
+	info, err = os.Stat(path)
+	require.NoError(t, err)
+	assert.Equal(t, firstMod, info.ModTime())
 }

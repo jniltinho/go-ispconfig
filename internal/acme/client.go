@@ -228,7 +228,8 @@ func (c *Client) Issue(domains []string, keyType string) (*Result, error) {
 		Privkey:   res.PrivateKey,
 	}, domains, c.caURL())
 	if err != nil {
-		return nil, err
+		c.recordFailure(lineage, time.Now(), err.Error())
+		return nil, fmt.Errorf("acme: persisting certificate for %s: %w", domains[0], err)
 	}
 	c.clearFailure(lineage)
 	c.log.Info("certificate issued", "lineage", lineage, "domains", len(domains))

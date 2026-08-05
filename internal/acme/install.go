@@ -36,9 +36,6 @@ func linkFile(target, source string) error {
 			if err := copyFileMode(target, backup, 0o400); err != nil {
 				return fmt.Errorf("acme: backing up %s: %w", target, err)
 			}
-			if err := os.Remove(target); err != nil {
-				return fmt.Errorf("acme: removing %s: %w", target, err)
-			}
 		}
 	}
 	if err := replaceSymlink(source, target); err != nil {

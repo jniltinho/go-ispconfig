@@ -40,16 +40,19 @@ func (c *Client) ledgerPath() string {
 	return filepath.Join(AccountDir(c.cfg.Root, c.cfg.ServerID), "failures.json")
 }
 
-func (c *Client) readLedger() map[string]failure {
+func (c *Client) readLedger() (map[string]failure, error) {
 	raw, err := os.ReadFile(c.ledgerPath())
+	if os.IsNotExist(err) {
+		return map[string]failure{}, nil
+	}
 	if err != nil {
-		return map[string]failure{}
+		return nil, err
 	}
 	out := map[string]failure{}
 	if err := json.Unmarshal(raw, &out); err != nil {
-		return map[string]failure{}
+		return nil, err
 	}
-	return out
+	return out, nil
 }
 
 func (c *Client) writeLedger(l map[string]failure) {
@@ -70,7 +73,12 @@ func (c *Client) writeLedger(l map[string]failure) {
 func (c *Client) blocked(lineage string, now time.Time) (bool, time.Time) {
 	ledgerMu.Lock()
 	defer ledgerMu.Unlock()
-	f, ok := c.readLedger()[lineage]
+	l, err := c.readLedger()
+	if err != nil {
+		c.log.Warn("acme: backoff ledger unreadable; refusing issuance locally", "error", err)
+		return true, now.Add(backoffMin)
+	}
+	f, ok := l[lineage]
 	if !ok || now.After(f.Until) {
 		return false, time.Time{}
 	}
@@ -82,7 +90,11 @@ func (c *Client) blocked(lineage string, now time.Time) (bool, time.Time) {
 func (c *Client) recordFailure(lineage string, now time.Time, cause string) {
 	ledgerMu.Lock()
 	defer ledgerMu.Unlock()
-	l := c.readLedger()
+	l, err := c.readLedger()
+	if err != nil {
+		c.log.Error("acme: backoff ledger unreadable; cannot record failure", "error", err)
+		return
+	}
 	f := l[lineage]
 	f.Count++
 	d := backoffMin << (f.Count - 1)
@@ -100,7 +112,11 @@ func (c *Client) recordFailure(lineage string, now time.Time, cause string) {
 func (c *Client) clearFailure(lineage string) {
 	ledgerMu.Lock()
 	defer ledgerMu.Unlock()
-	l := c.readLedger()
+	l, err := c.readLedger()
+	if err != nil {
+		c.log.Error("acme: backoff ledger unreadable; cannot clear failure", "error", err)
+		return
+	}
 	if _, ok := l[lineage]; !ok {
 		return
 	}

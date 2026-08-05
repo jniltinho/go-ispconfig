@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 
@@ -64,14 +65,26 @@ func LoadOrCreateAccount(dir, email string) (*Account, error) {
 		if err := json.Unmarshal(raw, acc); err != nil {
 			return nil, fmt.Errorf("acme: reading %s: %w", jsonPath, err)
 		}
-		// The stored email wins: re-registering under a different contact
-		// would orphan the rate-limit history of the existing account.
-		if acc.Email == "" {
+		if email != "" && acc.Email != email {
+			if acc.Email != "" {
+				slog.Default().Warn("acme: account contact differs from config; updating stored contact",
+					"path", jsonPath, "stored", acc.Email, "config", email)
+			}
 			acc.Email = email
+			// Persist the contact change, otherwise this warning fires on
+			// every load. The CA keeps the old contact until a re-register;
+			// only the local record is updated here.
+			if err := acc.Save(dir); err != nil {
+				slog.Default().Warn("acme: persisting account contact", "path", jsonPath, "error", err)
+			}
 		}
 	}
 
-	switch raw, err := os.ReadFile(keyPath); {
+	raw, err := os.ReadFile(keyPath)
+	if err != nil && !os.IsNotExist(err) {
+		return nil, fmt.Errorf("acme: reading %s: %w", keyPath, err)
+	}
+	switch {
 	case err == nil:
 		block, _ := pem.Decode(raw)
 		if block == nil {
@@ -83,6 +96,15 @@ func LoadOrCreateAccount(dir, email string) (*Account, error) {
 		}
 		acc.key = key
 	case os.IsNotExist(err):
+		// account.json without account.key is a partial directory: the CA bound
+		// the registration to the original public key, so a fresh key must
+		// re-register instead of inheriting a stale Registration. Persist the
+		// cleared registration now — if the re-register below fails, a restart
+		// must not pair the new key with the old registration again.
+		acc.Registration = nil
+		if err := acc.Save(dir); err != nil {
+			return nil, fmt.Errorf("acme: writing %s: %w", jsonPath, err)
+		}
 		key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 		if err != nil {
 			return nil, err

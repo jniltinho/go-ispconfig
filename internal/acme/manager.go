@@ -48,14 +48,21 @@ func (m *Manager) IssueForSite(domains []string, keyType, keyFile, crtFile, prov
 	if len(domains) == 0 {
 		return nil, fmt.Errorf("acme: no domains")
 	}
-	main := domains[0]
+	// State is keyed by lineage (the renewal conf identity), not by
+	// domains[0]: renewal re-reads the domains sorted, so a positional key
+	// would miss the recorded provider and site paths whenever another name
+	// sorts first.
+	lineage, err := Lineage(domains[0], keyType)
+	if err != nil {
+		return nil, err
+	}
 	if provider == "" {
 		provider = ChallengeHTTP
 	}
 
 	res, err := m.client.IssueWith(provider, m.dns, domains, keyType)
 	if err != nil {
-		m.state.RecordError(main, provider, err.Error())
+		_ = m.state.RecordError(lineage, provider, err.Error())
 		return nil, err
 	}
 	if res.Reused {
@@ -64,10 +71,15 @@ func (m *Manager) IssueForSite(domains []string, keyType, keyFile, crtFile, prov
 		m.log.Info("certificate issued", "lineage", res.Lineage, "domains", len(domains))
 	}
 	if err := LinkSiteCerts(res.Fullchain, res.Privkey, keyFile, crtFile); err != nil {
-		m.state.RecordError(main, provider, err.Error())
+		_ = m.state.RecordError(lineage, provider, err.Error())
 		return nil, err
 	}
-	m.state.RecordSuccess(main, provider, time.Now())
+	if err := m.state.RecordSuccess(lineage, provider, time.Now(), keyFile, crtFile); err != nil {
+		// The certificate is already issued and linked; a state-write failure
+		// must not look like an issuance failure, or the caller re-issues
+		// against the CA and burns rate-limit budget.
+		m.log.Error("acme: recording issuance state", "lineage", lineage, "error", err)
+	}
 	return res, nil
 }
 
@@ -106,7 +118,7 @@ func (m *Manager) RenewDue() (int, error) {
 		if ok {
 			continue
 		}
-		provider := m.state.Get(domains[0]).Provider
+		provider := m.state.Get(lineage).Provider
 		if provider == "" {
 			provider = ChallengeHTTP
 		}
@@ -116,16 +128,28 @@ func (m *Manager) RenewDue() (int, error) {
 		// reaches the CA's rate limit without anyone noticing.
 		if provider == ChallengeHTTP && hasWildcard(domains) {
 			err := fmt.Errorf("acme: %s covers a wildcard and needs dns-01, but no provider is recorded", lineage)
-			m.state.RecordError(domains[0], provider, err.Error())
+			_ = m.state.RecordError(lineage, provider, err.Error())
 			m.log.Warn("acme: renewal skipped", "lineage", lineage, "error", err)
 			continue
 		}
-		if _, err := m.client.IssueWith(provider, m.dns, domains, keyTypeFromLineage(lineage)); err != nil {
-			m.state.RecordError(domains[0], provider, err.Error())
+		res, err := m.client.IssueWith(provider, m.dns, domains, keyTypeFromLineage(lineage))
+		if err != nil {
+			_ = m.state.RecordError(lineage, provider, err.Error())
 			m.log.Warn("acme: renewal failed", "lineage", lineage, "error", err)
 			continue
 		}
-		m.state.RecordSuccess(domains[0], provider, time.Now())
+		st := m.state.Get(lineage)
+		if st.SiteKeyFile != "" && st.SiteCrtFile != "" {
+			if err := LinkSiteCerts(res.Fullchain, res.Privkey, st.SiteKeyFile, st.SiteCrtFile); err != nil {
+				_ = m.state.RecordError(lineage, provider, err.Error())
+				m.log.Warn("acme: renewal link update failed", "lineage", lineage, "error", err)
+				continue
+			}
+		}
+		if err := m.state.RecordSuccess(lineage, provider, time.Now(), st.SiteKeyFile, st.SiteCrtFile); err != nil {
+			m.log.Warn("acme: renewal state write failed", "lineage", lineage, "error", err)
+			continue
+		}
 		renewed++
 	}
 	return renewed, nil
