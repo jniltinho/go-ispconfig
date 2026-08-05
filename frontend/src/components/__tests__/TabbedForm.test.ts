@@ -133,4 +133,42 @@ describe('TabbedForm', () => {
       html.indexOf('data-test="form-cancel"'),
     )
   })
+
+  it('coerces when an option genuinely disappears between metadata rebuilds', async () => {
+    const apacheOpts = [
+      { value: 'no', label: 'Disabled' },
+      { value: 'fast-cgi', label: 'Fast-CGI' },
+    ]
+    const nginxOpts = [
+      { value: 'no', label: 'Disabled' },
+      { value: 'php-fpm', label: 'PHP-FPM' },
+    ]
+    const wrapper = mount(TabbedForm, {
+      props: {
+        metadata: {
+          tabs: [
+            {
+              name: 'main',
+              label: 'Main',
+              fields: [{ name: 'php', type: 'select', label: 'PHP', options: apacheOpts, default: 'no' }],
+            },
+          ],
+        },
+        modelValue: { php: 'fast-cgi' },
+      },
+    })
+    expect((wrapper.find('#field-php').element as HTMLSelectElement).value).toBe('fast-cgi')
+    await wrapper.setProps({
+      metadata: {
+        tabs: [
+          {
+            name: 'main',
+            label: 'Main',
+            fields: [{ name: 'php', type: 'select', label: 'PHP', options: nginxOpts, default: 'no' }],
+          },
+        ],
+      },
+    })
+    expect((wrapper.find('#field-php').element as HTMLSelectElement).value).toBe('no')
+  })
 })

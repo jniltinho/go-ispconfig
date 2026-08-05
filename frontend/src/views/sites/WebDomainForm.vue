@@ -4,6 +4,8 @@
 import { onMounted, ref } from 'vue'
 import EntityForm from './EntityForm.vue'
 import { api } from '../../api'
+import UiAlert from '../../components/UiAlert.vue'
+import { useI18n } from '../../i18n'
 
 const props = defineProps<{
   /** id is the domain_id; absent for the create form. */
@@ -20,7 +22,11 @@ const serverIPs = ref<ServerIPRow[]>([])
 const serverIPsReady = ref(false)
 /** server_id → nginx|apache (legacy ajax getservertype / adjustForm). */
 const serverTypes = ref<Record<string, string>>({})
+/** False when the server lookup failed — avoid defaulting server type. */
+const serverTypesReady = ref(false)
+const serverTypesError = ref(false)
 const ready = ref(false)
+const { t } = useI18n()
 
 interface ListResponse {
   items: Record<string, unknown>[]
@@ -39,9 +45,12 @@ const apachePHP: Opt[] = [
   { value: 'php-fpm', label: 'PHP-FPM' },
 ]
 
-function serverTypeOf(values: Record<string, unknown>): string {
+function serverTypeOf(values: Record<string, unknown>): string | undefined {
   const id = String(values.server_id ?? '')
-  return serverTypes.value[id] || 'nginx'
+  if (!serverTypesReady.value || Object.keys(serverTypes.value).length === 0) {
+    return undefined
+  }
+  return serverTypes.value[id]
 }
 
 /**
@@ -52,7 +61,9 @@ function serverTypeOf(values: Record<string, unknown>): string {
  */
 function resolveSelectOptions(field: string, values: Record<string, unknown>): Opt[] | undefined {
   if (field === 'php') {
-    return serverTypeOf(values) === 'apache' ? apachePHP : nginxPHP
+    const st = serverTypeOf(values)
+    if (st === undefined) return undefined
+    return st === 'apache' ? apachePHP : nginxPHP
   }
   if (field !== 'ip_address' && field !== 'ipv6_address') return undefined
   if (!serverIPsReady.value) return undefined
@@ -84,10 +95,10 @@ function hideDomainFields(values: Record<string, unknown>): string[] {
     hidden.push('type', 'parent_domain_id', 'web_folder')
   }
   const st = serverTypeOf(values)
-  if (st !== 'apache') {
-    hidden.push('perl', 'ruby', 'python', 'suexec', 'apache_directives')
-  } else {
+  if (st === 'apache') {
     hidden.push('nginx_directives')
+  } else if (st !== undefined) {
+    hidden.push('perl', 'ruby', 'python', 'suexec', 'apache_directives')
   }
   const php = String(values.php ?? '')
   if (php !== 'php-fpm' && php !== 'fast-cgi' && php !== 'hhvm') {
@@ -105,8 +116,9 @@ onMounted(async () => {
       types[String(s.value)] = (s.server_type || 'nginx').toLowerCase()
     }
     serverTypes.value = types
+    serverTypesReady.value = true
   } catch {
-    // Default serverTypeOf → nginx (hide apache-only fields).
+    serverTypesError.value = true
   }
   try {
     serverIPs.value = await api.get<ServerIPRow[]>('/api/meta/lookups/server-ips')
@@ -132,6 +144,12 @@ onMounted(async () => {
 </script>
 
 <template>
+  <UiAlert
+    v-if="ready && serverTypesError"
+    variant="danger"
+    class="mb-3"
+    :messages="[t('error.request_failed')]"
+  />
   <EntityForm
     v-if="ready"
     entity="web-domains"
@@ -140,6 +158,7 @@ onMounted(async () => {
     :id="props.id"
     :option-overrides="overrides"
     :resolve-select-options="resolveSelectOptions"
+    :metadata-deps="['server_id', 'type', 'php', 'ip_address', 'ipv6_address']"
     :hide-fields="hideDomainFields"
     :readonly-fields="props.id ? ['server_id'] : []"
   />

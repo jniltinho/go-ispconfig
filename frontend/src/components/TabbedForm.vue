@@ -2,7 +2,7 @@
 // ISPConfig-style tabbed form: flat tabs on top of a white card, fields
 // rendered from JSON form metadata, labels on the left with an automatic ':',
 // green Save / Cancel buttons and per-field errors in alert-danger style.
-import { reactive, ref, watch } from 'vue'
+import { onMounted, reactive, ref, watch } from 'vue'
 import UiAlert from './UiAlert.vue'
 import { useI18n } from '../i18n'
 
@@ -117,6 +117,22 @@ function sections(tab: FormTab): Section[] {
   return out.filter((s) => s.legend || s.fields.length)
 }
 
+// Previous select option sets, keyed by field name.
+const prevSelectOptions = new Map<string, Set<string>>()
+
+// Seed the option sets from the initial metadata so the first rebuild can
+// tell a value that was listed before apart from a legacy value that never
+// was — only the former is coerced when it disappears.
+onMounted(() => {
+  for (const tab of props.metadata.tabs) {
+    for (const field of tab.fields) {
+      if (field.type === 'select' && field.options?.length) {
+        prevSelectOptions.set(field.name, new Set(field.options.map((o) => o.value)))
+      }
+    }
+  }
+})
+
 watch(
   values,
   (v) => emit('values-change', { ...v }),
@@ -141,9 +157,15 @@ watch(
         }
         if (field.type === 'select' && field.options?.length) {
           const cur = String(values[field.name] ?? '')
-          if (!field.options.some((o) => o.value === cur)) {
+          const opts = new Set(field.options.map((o) => o.value))
+          const prevOpts = prevSelectOptions.get(field.name)
+          // Coerce only when the value existed in the previous option set and
+          // vanished from it: the first rebuild seeds the set, so a legacy
+          // value that was never listed survives instead of being clobbered.
+          if (!opts.has(cur) && prevOpts !== undefined && prevOpts.has(cur)) {
             values[field.name] = String(field.default ?? field.options[0].value)
           }
+          prevSelectOptions.set(field.name, opts)
         }
       }
     }

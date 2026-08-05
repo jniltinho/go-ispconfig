@@ -48,6 +48,12 @@ const props = defineProps<{
    */
   hideFields?: (values: Record<string, unknown>) => string[]
   /**
+   * metadataDeps lists the value keys that drive resolveSelectOptions (e.g.
+   * ['server_id', 'type']). Changes to other keys skip the metadata rebuild;
+   * absent with a resolveSelectOptions prop, every change rebuilds.
+   */
+  metadataDeps?: string[]
+  /**
    * validate runs client-side before the save call and, when it returns
    * field errors, blocks the request (mirrors the API rules for instant
    * feedback; the API stays the authority).
@@ -88,6 +94,22 @@ const saving = ref(false)
 const resolvedOverrides = ref<Record<string, { value: string; label: string }[]>>({})
 /** Live form values for dynamic select resolution. */
 const liveValues = ref<Record<string, unknown>>({})
+/** Last metadata-driving signature; skips rebuilds on unrelated keystrokes. */
+let lastMetadataSig = ''
+
+function metadataSignature(values: Record<string, unknown>): string {
+  const parts: string[] = []
+  if (props.hideFields) {
+    parts.push(props.hideFields(values).slice().sort().join(','))
+  }
+  if (props.resolveSelectOptions) {
+    if (!props.metadataDeps) return `${parts.join('|')}|${JSON.stringify(values)}`
+    for (const key of props.metadataDeps) {
+      parts.push(`${key}=${String(values[key] ?? '')}`)
+    }
+  }
+  return parts.join('|')
+}
 
 function refreshMetadata() {
   if (!serverMeta.value) return
@@ -96,7 +118,11 @@ function refreshMetadata() {
 
 function onValuesChange(values: Record<string, unknown>) {
   liveValues.value = values
-  if (props.resolveSelectOptions || props.hideFields) refreshMetadata()
+  if (!props.resolveSelectOptions && !props.hideFields) return
+  const sig = metadataSignature(values)
+  if (sig === lastMetadataSig) return
+  lastMetadataSig = sig
+  refreshMetadata()
 }
 
 /** truthyOption returns the checkbox value meaning "checked" ('y', '1', …). */
@@ -281,6 +307,7 @@ onMounted(async () => {
       }
     }
     liveValues.value = { ...initial.value }
+    lastMetadataSig = metadataSignature(liveValues.value)
     metadata.value = toFormMetadata(meta, liveValues.value)
   } catch (e) {
     loadError.value = e instanceof ApiError ? e.key : 'error.request_failed'
