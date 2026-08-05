@@ -7,11 +7,10 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"time"
 
-	"go-ispconfig/internal/web"
+	"go-ispconfig/internal/acme"
 )
 
 // AcmeWebroot is the directory every vhost serves under
@@ -23,38 +22,18 @@ const AcmeWebroot = "/usr/local/ispconfig/interface/acme"
 // leProbeTimeout bounds one domain-reachability HTTP request.
 const leProbeTimeout = 8 * time.Second
 
-// leClientKind identifies the detected ACME client. The detection itself is
-// shared with the Apache plugin through internal/web.
-type leClientKind = web.ACMEKind
-
-const (
-	leNone    = web.ACMENone
-	leAcme    = web.ACMEAcme
-	leCertbot = web.ACMECertbot
-)
-
-// leClient wraps the detected acme.sh / certbot binary (Go port of
-// letsencrypt.inc.php, nginx paths only). It never installs a client:
-// installation belongs to the installer change; a missing client is a clear
-// error recorded to the datalog.
-type leClient struct {
-	plugin  *Plugin
-	kind    leClientKind
-	script  string
-	version string
-	webroot string
-	// httpGet is the reachability probe, overridable in tests.
-	httpGet func(url string) (string, error)
-}
-
-// newLEClient detects an ACME client (acme.sh preferred, certbot fallback).
-// It returns a client with kind leNone when neither is found.
-func (p *Plugin) newLEClient(ctx context.Context) *leClient {
-	c := &leClient{plugin: p, webroot: p.acmeWebroot(), httpGet: httpGetString}
-	if c.kind, c.script = web.DetectACME(ctx, p.runner); c.kind != leNone {
-		c.version = p.probeClientVersion(ctx, c.script)
-	}
-	return c
+// acmeManager returns the native ACME manager for this server.
+func (p *Plugin) acmeManager(serverID uint32, signatureType string) *acme.Manager {
+	return acme.NewManager(acme.ManagerConfig{
+		Client: acme.Config{
+			Webroot:  p.acmeWebroot(),
+			ServerID: serverID,
+			Email:    "webmaster@localhost",
+			KeyType:  signatureType,
+			Log:      p.log,
+		},
+		Log: p.log,
+	})
 }
 
 // acmeWebroot returns the configured webroot (test override or default).
@@ -65,53 +44,16 @@ func (p *Plugin) acmeWebroot() string {
 	return AcmeWebroot
 }
 
-// versionRe extracts a dotted version from `<client> --version` output.
-var versionRe = regexp.MustCompile(`(\d+(?:\.\d+)+)`)
-
-// probeClientVersion returns the client's version string ("" when unknown).
-func (p *Plugin) probeClientVersion(ctx context.Context, script string) string {
-	out, err := p.runner.Run(ctx, script, "--version")
-	if err != nil {
-		return ""
-	}
-	if m := versionRe.FindSubmatch(out); m != nil {
-		return string(m[1])
-	}
-	return ""
-}
-
-// certType picks ECDSA vs RSA for a client version (port of the version
-// gates): acme.sh >= 2.6.4 or certbot >= 2.0 support ec-256 when the site
-// asked for ECDSA; otherwise RSA 4096.
-func (c *leClient) certType(desired string) string {
-	if desired != "ECDSA" {
-		return "RSA"
-	}
-	switch c.kind {
-	case leAcme:
-		if versionGE(c.version, "2.6.4") {
-			return "ECDSA"
-		}
-	case leCertbot:
-		if versionGE(c.version, "2.0") {
-			return "ECDSA"
-		}
-	case leNone:
-	}
-	return "RSA"
-}
-
 // assembleDomains ports assemble_domains_to_request: main domain (+www when
 // the site is www/wildcard), active subdomains and aliases not excluded via
 // ssl_letsencrypt_exclude, de-duplicated, optionally filtered by an HTTP
 // reachability probe and capped at 100.
-func (c *leClient) assembleDomains(ctx context.Context, d row, mainDomain string, doCheck bool) ([]string, error) {
+func (p *Plugin) assembleDomains(ctx context.Context, d row, mainDomain string, doCheck bool) ([]string, error) {
 	domains := []string{mainDomain}
 	if !strings.HasPrefix(mainDomain, "www.") && (d.str("subdomain") == "www" || d.str("subdomain") == "*") {
 		domains = append(domains, "www."+mainDomain)
 	}
 
-	p := c.plugin
 	if p.db != nil {
 		var subs []string
 		if err := p.db.Table("web_domain").
@@ -139,7 +81,7 @@ func (c *leClient) assembleDomains(ctx context.Context, d row, mainDomain string
 
 	domains = dedupStrings(domains)
 	if doCheck {
-		domains = c.filterReachable(domains)
+		domains = p.filterReachable(domains)
 	}
 	if len(domains) > 100 {
 		domains = domains[:100]
@@ -150,17 +92,21 @@ func (c *leClient) assembleDomains(ctx context.Context, d row, mainDomain string
 // filterReachable keeps only the domains that serve a challenge token written
 // to the webroot (port of the reachability check that avoids LE validation
 // failures).
-func (c *leClient) filterReachable(domains []string) []string {
+func (p *Plugin) filterReachable(domains []string) []string {
+	httpGet := httpGetString
+	if p.leHTTPGet != nil {
+		httpGet = p.leHTTPGet
+	}
 	token := fmt.Sprintf("le-%d.txt", time.Now().UnixNano())
 	hash := fmt.Sprintf("le-%x", time.Now().UnixNano())
-	challengeDir := filepath.Join(c.webroot, ".well-known", "acme-challenge")
+	challengeDir := filepath.Join(p.acmeWebroot(), ".well-known", "acme-challenge")
 	if err := os.MkdirAll(challengeDir, 0o755); err != nil {
-		c.plugin.log.Warn("nginx: LE reachability check skipped, webroot unwritable", "error", err)
+		p.log.Warn("nginx: LE reachability check skipped, webroot unwritable", "error", err)
 		return domains
 	}
 	tokenFile := filepath.Join(challengeDir, token)
 	if err := os.WriteFile(tokenFile, []byte(hash), 0o644); err != nil {
-		c.plugin.log.Warn("nginx: LE reachability check skipped", "error", err)
+		p.log.Warn("nginx: LE reachability check skipped", "error", err)
 		return domains
 	}
 	defer func() { _ = os.Remove(tokenFile) }()
@@ -168,73 +114,13 @@ func (c *leClient) filterReachable(domains []string) []string {
 	var reachable []string
 	for _, domain := range domains {
 		url := "http://" + domain + "/.well-known/acme-challenge/" + token
-		if got, err := c.httpGet(url); err == nil && strings.TrimSpace(got) == hash {
+		if got, err := httpGet(url); err == nil && strings.TrimSpace(got) == hash {
 			reachable = append(reachable, domain)
 		} else {
-			c.plugin.log.Warn("nginx: excluding unreachable domain from LE request", "domain", domain)
+			p.log.Warn("nginx: excluding unreachable domain from LE request", "domain", domain)
 		}
 	}
 	return reachable
-}
-
-// acmeIssueArgs builds the acme.sh --issue argv (port of get_acme_command
-// issue line); useSocket-style shell sequencing is replaced by separate
-// runner calls in requestCert.
-func (c *leClient) acmeIssueArgs(domains []string, certType string) []string {
-	args := []string{"--issue"}
-	for _, d := range domains {
-		args = append(args, "-d", d)
-	}
-	args = append(args, "-w", c.webroot, "--always-force-new-domain-key")
-	if certType == "ECDSA" {
-		args = append(args, "--ecc", "--keylength", "ec-256")
-	} else {
-		args = append(args, "--keylength", "4096")
-	}
-	return args
-}
-
-// acmeInstallArgs builds the acme.sh --install-cert argv (nginx: fullchain
-// only), pointing at the site's -le files with the nginx reload hook.
-func (c *leClient) acmeInstallArgs(domains []string, certType, keyFile, crtFile string) []string {
-	args := []string{"--install-cert"}
-	for _, d := range domains {
-		args = append(args, "-d", d)
-	}
-	if certType == "ECDSA" {
-		args = append(args, "--ecc")
-	}
-	args = append(args, "--key-file", keyFile, "--fullchain-file", crtFile,
-		"--reloadcmd", "nginx -s reload")
-	return args
-}
-
-// certbotArgs builds the certbot certonly argv for a modern certbot
-// (>=0.30: --cert-name + --webroot-map). Older certbot is not supported on
-// the target distros.
-//
-// ponytail: modern-certbot only; add the pre-0.30 --expand/--domains branch
-// if a legacy distro ever matters.
-func (c *leClient) certbotArgs(domains []string, certType string) []string {
-	primary := domains[0]
-	name := primary
-	keyArgs := []string{"--rsa-key-size", "4096"}
-	if certType == "ECDSA" {
-		keyArgs = []string{"--elliptic-curve", "secp256r1"}
-		name += "_ecc"
-	}
-	args := []string{
-		"certonly", "-n", "--text", "--agree-tos",
-		"--cert-name", name, "--authenticator", "webroot",
-		"--server", "https://acme-v02.api.letsencrypt.org/directory",
-	}
-	args = append(args, keyArgs...)
-	args = append(args, "--email", "webmaster@"+primary)
-	for _, d := range domains {
-		args = append(args, "-d", d)
-	}
-	args = append(args, "--webroot-path", c.webroot)
-	return args
 }
 
 // leCertPaths returns the -le suffixed key/crt/bundle paths for a domain's
@@ -260,23 +146,21 @@ func leSSLDomain(d row) string {
 	return domain
 }
 
-// requestCert issues a certificate for the site (port of
-// request_certificates, nginx server_type). It returns true when a cert is in
-// place. acme.sh installs the files directly; certbot's output is linked into
-// the site ssl dir. A missing client or an issuance failure returns false
+// requestCert issues a certificate for the site via the native ACME client.
+// It returns true when a cert is in place. An issuance failure returns false
 // with the reason, never an on-disk change that breaks the vhost.
 func (p *Plugin) requestCert(ctx context.Context, cfg webLEConfig, d row) (bool, error) {
-	c := p.newLEClient(ctx)
-	if c.kind == leNone {
-		return false, fmt.Errorf("nginx: no Let's Encrypt client (acme.sh/certbot) found for %s", d.str("domain"))
+	_ = ctx
+	if p.leIssue != nil {
+		mainDomain := leSSLDomain(d)
+		keyFile, crtFile, _ := leCertPaths(d.str("document_root"), mainDomain)
+		return p.leIssue(mainDomain, keyFile, crtFile)
 	}
 
-	desired := cfg.signatureType
-	certType := c.certType(desired)
 	mainDomain := leSSLDomain(d)
 	keyFile, crtFile, _ := leCertPaths(d.str("document_root"), mainDomain)
 
-	domains, err := c.assembleDomains(ctx, d, mainDomain, !cfg.skipCheck)
+	domains, err := p.assembleDomains(ctx, d, mainDomain, !cfg.skipCheck)
 	if err != nil {
 		return false, err
 	}
@@ -284,81 +168,26 @@ func (p *Plugin) requestCert(ctx context.Context, cfg webLEConfig, d row) (bool,
 		return false, fmt.Errorf("nginx: no reachable domains for LE request on %s", d.str("domain"))
 	}
 
-	switch c.kind {
-	case leAcme:
-		// acme.sh installs copies directly at key/crt via --install-cert.
-		for _, f := range []string{keyFile, crtFile} {
-			_ = removeLinkOnly(f)
-		}
-		if out, err := p.runner.Run(ctx, c.script, c.acmeIssueArgs(domains, certType)...); err != nil {
-			return false, fmt.Errorf("nginx: acme.sh issue failed for %s: %w: %s", mainDomain, err, out)
-		}
-		if out, err := p.runner.Run(ctx, c.script, c.acmeInstallArgs(domains, certType, keyFile, crtFile)...); err != nil {
-			return false, fmt.Errorf("nginx: acme.sh install-cert failed for %s: %w: %s", mainDomain, err, out)
-		}
-		return true, nil
-	case leCertbot:
-		if out, err := p.runner.Run(ctx, c.script, c.certbotArgs(domains, certType)...); err != nil {
-			return false, fmt.Errorf("nginx: certbot failed for %s: %w: %s", mainDomain, err, out)
-		}
-		live := filepath.Join(certbotLiveDir, mainDomain)
-		if certType == "ECDSA" {
-			live += "-ecc"
-		}
-		if err := linkFile(keyFile, filepath.Join(live, "privkey.pem")); err != nil {
-			return false, err
-		}
-		if err := linkFile(crtFile, filepath.Join(live, "fullchain.pem")); err != nil {
-			return false, err
-		}
-		return true, nil
+	serverID := p.serverID
+	if serverID == 0 {
+		serverID = uint32(d.num("server_id"))
 	}
-	return false, fmt.Errorf("nginx: no LE client")
-}
+	mgr := p.acmeManager(serverID, cfg.signatureType)
+	if p.acmeMgr != nil {
+		mgr = p.acmeMgr
+	}
 
-// certbotLiveDir is where certbot stores issued certificates.
-const certbotLiveDir = "/etc/letsencrypt/live"
+	_, err = mgr.IssueForSite(domains, cfg.signatureType, keyFile, crtFile, acme.ChallengeHTTP)
+	if err != nil {
+		return false, fmt.Errorf("nginx: LE issuance failed for %s: %w", mainDomain, err)
+	}
+	return true, nil
+}
 
 // webLEConfig carries the LE-relevant server config values.
 type webLEConfig struct {
 	signatureType string // le_signature_type ("RSA"/"ECDSA")
 	skipCheck     bool   // skip_le_check == 'y'
-}
-
-// linkFile symlinks target -> source, replacing a stale link and backing up a
-// real file (port of link_file).
-func linkFile(target, source string) error {
-	if info, err := os.Lstat(target); err == nil {
-		if info.Mode()&os.ModeSymlink != 0 {
-			if existing, _ := os.Readlink(target); existing == source {
-				return nil
-			}
-			if err := os.Remove(target); err != nil {
-				return fmt.Errorf("nginx: replacing link %s: %w", target, err)
-			}
-		} else {
-			backup := target + ".old." + time.Now().Format("20060102150405")
-			if err := copyFileMode(target, backup, 0o400); err != nil {
-				return fmt.Errorf("nginx: backing up %s: %w", target, err)
-			}
-			if err := os.Remove(target); err != nil {
-				return fmt.Errorf("nginx: removing %s: %w", target, err)
-			}
-		}
-	}
-	if err := os.Symlink(source, target); err != nil {
-		return fmt.Errorf("nginx: linking %s -> %s: %w", target, source, err)
-	}
-	return nil
-}
-
-// removeLinkOnly removes target only when it is a symlink (acme.sh needs a
-// real file at the install path).
-func removeLinkOnly(target string) error {
-	if info, err := os.Lstat(target); err == nil && info.Mode()&os.ModeSymlink != 0 {
-		return os.Remove(target)
-	}
-	return nil
 }
 
 // dedupStrings returns the input with duplicates removed, order preserved.

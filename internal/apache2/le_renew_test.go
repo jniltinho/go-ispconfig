@@ -2,30 +2,22 @@ package apache2
 
 import (
 	"context"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"go-ispconfig/internal/engine"
+	"go-ispconfig/internal/web"
 )
 
-// renewRunner scripts client detection and the renew output.
-type renewRunner struct {
-	which    map[string]string
-	renewOut string
-}
+type renewRunner struct{ calls [][]string }
 
 func (r *renewRunner) Run(_ context.Context, name string, args ...string) ([]byte, error) {
-	if name == "which" {
-		return []byte(r.which[args[0]]), nil
-	}
-	return []byte(r.renewOut), nil
+	r.calls = append(r.calls, append([]string{name}, args...))
+	return nil, nil
 }
 
-// recordingExecutor records the service actions the scheduler triggers.
 type recordingExecutor struct{ runs [][2]string }
 
 func (e *recordingExecutor) Run(_ context.Context, service, action string) error {
@@ -33,20 +25,16 @@ func (e *recordingExecutor) Run(_ context.Context, service, action string) error
 	return nil
 }
 
-// TestApacheRenewReloadsApache: an Apache-only server runs the ACME renewal
-// itself (no nginx plugin exists to do it) and reloads the Apache unit when a
-// certificate actually changed.
-func TestApacheRenewReloadsApache(t *testing.T) {
-	dir := t.TempDir()
-	acme := filepath.Join(dir, "acme.sh")
-	require.NoError(t, os.WriteFile(acme, []byte("#!/bin/sh\n"), 0o755))
+type stubRenewer struct{ n int }
 
+func (s stubRenewer) RenewDue() (int, error) { return s.n, nil }
+
+// TestApacheRenewReloadsApache: an Apache-only server runs the native ACME
+// renewal and reloads the Apache unit when a certificate actually changed.
+func TestApacheRenewReloadsApache(t *testing.T) {
 	exec := &recordingExecutor{}
 	services := engine.NewServices(exec, nil)
-	r := &renewRunner{which: map[string]string{"acme.sh": acme}, renewOut: "Cert success for example.com"}
-	p := NewPlugin(nil, services, r, "", nil)
-
-	require.NoError(t, p.renewCertificates(context.Background()))
+	require.NoError(t, web.RenewNative(context.Background(), stubRenewer{n: 1}, services, nil, ServiceName))
 	services.ProcessDelayedActions(context.Background())
 	assert.Equal(t, [][2]string{{ServiceName, "reload"}}, exec.runs)
 }

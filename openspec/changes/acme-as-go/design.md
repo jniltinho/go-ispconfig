@@ -1,21 +1,31 @@
 # Design: acme-as-go
 
-The client choice is argued in `proposal.md` (Options A–D, recommendation:
-Option D, `golang.org/x/crypto/acme`). This file covers how it is built.
+`proposal.md` weighs the options; D1 records which was chosen. This file covers
+how it is built.
 
-## D1. Why not lego, in one paragraph
+## D1. lego, decided
 
-Recorded here because the instruction to implement this said "wrap lego", and
-this design does not. Both are mature libraries and either would work — the
-directive's purpose was "do not hand-roll ACME", which Option D satisfies, since
-`x/crypto/acme` is the Go team's RFC 8555 implementation. Measured, lego's core
-(without the provider catalogue) costs 4 new modules — `lego`, `go-jose/v4`,
-`cenkalti/backoff/v5`, `miekg/dns` — while `golang.org/x/crypto` is **already a
-direct dependency** (`go.mod:15`). Lego's differentiator is its 100+ DNS
-provider catalogue, and this panel *is* the DNS server, so the catalogue is
-weight we would carry and not use. If ARI (renewal-info) or a third-party CA
-with awkward quirks later justifies it, swapping the implementation behind the
-`internal/acme` seam is a contained change — which is why the seam exists.
+Wrap `github.com/go-acme/lego/v4`. The alternative was
+`golang.org/x/crypto/acme`, already a direct dependency and costing no new
+modules; the owner chose lego, and this records the decision rather than
+re-arguing it.
+
+Measured with `go list -deps` on a program importing only `lego`,
+`certificate`, `challenge/http01` and `registration`, the core links **3 new
+modules** — `go-jose/v4`, `cenkalti/backoff/v5`, `miekg/dns` — plus lego
+itself; `x/crypto`, `x/net`, `x/text` and `x/sys` were already direct
+dependencies. The 231 modules `go list -m all` reports is the *requirement*
+graph: lego ships its 100+ DNS providers in one module, so every cloud SDK is
+required-but-not-linked.
+
+What lego buys beyond the protocol is the provider catalogue, which D4 said we
+would not need because this panel *is* the DNS server. That held for
+panel-hosted zones and stopped holding for external ones: `internal/acme/dns.go`
+now adapts Route 53, Cloudflare and DigitalOcean straight from lego, which is
+the case a hand-rolled client would have had to grow.
+
+Neither library needs anything on the box — the property that lets D11 delete
+the installer's ACME step outright.
 
 ## D2. Package shape
 
