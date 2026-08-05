@@ -224,15 +224,28 @@ onMounted(async () => {
       if (!needsLookup(meta, name)) continue
       try {
         const rows = await api.get<{ value: string; label: string }[]>(src.url)
-        if (!rows?.length) continue
-        const opts = rows.map((r) => ({ value: String(r.value), label: String(r.label) }))
+        const opts = (rows ?? []).map((r) => ({
+          value: String(r.value),
+          label: String(r.label),
+        }))
+        // Always apply when empty is declared — a zero-length client list
+        // must still show the legacy leading "—" (value 0), not a bare "0"
+        // text input.
+        if (!opts.length && !src.empty) continue
         resolvedOverrides.value = {
           ...resolvedOverrides.value,
           [name]: src.empty ? [src.empty, ...opts] : opts,
         }
       } catch {
-        // Keep the free-text fallback when the lookup is unavailable
-        // (client-groups is admin-only; non-admins never see the field).
+        // Lookup failed: still offer the empty placeholder when one exists
+        // (client-groups with no clients / transient 5xx) so the field stays
+        // a select, matching legacy.
+        if (src.empty) {
+          resolvedOverrides.value = {
+            ...resolvedOverrides.value,
+            [name]: [src.empty],
+          }
+        }
       }
     }
     let record: Record<string, unknown> = {}
