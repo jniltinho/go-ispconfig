@@ -7,19 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+—
+
+## [0.6.0] — 2026-08-05
+
+**Native ACME issuance (go-acme/lego) and Sites Web Domain form parity with
+legacy ISPConfig3.**
+
+### Added
+
+- **In-process Let's Encrypt / ACME** via go-acme/lego, writing certificates
+  into certbot's on-disk layout so existing nginx/Apache vhosts keep working
+  without certbot web-server plugins (`feat/acme-as-go`)
+- OpenSpec proposals for ACME layout, daemon→serve events, and related design
+  notes
+
+### Changed
+
+- Sites → Web Domain create/edit Domain tab aligned with legacy nginx/Apache
+  forms (field order, addon MB, directive snippets, PHP modes by `server_type`,
+  hide Type/Parent/folder on create, Apache-only fields hidden on nginx)
+- Server lookup API returns `server_type` for form adaptation
+- Installer no longer installs `python3-certbot-nginx` /
+  `python3-certbot-apache`; ACME is handled in-process
+
 ### Fixed
 
-- **`--acme-client certbot` no longer installs `python3-certbot-nginx` /
-  `python3-certbot-apache`.** v0.5.0 pulled them in; nothing uses them. Site
-  certificates are issued with `--authenticator webroot`, as the legacy does,
-  and the panel's own certificate is served by `go-ispconfig-serve` with no
-  vhost in front of it, so a webserver plugin has nothing to edit either way
+- Native `<select>` chrome matches panel theme tokens (chevron, appearance)
+- Client field shows "—" instead of bare `0` when client-groups lookup is empty
+- `convertClientName` / domain name validation before client prefixing (#59)
 
 ### Documentation
 
-- `docs/install.md` gained an ACME section: which client the installer puts on
-  the box, why issuance is webroot-only, and how to replace the self-signed
-  panel certificate
+- `docs/install.md` ACME section: which client the installer puts on the box,
+  why issuance is webroot-only, and how to replace the self-signed panel
+  certificate
 - `add-apache2-letsencrypt` proposal — Apache sites can renew a Let's Encrypt
   certificate but not issue one
 
