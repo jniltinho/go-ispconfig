@@ -9,6 +9,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 —
 
+## [0.6.1] — 2026-08-05
+
+**Hardening release: every critical/high finding from the v0.6.0 code review
+fixed in the native ACME paths and the Sites forms.**
+
+### Fixed
+
+- ACME account crash-recovery no longer pairs a stale registration with a
+  freshly generated key when `account.json` survives but `account.key` is
+  lost — the partial directory is treated as "no account" and re-registers
+- ACME account contact email from the panel config is honoured and persisted
+  instead of being silently dropped
+- ACME backoff ledger: a corrupt/unreadable ledger is an error, not an empty
+  one; issuance fails closed while it cannot be read
+- ACME issuance whose certificate persist fails now records backoff and
+  returns a descriptive error instead of discarding the certificate
+- ACME certificate install no longer removes the target before the atomic
+  symlink swap (no cert-less window)
+- ACME renewal re-links the site's key/cert from the persisted paths and
+  keys its state by lineage, so sorted domain lists can no longer lose the
+  recorded challenge provider or certificate locations
+- ACME state writes propagate errors and skip redundant rewrites
+- Web Domain form no longer defaults to nginx silently when the server-type
+  lookup fails — directive blocks stay visible and the failure is surfaced
+- Sites form metadata rebuilds are memoized on the values that drive them
+- Tabbed form select coercion only fires when a value genuinely disappears
+  from the option set; legacy values never listed survive rebuilds
+
 ## [0.6.0] — 2026-08-05
 
 **Native ACME issuance (go-acme/lego) and Sites Web Domain form parity with
